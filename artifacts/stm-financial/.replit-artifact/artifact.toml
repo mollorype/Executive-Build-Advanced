@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/stm-financial/"
+title = "STM Financial"
+version = "1.0.0"
+id = "artifacts/stm-financial"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/stm-financial/" ]
+localPort = 22949
+
+[services.development]
+run = "pnpm --filter @workspace/stm-financial run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/stm-financial", "run", "build" ]
+publicDir = "artifacts/stm-financial/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22949"
+BASE_PATH = "/stm-financial/"

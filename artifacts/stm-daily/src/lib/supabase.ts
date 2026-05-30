@@ -34,6 +34,7 @@ export interface ShiftPayload {
     diesel_price: number;
   };
   total_expenses: number;
+  expenses_breakdown?: { name: string; amount: number }[];
   expected_total: number;
   actual_cash: number;
   variance: number;
@@ -41,5 +42,16 @@ export interface ShiftPayload {
 
 export async function submitShift(payload: ShiftPayload) {
   const { error } = await supabase.from("daily_sales_reports").insert(payload);
+
+  // Graceful fallback: if the expenses_breakdown column doesn't exist yet,
+  // retry without it so the shift still saves.
+  if (error && error.message?.includes("expenses_breakdown")) {
+    const { expenses_breakdown: _omit, ...fallbackPayload } = payload;
+    const { error: fallbackError } = await supabase
+      .from("daily_sales_reports")
+      .insert(fallbackPayload);
+    return { error: fallbackError };
+  }
+
   return { error };
 }
