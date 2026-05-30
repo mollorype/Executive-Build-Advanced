@@ -40,6 +40,56 @@ const PIPA_PRODUCT_LABELS: Record<PipaProduct, string> = {
   "92": "Fuel 92", "95": "Fuel 95", "PD": "Premium Diesel", "D": "Diesel",
 };
 
+// ─── Language / i18n ──────────────────────────────────────────────────────────
+type Lang = "en" | "my";
+
+const STRINGS = {
+  signInTitle:          { en: "Sign in to continue",       my: "အကောင့်ဝင်ပါ။" },
+  workEmail:            { en: "Work Email",                 my: "အကောင့်အီးမေးထည့်ပါ" },
+  fuelProducts:         { en: "Fuel Products",             my: "ဆီ အမျိုးအစား" },
+  totalAmount:          { en: "Total Amount",              my: "ရောင်းရငွေ" },
+  literPrice:           { en: "Liter Price",               my: "လီတာစျေးနှုန်း" },
+  literSold:            { en: "Liters Sold",               my: "ရောင်းရလီတာ" },
+  pipa:                 { en: "Pipa",                      my: "ပီပါ" },
+  addPipaEntry:         { en: "Add Pipa Entry",            my: "ပီပါထည့်ရန်" },
+  cashAmount:           { en: "Cash Amount",               my: "ငွေပမာဏ" },
+  grandTotalLabel:      { en: "Grand Total (All Products)", my: "စုစုပေါင်းငွေပမာဏ" },
+  operationalExpenses:  { en: "Operational Expenses",      my: "ထွက်ငွေ" },
+  expenseName:          { en: "Expense Name",              my: "အကြောင်းအရာ" },
+  amount:               { en: "Amount",                    my: "ပမာဏ" },
+  actualCash:           { en: "Actual Cash Collected",     my: "ငွေသားပမာဏ" },
+  difference:           { en: "Difference",                my: "ကွာခြားချက်" },
+  reviewSubmit:         { en: "Review & Submit →",         my: "ပေးပို့မည် →" },
+  totalExpenses:        { en: "Total Expenses",            my: "စုစုပေါင်း ထွက်ငွေ" },
+  netExpected:          { en: "Net Expected",              my: "ရှိရမည့်ငွေ" },
+  grandTotalShort:      { en: "Grand Total",               my: "စုစုပေါင်းငွေပမာဏ" },
+  actualCollected:      { en: "Actual Collected",          my: "ငွေသားပမာဏ" },
+} as const;
+
+function t(lang: Lang, key: keyof typeof STRINGS): string {
+  return STRINGS[key][lang];
+}
+
+const LANG_KEY = "stm_daily_lang";
+
+function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const next: Lang = lang === "en" ? "my" : "en";
+        setLang(next);
+        localStorage.setItem(LANG_KEY, next);
+      }}
+      className="flex items-center gap-1 bg-amber-100 hover:bg-amber-200 border border-amber-200 rounded-lg px-2 py-1 transition-colors"
+    >
+      <span className={`text-[11px] font-bold ${lang === "en" ? "text-amber-800" : "text-amber-400"}`}>EN</span>
+      <span className="text-amber-300 text-[10px]">|</span>
+      <span className={`text-[11px] font-bold ${lang === "my" ? "text-amber-800" : "text-amber-400"}`}>မြ</span>
+    </button>
+  );
+}
+
 const EMPTY: FormData = {
   fuel92:        { totalAmount: "", price: "" },
   fuel95:        { totalAmount: "", price: "" },
@@ -88,9 +138,10 @@ const PIPA_COLORS: Record<PipaProduct, string> = {
   "92": "bg-blue-500", "95": "bg-emerald-500", "PD": "bg-purple-500", "D": "bg-orange-500",
 };
 
-function PipaPanel({ items, onChange }: {
+function PipaPanel({ items, onChange, lang }: {
   items: PipaItem[];
   onChange: (items: PipaItem[]) => void;
+  lang: Lang;
 }) {
   function add() {
     onChange([...items, { product: "92", containers: "", price: "" }]);
@@ -105,12 +156,12 @@ function PipaPanel({ items, onChange }: {
   return (
     <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
       <div className="px-4 py-2.5 flex items-center gap-2 bg-gradient-to-r from-amber-500 to-yellow-600">
-        <span className="text-xs font-bold text-white/90 uppercase tracking-widest">Pipa</span>
-        <span className="ml-auto text-[10px] text-white/70">1 Pipa = 215 L</span>
+        <span className="text-xs font-bold text-white/90 uppercase tracking-widest">{t(lang, "pipa")}</span>
+        <span className="ml-auto text-[10px] text-white/70">1 {t(lang, "pipa")} = 215 L</span>
       </div>
 
       {items.length === 0 && (
-        <p className="text-xs text-amber-400/70 text-center py-4">No pipa entries — tap + to add one</p>
+        <p className="text-xs text-amber-400/70 text-center py-4">No {t(lang, "pipa")} entries — tap + to add one</p>
       )}
 
       {items.map((item, i) => {
@@ -187,7 +238,7 @@ function PipaPanel({ items, onChange }: {
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          Add Pipa Entry
+          {t(lang, "addPipaEntry")}
         </button>
         {items.length > 0 && (
           <span className="text-xs font-bold text-amber-700">
@@ -200,10 +251,11 @@ function PipaPanel({ items, onChange }: {
 }
 
 // ─── Product card — enter Total Amount + Liter Price → auto-calculates liters ─
-function ProductCard({ label, badge, color, totalAmount, price, total, liters, onTotalAmount, onPrice }: {
+function ProductCard({ label, badge, color, totalAmount, price, total, liters, onTotalAmount, onPrice, lang }: {
   label: string; badge: string; color: string;
   totalAmount: string; price: string; total: number; liters: number;
   onTotalAmount: (v: string) => void; onPrice: (v: string) => void;
+  lang: Lang;
 }) {
   return (
     <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
@@ -212,10 +264,10 @@ function ProductCard({ label, badge, color, totalAmount, price, total, liters, o
         <span className="ml-auto text-xs font-bold bg-white/20 text-white rounded-full px-2 py-0.5">{badge}</span>
       </div>
       <div className="p-4 grid grid-cols-3 gap-3">
-        <GoldInput label="Total Amount" value={totalAmount} onChange={onTotalAmount} prefix="K" />
-        <GoldInput label="Liter Price" value={price} onChange={onPrice} prefix="K" />
+        <GoldInput label={t(lang, "totalAmount")} value={totalAmount} onChange={onTotalAmount} prefix="K" />
+        <GoldInput label={t(lang, "literPrice")} value={price} onChange={onPrice} prefix="K" />
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider">Liters Sold</label>
+          <label className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider">{t(lang, "literSold")}</label>
           <div className="relative">
             <input
               type="text"
@@ -238,9 +290,10 @@ function ProductCard({ label, badge, color, totalAmount, price, total, liters, o
 }
 
 // ─── Expenses panel — add items by name + amount ──────────────────────────────
-function ExpensesPanel({ items, onChange }: {
+function ExpensesPanel({ items, onChange, lang }: {
   items: ExpenseItem[];
   onChange: (items: ExpenseItem[]) => void;
+  lang: Lang;
 }) {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
@@ -265,7 +318,7 @@ function ExpensesPanel({ items, onChange }: {
       {/* Add row */}
       <div className="flex gap-2">
         <div className="flex-1 flex flex-col gap-1">
-          <label className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider">Expense Name</label>
+          <label className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider">{t(lang, "expenseName")}</label>
           <input
             type="text"
             value={name}
@@ -276,7 +329,7 @@ function ExpensesPanel({ items, onChange }: {
           />
         </div>
         <div className="w-32 flex flex-col gap-1">
-          <label className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider">Amount</label>
+          <label className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider">{t(lang, "amount")}</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600 text-sm font-medium select-none">K</span>
             <input
@@ -320,7 +373,7 @@ function ExpensesPanel({ items, onChange }: {
             </div>
           ))}
           <div className="flex justify-between items-center px-4 py-2.5 bg-amber-50 border-t border-amber-100">
-            <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">Total Expenses</span>
+            <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">{t(lang, "totalExpenses")}</span>
             <span className="text-sm font-bold text-amber-800">{fmt(total)} MMK</span>
           </div>
         </div>
@@ -330,7 +383,10 @@ function ExpensesPanel({ items, onChange }: {
 }
 
 // ─── Login screen ─────────────────────────────────────────────────────────────
-function LoginScreen({ onLogin }: { onLogin: (name: string, email: string) => void }) {
+function LoginScreen({ onLogin, lang, setLang }: {
+  onLogin: (name: string, email: string) => void;
+  lang: Lang; setLang: (l: Lang) => void;
+}) {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
 
@@ -344,6 +400,9 @@ function LoginScreen({ onLogin }: { onLogin: (name: string, email: string) => vo
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-yellow-50 to-white flex flex-col items-center justify-center px-4">
+      <div className="absolute top-4 right-4">
+        <LangToggle lang={lang} setLang={setLang} />
+      </div>
       <div className="mb-8 text-center">
         <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-400 to-yellow-600 shadow-lg shadow-amber-200 mb-4">
           <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -355,10 +414,10 @@ function LoginScreen({ onLogin }: { onLogin: (name: string, email: string) => vo
       </div>
 
       <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white rounded-3xl shadow-xl shadow-amber-100 border border-amber-100 p-8">
-        <h2 className="text-lg font-bold text-gray-800 mb-1">Sign in to continue</h2>
+        <h2 className="text-lg font-bold text-gray-800 mb-1">{t(lang, "signInTitle")}</h2>
         <p className="text-sm text-gray-400 mb-6">Enter your work email to start your shift report.</p>
 
-        <label className="block text-xs font-semibold text-amber-700 uppercase tracking-wider mb-1.5">Work Email</label>
+        <label className="block text-xs font-semibold text-amber-700 uppercase tracking-wider mb-1.5">{t(lang, "workEmail")}</label>
         <input
           type="email"
           value={email}
@@ -419,10 +478,11 @@ function DeniedScreen({ email, onBack }: { email: string; onBack: () => void }) 
 }
 
 // ─── Shift form ───────────────────────────────────────────────────────────────
-function ShiftForm({ employeeName, onSubmit, onLogout }: {
+function ShiftForm({ employeeName, onSubmit, onLogout, lang, setLang }: {
   employeeName: string;
   onSubmit: (data: FormData, grandTotal: number, difference: number) => void;
   onLogout: () => void;
+  lang: Lang; setLang: (l: Lang) => void;
 }) {
   const [form, setForm] = useState<FormData>(EMPTY);
 
@@ -465,8 +525,9 @@ function ShiftForm({ employeeName, onSubmit, onLogout }: {
           <p className="text-xs text-amber-700 font-semibold uppercase tracking-widest">STM Daily</p>
           <p className="text-sm font-bold text-gray-900 capitalize">{employeeName}'s Shift Report</p>
         </div>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2">
           <p className="text-xs text-gray-400">{new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
+          <LangToggle lang={lang} setLang={setLang} />
           <button
             type="button"
             onClick={onLogout}
@@ -480,21 +541,21 @@ function ShiftForm({ employeeName, onSubmit, onLogout }: {
       <form onSubmit={handleSubmit} className="max-w-2xl mx-auto px-4 py-6 space-y-4">
         <div>
           <h3 className="text-xs font-bold text-amber-700 uppercase tracking-widest mb-3 flex items-center gap-2">
-            <span className="w-4 h-px bg-amber-300 block" />Fuel Products<span className="flex-1 h-px bg-amber-100 block" />
+            <span className="w-4 h-px bg-amber-300 block" />{t(lang, "fuelProducts")}<span className="flex-1 h-px bg-amber-100 block" />
           </h3>
           <div className="space-y-3">
             <ProductCard label="Fuel 92" badge="92" color="bg-gradient-to-r from-blue-500 to-blue-600"
               totalAmount={form.fuel92.totalAmount} price={form.fuel92.price} total={t92} liters={l92}
-              onTotalAmount={v => setFuel("fuel92", "totalAmount", v)} onPrice={v => setFuel("fuel92", "price", v)} />
+              onTotalAmount={v => setFuel("fuel92", "totalAmount", v)} onPrice={v => setFuel("fuel92", "price", v)} lang={lang} />
             <ProductCard label="Fuel 95" badge="95" color="bg-gradient-to-r from-green-500 to-emerald-600"
               totalAmount={form.fuel95.totalAmount} price={form.fuel95.price} total={t95} liters={l95}
-              onTotalAmount={v => setFuel("fuel95", "totalAmount", v)} onPrice={v => setFuel("fuel95", "price", v)} />
+              onTotalAmount={v => setFuel("fuel95", "totalAmount", v)} onPrice={v => setFuel("fuel95", "price", v)} lang={lang} />
             <ProductCard label="Premium Diesel" badge="PD" color="bg-gradient-to-r from-purple-500 to-violet-600"
               totalAmount={form.premiumDiesel.totalAmount} price={form.premiumDiesel.price} total={tPD} liters={lPD}
-              onTotalAmount={v => setFuel("premiumDiesel", "totalAmount", v)} onPrice={v => setFuel("premiumDiesel", "price", v)} />
+              onTotalAmount={v => setFuel("premiumDiesel", "totalAmount", v)} onPrice={v => setFuel("premiumDiesel", "price", v)} lang={lang} />
             <PipaPanel
               items={form.pipa}
-              onChange={items => setForm(f => ({ ...f, pipa: items }))} />
+              onChange={items => setForm(f => ({ ...f, pipa: items }))} lang={lang} />
 
             {/* Diesel — cash only */}
             <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
@@ -503,7 +564,7 @@ function ShiftForm({ employeeName, onSubmit, onLogout }: {
                 <span className="ml-auto text-xs font-bold bg-white/20 text-white rounded-full px-2 py-0.5">D</span>
               </div>
               <div className="p-4 grid grid-cols-2 gap-3">
-                <GoldInput label="Cash Amount" value={form.diesel.cash} onChange={v => setFuel("diesel", "cash", v)} prefix="K" />
+                <GoldInput label={t(lang, "cashAmount")} value={form.diesel.cash} onChange={v => setFuel("diesel", "cash", v)} prefix="K" />
                 <GoldInput label="Price / L" value={form.diesel.price} onChange={v => setFuel("diesel", "price", v)} prefix="K" />
               </div>
               {tD > 0 && <div className="px-4 pb-3 -mt-1"><p className="text-xs text-amber-700 font-semibold text-right">{fmt(tD)} MMK cash</p></div>}
@@ -513,7 +574,7 @@ function ShiftForm({ employeeName, onSubmit, onLogout }: {
 
         {/* Grand Total */}
         <div className="bg-gradient-to-r from-amber-400 to-yellow-500 rounded-2xl p-4 text-white shadow-md shadow-amber-200">
-          <p className="text-xs font-bold uppercase tracking-widest opacity-80">Grand Total (All Products)</p>
+          <p className="text-xs font-bold uppercase tracking-widest opacity-80">{t(lang, "grandTotalLabel")}</p>
           <p className="text-3xl font-bold mt-1">{fmt(grandTotal)} <span className="text-sm font-medium opacity-80">MMK</span></p>
         </div>
 
@@ -523,19 +584,19 @@ function ShiftForm({ employeeName, onSubmit, onLogout }: {
 
           {/* Expenses — itemized */}
           <div>
-            <p className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider mb-2">Operational Expenses</p>
-            <ExpensesPanel items={form.expenses} onChange={items => setForm(f => ({ ...f, expenses: items }))} />
+            <p className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider mb-2">{t(lang, "operationalExpenses")}</p>
+            <ExpensesPanel items={form.expenses} onChange={items => setForm(f => ({ ...f, expenses: items }))} lang={lang} />
           </div>
 
           <div className="flex items-center justify-between bg-amber-50 rounded-xl px-4 py-2.5 border border-amber-100">
             <span className="text-xs font-semibold text-amber-700">Net Expected Cash</span>
             <span className="text-sm font-bold text-amber-800">{fmt(netExpected)} MMK</span>
           </div>
-          <GoldInput label="Actual Cash Collected" value={form.actualCash} onChange={v => setForm(f => ({ ...f, actualCash: v }))} placeholder="0" prefix="K" />
+          <GoldInput label={t(lang, "actualCash")} value={form.actualCash} onChange={v => setForm(f => ({ ...f, actualCash: v }))} placeholder="0" prefix="K" />
           <div className={["flex items-center justify-between rounded-xl px-4 py-3 border",
             difference === 0 ? "bg-gray-50 border-gray-200" : difference > 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
           ].join(" ")}>
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-600">Difference</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-600">{t(lang, "difference")}</span>
             <span className={["text-base font-bold",
               difference === 0 ? "text-gray-500" : difference > 0 ? "text-green-600" : "text-red-600"
             ].join(" ")}>
@@ -546,7 +607,7 @@ function ShiftForm({ employeeName, onSubmit, onLogout }: {
 
         <button type="submit"
           className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-bold rounded-2xl py-4 text-base shadow-lg shadow-amber-200 transition-all active:scale-[0.98] mt-2">
-          Review & Submit →
+          {t(lang, "reviewSubmit")}
         </button>
       </form>
     </div>
@@ -554,9 +615,9 @@ function ShiftForm({ employeeName, onSubmit, onLogout }: {
 }
 
 // ─── Confirm screen ───────────────────────────────────────────────────────────
-function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onConfirm, onBack, submitting }: {
+function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onConfirm, onBack, submitting, lang }: {
   employeeName: string; email: string; form: FormData; grandTotal: number; difference: number;
-  onConfirm: () => void; onBack: () => void; submitting: boolean;
+  onConfirm: () => void; onBack: () => void; submitting: boolean; lang: Lang;
 }) {
   const t92   = n(form.fuel92.totalAmount);
   const t95   = n(form.fuel95.totalAmount);
@@ -654,12 +715,12 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
         <div className="bg-white rounded-2xl border border-amber-100 overflow-hidden">
           <div className="px-4 py-3 border-b border-amber-50"><h3 className="text-xs font-bold text-amber-700 uppercase tracking-widest">Cash Summary</h3></div>
           <div className="divide-y divide-amber-50">
-            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">Grand Total</span><span className="font-bold text-gray-900">{fmt(grandTotal)} MMK</span></div>
-            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">Total Expenses</span><span className="font-semibold text-amber-700">−{fmt(totalExp)} MMK</span></div>
-            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">Net Expected</span><span className="font-bold text-gray-900">{fmt(grandTotal - totalExp)} MMK</span></div>
-            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">Actual Collected</span><span className="font-bold text-gray-900">{fmt(actualCash)} MMK</span></div>
+            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "grandTotalShort")}</span><span className="font-bold text-gray-900">{fmt(grandTotal)} MMK</span></div>
+            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "totalExpenses")}</span><span className="font-semibold text-amber-700">−{fmt(totalExp)} MMK</span></div>
+            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "netExpected")}</span><span className="font-bold text-gray-900">{fmt(grandTotal - totalExp)} MMK</span></div>
+            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "actualCollected")}</span><span className="font-bold text-gray-900">{fmt(actualCash)} MMK</span></div>
             <div className={["px-4 py-3 flex justify-between text-sm font-bold", difference === 0 ? "bg-gray-50" : difference > 0 ? "bg-green-50" : "bg-red-50"].join(" ")}>
-              <span className={difference >= 0 ? "text-green-700" : "text-red-700"}>Difference</span>
+              <span className={difference >= 0 ? "text-green-700" : "text-red-700"}>{t(lang, "difference")}</span>
               <span className={difference >= 0 ? "text-green-700" : "text-red-700"}>{fmtSigned(difference)}</span>
             </div>
           </div>
@@ -739,6 +800,10 @@ export default function App() {
   const [difference, setDifference] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [lang, setLang] = useState<Lang>(() => {
+    const saved = localStorage.getItem(LANG_KEY);
+    return (saved === "my" ? "my" : "en") as Lang;
+  });
 
   // Restore saved session on first load
   useEffect(() => {
@@ -856,16 +921,16 @@ export default function App() {
 
   return (
     <>
-      {screen === "login"    && <LoginScreen onLogin={handleLogin} />}
+      {screen === "login"    && <LoginScreen onLogin={handleLogin} lang={lang} setLang={setLang} />}
       {screen === "checking" && <CheckingScreen />}
       {screen === "denied"   && <DeniedScreen email={email} onBack={() => setScreen("login")} />}
-      {screen === "form"     && <ShiftForm employeeName={employeeName} onSubmit={handleFormSubmit} onLogout={handleLogout} />}
+      {screen === "form"     && <ShiftForm employeeName={employeeName} onSubmit={handleFormSubmit} onLogout={handleLogout} lang={lang} setLang={setLang} />}
       {screen === "confirm"  && (
         <>
           <ConfirmScreen
             employeeName={employeeName} email={email} form={formData}
             grandTotal={grandTotal} difference={difference}
-            onConfirm={handleConfirm} onBack={() => setScreen("form")} submitting={submitting}
+            onConfirm={handleConfirm} onBack={() => setScreen("form")} submitting={submitting} lang={lang}
           />
           {submitError && (
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-red-600 text-white text-sm font-semibold rounded-xl px-5 py-3 shadow-xl z-50">

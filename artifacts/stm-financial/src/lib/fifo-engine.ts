@@ -14,6 +14,13 @@ export type FIFORunResult = {
   productVolumes: Record<string, number>;
 };
 
+function pipaLitersForProduct(shift: Shift, product: string): number {
+  if (!Array.isArray(shift.pipa_items) || shift.pipa_items.length === 0) return 0;
+  return shift.pipa_items
+    .filter(item => item.product === product)
+    .reduce((sum, item) => sum + (item.containers ?? 0) * 215, 0);
+}
+
 function shiftVolume(shift: Shift, product: ProductType): number {
   const fallback = (liters?: number | null, total?: number | null, price?: number | null) => {
     if (liters && liters > 0) return liters;
@@ -22,19 +29,28 @@ function shiftVolume(shift: Shift, product: ProductType): number {
   };
 
   switch (product) {
-    case "92":  return fallback(shift.fuel_92_liters, shift.fuel_92_total, shift.fuel_92_price);
-    case "95":  return fallback(shift.fuel_95_liters, shift.fuel_95_total, shift.fuel_95_price);
-    case "PD":  return fallback(shift.premium_diesel_liters, shift.premium_diesel_total, shift.premium_diesel_price);
+    case "92":
+      return fallback(shift.fuel_92_liters, shift.fuel_92_total, shift.fuel_92_price)
+           + pipaLitersForProduct(shift, "92");
+    case "95":
+      return fallback(shift.fuel_95_liters, shift.fuel_95_total, shift.fuel_95_price)
+           + pipaLitersForProduct(shift, "95");
+    case "PD":
+      return fallback(shift.premium_diesel_liters, shift.premium_diesel_total, shift.premium_diesel_price)
+           + pipaLitersForProduct(shift, "PD");
+    case "D": {
+      const direct = (shift.diesel_price && shift.diesel_cash)
+        ? shift.diesel_cash / shift.diesel_price : 0;
+      return direct + pipaLitersForProduct(shift, "D");
+    }
     case "pipa": {
+      // Only count old-style pipa_amount if no pipa_items exist (backward compat)
+      if (Array.isArray(shift.pipa_items) && shift.pipa_items.length > 0) return 0;
       let containers = shift.pipa_amount ?? 0;
       if (containers <= 0 && shift.pipa_total && shift.pipa_price && shift.pipa_price > 0) {
         containers = shift.pipa_total / shift.pipa_price;
       }
       return containers * 215;
-    }
-    case "D": {
-      if (!shift.diesel_price || !shift.diesel_cash) return 0;
-      return shift.diesel_cash / shift.diesel_price;
     }
   }
 }

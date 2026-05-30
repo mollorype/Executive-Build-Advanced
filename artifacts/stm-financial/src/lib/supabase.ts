@@ -67,6 +67,7 @@ export function mapRowToShift(row: Record<string, unknown>): Shift {
     pipa_amount: fuel.pipa_amount ?? null,
     pipa_price: fuel.pipa_price ?? null,
     pipa_total: fuel.pipa_total ?? null,
+    pipa_items: Array.isArray(fuel.pipa_items) ? fuel.pipa_items : null,
     diesel_cash: fuel.diesel_cash ?? null,
     diesel_price: fuel.diesel_price ?? null,
   };
@@ -121,6 +122,7 @@ export type Shift = {
   pipa_amount: number | null;
   pipa_price: number | null;
   pipa_total: number | null;
+  pipa_items: { product: string; containers: number; price: number; total: number }[] | null;
 
   diesel_cash: number | null;
   diesel_price: number | null;
