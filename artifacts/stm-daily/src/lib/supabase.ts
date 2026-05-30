@@ -33,7 +33,6 @@ export interface ShiftPayload {
     diesel_cash: number;
     diesel_price: number;
   };
-  expenses_breakdown: { name: string; amount: number }[];
   total_expenses: number;
   expected_total: number;
   actual_cash: number;

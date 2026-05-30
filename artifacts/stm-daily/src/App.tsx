@@ -668,7 +668,6 @@ export default function App() {
         diesel_cash:           n(formData.diesel.cash),
         diesel_price:          n(formData.diesel.price),
       },
-      expenses_breakdown: formData.expenses.map(e => ({ name: e.name, amount: n(e.amount) })),
       total_expenses:  totalExp,
       expected_total:  grandTotal,
       actual_cash:     actualCash,
