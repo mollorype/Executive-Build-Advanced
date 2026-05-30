@@ -209,8 +209,8 @@ function VerifyModal({
 
         <div className="space-y-3 mb-4">
           <Field label="Wholesale Price (MMK / L)" field="wholesale_price" />
-          <Field label="Transportation Fees (MMK)" field="transportation_fees" />
-          <Field label="Confidential Fees (MMK)" field="confidential_fees" />
+          <Field label="Transportation Fees (MMK / L)" field="transportation_fees" />
+          <Field label="Confidential Fees (MMK / L)" field="confidential_fees" />
           <Field label="Retail Price Set (MMK / L)" field="retail_price_set" />
         </div>
 

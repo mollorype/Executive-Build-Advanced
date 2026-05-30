@@ -24,21 +24,27 @@ type Screen = "login" | "checking" | "denied" | "form" | "confirm" | "success";
 interface FuelRow { totalAmount: string; price: string; }
 interface DieselRow { cash: string; price: string; }
 interface ExpenseItem { name: string; amount: string; }
+type PipaProduct = "92" | "95" | "PD" | "D";
+interface PipaItem { product: PipaProduct; containers: string; price: string; }
 interface FormData {
   fuel92: FuelRow;
   fuel95: FuelRow;
   premiumDiesel: FuelRow;
-  pipa: FuelRow;
+  pipa: PipaItem[];
   diesel: DieselRow;
   expenses: ExpenseItem[];
   actualCash: string;
 }
 
+const PIPA_PRODUCT_LABELS: Record<PipaProduct, string> = {
+  "92": "Fuel 92", "95": "Fuel 95", "PD": "Premium Diesel", "D": "Diesel",
+};
+
 const EMPTY: FormData = {
   fuel92:        { totalAmount: "", price: "" },
   fuel95:        { totalAmount: "", price: "" },
   premiumDiesel: { totalAmount: "", price: "" },
-  pipa:          { totalAmount: "", price: "" },
+  pipa:          [],
   diesel:        { cash: "", price: "" },
   expenses:      [],
   actualCash:    "",
@@ -77,39 +83,118 @@ function GoldInput({
   );
 }
 
-// ─── Pipa card — workers enter number of containers (1 Pipa = 215 L) ─────────
-function PipaCard({ containers, price, total, onContainers, onPrice }: {
-  containers: string; price: string; total: number;
-  onContainers: (v: string) => void; onPrice: (v: string) => void;
+// ─── Pipa panel — multi-item, each with product dropdown + containers + price ──
+const PIPA_COLORS: Record<PipaProduct, string> = {
+  "92": "bg-blue-500", "95": "bg-emerald-500", "PD": "bg-purple-500", "D": "bg-orange-500",
+};
+
+function PipaPanel({ items, onChange }: {
+  items: PipaItem[];
+  onChange: (items: PipaItem[]) => void;
 }) {
-  const count = n(containers);
+  function add() {
+    onChange([...items, { product: "92", containers: "", price: "" }]);
+  }
+  function remove(i: number) {
+    onChange(items.filter((_, idx) => idx !== i));
+  }
+  function update(i: number, field: keyof PipaItem, val: string) {
+    onChange(items.map((item, idx) => idx === i ? { ...item, [field]: val } : item));
+  }
+
   return (
     <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
       <div className="px-4 py-2.5 flex items-center gap-2 bg-gradient-to-r from-amber-500 to-yellow-600">
         <span className="text-xs font-bold text-white/90 uppercase tracking-widest">Pipa</span>
-        <span className="ml-auto text-xs font-bold bg-white/20 text-white rounded-full px-2 py-0.5">PIPA</span>
+        <span className="ml-auto text-[10px] text-white/70">1 Pipa = 215 L</span>
       </div>
-      <div className="p-4 grid grid-cols-3 gap-3">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider">Containers</label>
-          <p className="text-[10px] text-amber-500 -mt-0.5">1 Pipa = 215 L</p>
-          <input
-            type="number"
-            value={containers}
-            onChange={e => onContainers(e.target.value)}
-            placeholder="0"
-            className="w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none transition-all bg-white border-amber-200 text-gray-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 placeholder:text-gray-300"
-          />
-          {count > 0 && <p className="text-[10px] text-amber-600 font-semibold">{(count * 215).toLocaleString()} L total</p>}
-        </div>
-        <GoldInput label="Price / Pipa" value={price} onChange={onPrice} prefix="K" />
-        <GoldInput label="Total Amount" value={total > 0 ? String(total) : ""} placeholder="Auto" readOnly />
-      </div>
-      {total > 0 && (
-        <div className="px-4 pb-3 -mt-1">
-          <p className="text-xs text-amber-700 font-semibold text-right">{fmt(total)} MMK</p>
-        </div>
+
+      {items.length === 0 && (
+        <p className="text-xs text-amber-400/70 text-center py-4">No pipa entries — tap + to add one</p>
       )}
+
+      {items.map((item, i) => {
+        const containers = n(item.containers);
+        const price = n(item.price);
+        const total = containers * price;
+        return (
+          <div key={i} className="px-4 pt-4 pb-3 border-b border-amber-50 last:border-0">
+            <div className="flex items-center gap-2 mb-2">
+              <span className={`text-[10px] font-bold text-white rounded px-1.5 py-0.5 ${PIPA_COLORS[item.product]}`}>
+                {item.product}
+              </span>
+              <span className="text-xs font-semibold text-gray-600">Entry {i + 1}</span>
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                className="ml-auto text-red-400 hover:text-red-600 transition-colors p-0.5"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {/* Product dropdown */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider">Product</label>
+                <select
+                  value={item.product}
+                  onChange={e => update(i, "product", e.target.value as PipaProduct)}
+                  className="w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none transition-all bg-white border-amber-200 text-gray-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+                >
+                  <option value="92">Fuel 92</option>
+                  <option value="95">Fuel 95</option>
+                  <option value="PD">Premium Diesel</option>
+                  <option value="D">Diesel</option>
+                </select>
+              </div>
+              {/* Containers */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider">Containers</label>
+                <input
+                  type="number"
+                  value={item.containers}
+                  onChange={e => update(i, "containers", e.target.value)}
+                  placeholder="0"
+                  className="w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none transition-all bg-white border-amber-200 text-gray-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 placeholder:text-gray-300"
+                />
+                {containers > 0 && (
+                  <p className="text-[10px] text-amber-500 font-semibold">{(containers * 215).toLocaleString()} L</p>
+                )}
+              </div>
+              {/* Price per pipa */}
+              <GoldInput
+                label="Price / Pipa"
+                value={item.price}
+                onChange={v => update(i, "price", v)}
+                prefix="K"
+              />
+            </div>
+            {total > 0 && (
+              <p className="text-xs text-amber-700 font-semibold text-right mt-2">{fmt(total)} MMK</p>
+            )}
+          </div>
+        );
+      })}
+
+      <div className="px-4 py-3 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={add}
+          className="flex items-center gap-1.5 text-xs font-bold text-amber-600 hover:text-amber-800 border border-amber-200 hover:border-amber-400 rounded-xl px-3 py-1.5 transition-all"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Add Pipa Entry
+        </button>
+        {items.length > 0 && (
+          <span className="text-xs font-bold text-amber-700">
+            Total: {fmt(items.reduce((s, item) => s + n(item.containers) * n(item.price), 0))} MMK
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -341,7 +426,7 @@ function ShiftForm({ employeeName, onSubmit, onLogout }: {
 }) {
   const [form, setForm] = useState<FormData>(EMPTY);
 
-  const setFuel = useCallback((key: keyof Omit<FormData, "expenses" | "actualCash">, field: string, val: string) => {
+  const setFuel = useCallback((key: keyof Omit<FormData, "expenses" | "actualCash" | "pipa">, field: string, val: string) => {
     setForm(f => ({ ...f, [key]: { ...(f[key] as object), [field]: val } }));
   }, []);
 
@@ -354,7 +439,7 @@ function ShiftForm({ employeeName, onSubmit, onLogout }: {
   const l95   = n(form.fuel95.price)   > 0 ? t95 / n(form.fuel95.price)   : 0;
   const lPD   = n(form.premiumDiesel.price) > 0 ? tPD / n(form.premiumDiesel.price) : 0;
 
-  const tPipa = n(form.pipa.totalAmount) * n(form.pipa.price);
+  const tPipa = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
   const tD    = n(form.diesel.cash);
 
   const grandTotal  = t92 + t95 + tPD + tPipa + tD;
@@ -407,9 +492,9 @@ function ShiftForm({ employeeName, onSubmit, onLogout }: {
             <ProductCard label="Premium Diesel" badge="PD" color="bg-gradient-to-r from-purple-500 to-violet-600"
               totalAmount={form.premiumDiesel.totalAmount} price={form.premiumDiesel.price} total={tPD} liters={lPD}
               onTotalAmount={v => setFuel("premiumDiesel", "totalAmount", v)} onPrice={v => setFuel("premiumDiesel", "price", v)} />
-            <PipaCard
-              containers={form.pipa.totalAmount} price={form.pipa.price} total={tPipa}
-              onContainers={v => setFuel("pipa", "totalAmount", v)} onPrice={v => setFuel("pipa", "price", v)} />
+            <PipaPanel
+              items={form.pipa}
+              onChange={items => setForm(f => ({ ...f, pipa: items }))} />
 
             {/* Diesel — cash only */}
             <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
@@ -479,7 +564,7 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
   const l92   = n(form.fuel92.price)   > 0 ? t92 / n(form.fuel92.price)   : 0;
   const l95   = n(form.fuel95.price)   > 0 ? t95 / n(form.fuel95.price)   : 0;
   const lPD   = n(form.premiumDiesel.price) > 0 ? tPD / n(form.premiumDiesel.price) : 0;
-  const tPipa = n(form.pipa.totalAmount) * n(form.pipa.price);
+  const tPipa = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
   const tD    = n(form.diesel.cash);
   const totalExp   = form.expenses.reduce((s, i) => s + n(i.amount), 0);
   const actualCash = n(form.actualCash);
@@ -488,7 +573,6 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
     { label: "Fuel 92",        liters: l92,  price: form.fuel92.price,         total: t92,   color: "text-blue-600" },
     { label: "Fuel 95",        liters: l95,  price: form.fuel95.price,         total: t95,   color: "text-green-600" },
     { label: "Premium Diesel", liters: lPD,  price: form.premiumDiesel.price,  total: tPD,   color: "text-purple-600" },
-    { label: "Pipa",           liters: n(form.pipa.totalAmount), price: form.pipa.price, total: tPipa, color: "text-amber-600", isPipa: true },
   ];
 
   return (
@@ -516,14 +600,30 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
               <div key={r.label} className="px-4 py-3 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-gray-800">{r.label}</p>
-                  {(r as any).isPipa
-                    ? <p className="text-xs text-gray-400">{r.liters.toLocaleString()} containers · {(r.liters * 215).toLocaleString()} L · {fmt(n(r.price))} MMK/pipa</p>
-                    : <p className="text-xs text-gray-400">{r.liters.toLocaleString("en-US", { maximumFractionDigits: 2 })} L · {fmt(n(r.price))} MMK/L</p>
-                  }
+                  <p className="text-xs text-gray-400">{r.liters.toLocaleString("en-US", { maximumFractionDigits: 2 })} L · {fmt(n(r.price))} MMK/L</p>
                 </div>
                 <p className={`text-sm font-bold ${r.color}`}>{fmt(r.total)} MMK</p>
               </div>
             ))}
+            {form.pipa.map((item, i) => {
+              const containers = n(item.containers);
+              const price = n(item.price);
+              const total = containers * price;
+              if (total <= 0) return null;
+              return (
+                <div key={`pipa-${i}`} className="px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">
+                      Pipa · <span className="text-amber-600">{PIPA_PRODUCT_LABELS[item.product]}</span>
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {containers} containers · {(containers * 215).toLocaleString()} L · {fmt(price)} MMK/pipa
+                    </p>
+                  </div>
+                  <p className="text-sm font-bold text-amber-600">{fmt(total)} MMK</p>
+                </div>
+              );
+            })}
             {tD > 0 && (
               <div className="px-4 py-3 flex items-center justify-between">
                 <div>
@@ -696,7 +796,14 @@ export default function App() {
     const l92   = n(formData.fuel92.price)   > 0 ? t92 / n(formData.fuel92.price)   : 0;
     const l95   = n(formData.fuel95.price)   > 0 ? t95 / n(formData.fuel95.price)   : 0;
     const lPD   = n(formData.premiumDiesel.price) > 0 ? tPD / n(formData.premiumDiesel.price) : 0;
-    const tPipa = n(formData.pipa.totalAmount) * n(formData.pipa.price);
+    const pipaItems = formData.pipa.map(item => ({
+      product: item.product,
+      containers: n(item.containers),
+      price: n(item.price),
+      total: n(item.containers) * n(item.price),
+    })).filter(item => item.containers > 0 || item.price > 0);
+    const tPipa = pipaItems.reduce((s, item) => s + item.total, 0);
+    const totalPipaContainers = pipaItems.reduce((s, item) => s + item.containers, 0);
     const totalExp   = formData.expenses.reduce((s, i) => s + n(i.amount), 0);
     const actualCash = n(formData.actualCash);
 
@@ -714,9 +821,10 @@ export default function App() {
         premium_diesel_liters: lPD,
         premium_diesel_price:  n(formData.premiumDiesel.price),
         premium_diesel_total:  tPD,
-        pipa_amount:           n(formData.pipa.totalAmount),
-        pipa_price:            n(formData.pipa.price),
+        pipa_amount:           totalPipaContainers,
+        pipa_price:            pipaItems.length === 1 ? pipaItems[0].price : 0,
         pipa_total:            tPipa,
+        pipa_items:            pipaItems,
         diesel_cash:           n(formData.diesel.cash),
         diesel_price:          n(formData.diesel.price),
       },

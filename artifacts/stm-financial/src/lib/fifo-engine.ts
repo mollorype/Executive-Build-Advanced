@@ -223,7 +223,7 @@ export function calcNetProfit(po: FuelPurchaseOrder): number | null {
 
   const vol = po.total_volume_sold;
   const shortage = po.shortage_liters ?? 0;
-  const expenses = po.transportation_fees + po.confidential_fees;
+  const feesPerLiter = po.transportation_fees + po.confidential_fees;
   const grossRevenue = vol * po.retail_price_set;
-  return grossRevenue - (vol * po.wholesale_price) - expenses - (shortage * po.wholesale_price);
+  return grossRevenue - (vol * po.wholesale_price) - (feesPerLiter * (vol + shortage)) - (shortage * po.wholesale_price);
 }
