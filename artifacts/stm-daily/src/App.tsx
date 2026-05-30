@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { submitShift, type ShiftPayload, supabase } from "./lib/supabase";
 import "./index.css";
 
@@ -334,9 +334,10 @@ function DeniedScreen({ email, onBack }: { email: string; onBack: () => void }) 
 }
 
 // ─── Shift form ───────────────────────────────────────────────────────────────
-function ShiftForm({ employeeName, onSubmit }: {
+function ShiftForm({ employeeName, onSubmit, onLogout }: {
   employeeName: string;
   onSubmit: (data: FormData, grandTotal: number, difference: number) => void;
+  onLogout: () => void;
 }) {
   const [form, setForm] = useState<FormData>(EMPTY);
 
@@ -379,8 +380,15 @@ function ShiftForm({ employeeName, onSubmit }: {
           <p className="text-xs text-amber-700 font-semibold uppercase tracking-widest">STM Daily</p>
           <p className="text-sm font-bold text-gray-900 capitalize">{employeeName}'s Shift Report</p>
         </div>
-        <div className="ml-auto text-right">
+        <div className="ml-auto flex items-center gap-3">
           <p className="text-xs text-gray-400">{new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
+          <button
+            type="button"
+            onClick={onLogout}
+            className="text-xs text-amber-700/60 hover:text-amber-800 font-semibold border border-amber-200 hover:border-amber-300 rounded-lg px-2.5 py-1 transition-colors"
+          >
+            Switch User
+          </button>
         </div>
       </div>
 
@@ -598,6 +606,29 @@ function SuccessScreen({ employeeName, onNewShift }: { employeeName: string; onN
   );
 }
 
+// ─── Session persistence ──────────────────────────────────────────────────────
+const SESSION_KEY = "stm_daily_session";
+const SESSION_DAYS = 30;
+
+function saveSession(name: string, mail: string) {
+  localStorage.setItem(SESSION_KEY, JSON.stringify({
+    name, mail,
+    expires: Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000,
+  }));
+}
+
+function loadSession(): { name: string; mail: string } | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const { name, mail, expires } = JSON.parse(raw);
+    if (!name || !mail || Date.now() > expires) { localStorage.removeItem(SESSION_KEY); return null; }
+    return { name, mail };
+  } catch { return null; }
+}
+
+function clearSession() { localStorage.removeItem(SESSION_KEY); }
+
 // ─── Root App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [screen, setScreen] = useState<Screen>("login");
@@ -608,6 +639,16 @@ export default function App() {
   const [difference, setDifference] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+
+  // Restore saved session on first load
+  useEffect(() => {
+    const saved = loadSession();
+    if (saved) {
+      setEmployeeName(saved.name);
+      setEmail(saved.mail);
+      setScreen("form");
+    }
+  }, []);
 
   async function handleLogin(name: string, mail: string) {
     setEmployeeName(name);
@@ -623,8 +664,19 @@ export default function App() {
     if (error || !data) {
       setScreen("denied");
     } else {
+      saveSession(name, mail);
       setScreen("form");
     }
+  }
+
+  function handleLogout() {
+    clearSession();
+    setEmployeeName("");
+    setEmail("");
+    setFormData(EMPTY);
+    setGrandTotal(0);
+    setDifference(0);
+    setScreen("login");
   }
 
   function handleFormSubmit(data: FormData, gt: number, diff: number) {
@@ -699,7 +751,7 @@ export default function App() {
       {screen === "login"    && <LoginScreen onLogin={handleLogin} />}
       {screen === "checking" && <CheckingScreen />}
       {screen === "denied"   && <DeniedScreen email={email} onBack={() => setScreen("login")} />}
-      {screen === "form"     && <ShiftForm employeeName={employeeName} onSubmit={handleFormSubmit} />}
+      {screen === "form"     && <ShiftForm employeeName={employeeName} onSubmit={handleFormSubmit} onLogout={handleLogout} />}
       {screen === "confirm"  && (
         <>
           <ConfirmScreen
