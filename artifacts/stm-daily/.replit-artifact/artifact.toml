@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/stm-daily/"
+title = "STM Daily"
+version = "1.0.0"
+id = "artifacts/stm-daily"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/stm-daily/" ]
+localPort = 22223
+
+[services.development]
+run = "pnpm --filter @workspace/stm-daily run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/stm-daily", "run", "build" ]
+publicDir = "artifacts/stm-daily/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22223"
+BASE_PATH = "/stm-daily/"
