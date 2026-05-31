@@ -1,0 +1,108 @@
+6:38:23 PM: build-image version: ac6eb13fbf000e5c09ad677efd8b7c3c2d0142b6 (noble-new-builds)
+6:38:23 PM: buildbot version: 397ebb8f8f4ca79bf05dcf5da3f37ebb58e6f89f
+6:38:23 PM: Fetching cached dependencies
+6:38:23 PM: Failed to fetch cache, continuing with build
+6:38:23 PM: Starting to prepare the repo for build
+6:38:23 PM: No cached dependencies found. Cloning fresh repo
+6:38:23 PM: git clone --filter=blob:none https://github.com/mollorype/Executive-Build-Advanced
+6:38:24 PM: Preparing Git Reference refs/heads/main
+6:38:36 PM: Installing dependencies
+6:38:36 PM: mise ~/.config/mise/config.toml tools: python@3.14.3
+6:38:36 PM: mise ~/.config/mise/config.toml tools: ruby@3.4.8
+6:38:36 PM: mise ~/.config/mise/config.toml tools: go@1.26.2
+6:38:36 PM: Downloading and installing node v22.22.3...
+6:38:36 PM: Downloading https://nodejs.org/dist/v22.22.3/node-v22.22.3-linux-x64.tar.xz...
+6:38:37 PM: Computing checksum with sha256sum
+6:38:37 PM: Checksums matched!
+6:38:39 PM: Now using node v22.22.3 (npm v10.9.8)
+6:38:39 PM: Enabling Node.js Corepack
+6:38:40 PM: pnpm workspaces detected
+6:38:40 PM: Installing npm packages using pnpm version 10.30.3
+6:38:40 PM: Scope: all 10 workspace projects
+6:38:40 PM: Lockfile is up to date, resolution step is skipped
+6:38:40 PM: Progress: resolved 1, reused 0, downloaded 0, added 0
+6:38:41 PM: Packages: +493
+6:38:41 PM: ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+6:38:41 PM: Progress: resolved 493, reused 0, downloaded 230, added 155
+6:38:42 PM: Progress: resolved 493, reused 0, downloaded 301, added 185
+6:38:43 PM: Progress: resolved 493, reused 0, downloaded 439, added 245
+6:38:44 PM: Progress: resolved 493, reused 0, downloaded 493, added 493, done
+6:38:44 PM: .../esbuild@0.27.3/node_modules/esbuild postinstall$ node install.js
+6:38:44 PM: .../esbuild@0.27.3/node_modules/esbuild postinstall: Done
+6:38:45 PM: devDependencies:
+6:38:45 PM: + prettier 3.8.3
+6:38:45 PM: + typescript 5.9.3
+6:38:45 PM: . preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+6:38:45 PM: . preinstall: Done
+6:38:45 PM: Done in 4.7s using pnpm v10.30.3
+6:38:45 PM: npm packages installed using pnpm
+6:38:45 PM: Successfully installed dependencies
+6:38:46 PM: Detected 0 framework(s)
+6:38:46 PM: Starting build script
+6:38:46 PM: Section completed: initializing
+6:38:48 PM: ​
+6:38:48 PM: Netlify Build                                                 
+6:38:48 PM: ────────────────────────────────────────────────────────────────
+6:38:48 PM: ​
+6:38:48 PM: ❯ Version
+6:38:48 PM:   @netlify/build 35.13.8
+6:38:48 PM: ​
+6:38:48 PM: ❯ Flags
+6:38:48 PM:   accountId: 6a1716a7e915963c947e049b
+6:38:48 PM:   baseRelDir: true
+6:38:48 PM:   buildId: 6a1ad336c0d059a4c5a58d25
+6:38:48 PM:   deployId: 6a1ad336c0d059a4c5a58d27
+6:38:48 PM:   packagePath: artifacts/stm-daily
+6:38:48 PM: ​
+6:38:48 PM: ❯ Current directory
+6:38:48 PM:   /opt/build/repo
+6:38:48 PM: ​
+6:38:48 PM: ❯ Config file
+6:38:48 PM:   No config file was defined: using default values.
+6:38:48 PM: ​
+6:38:48 PM: ❯ Context
+6:38:48 PM:   production
+6:38:48 PM: ​
+6:38:48 PM: Build command from Netlify app                                
+6:38:48 PM: ────────────────────────────────────────────────────────────────
+6:38:48 PM: ​
+6:38:48 PM: $ pnpm --filter @workspace/stm-daily... run build
+6:38:48 PM: Scope: 2 of 10 workspace projects
+6:38:48 PM: artifacts/stm-daily build$ vite build --config vite.config.ts
+6:38:49 PM: Failed during stage 'building site': Build script returned non-zero exit code: 2 (https://ntl.fyi/exit-code-2)
+6:38:49 PM: artifacts/stm-daily build: failed to load config from /opt/build/repo/artifacts/stm-daily/vite.config.ts
+6:38:49 PM: artifacts/stm-daily build: error during build:
+6:38:49 PM: artifacts/stm-daily build: Error: PORT environment variable is required but was not provided.
+6:38:49 PM: artifacts/stm-daily build:     at file:///opt/build/repo/artifacts/stm-daily/node_modules/.vite-temp/vite.config.ts.timestamp-1780142929150-e8ea06ace8151.mjs:10:9
+6:38:49 PM: artifacts/stm-daily build:     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+6:38:49 PM: artifacts/stm-daily build:     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
+6:38:49 PM: artifacts/stm-daily build:     at async loadConfigFromBundledFile (file:///opt/build/repo/node_modules/.pnpm/vite@7.3.3_@types+node@25.6.2_jiti@2.7.0_lightningcss@1.32.0_tsx@4.21.0_yaml@2.8.4/node_modules/vite/dist/node/chunks/config.js:35936:12)
+6:38:49 PM: artifacts/stm-daily build:     at async bundleAndLoadConfigFile (file:///opt/build/repo/node_modules/.pnpm/vite@7.3.3_@types+node@25.6.2_jiti@2.7.0_lightningcss@1.32.0_tsx@4.21.0_yaml@2.8.4/node_modules/vite/dist/node/chunks/config.js:35824:17)
+6:38:49 PM: artifacts/stm-daily build:     at async loadConfigFromFile (file:///opt/build/repo/node_modules/.pnpm/vite@7.3.3_@types+node@25.6.2_jiti@2.7.0_lightningcss@1.32.0_tsx@4.21.0_yaml@2.8.4/node_modules/vite/dist/node/chunks/config.js:35791:42)
+6:38:49 PM: artifacts/stm-daily build:     at async resolveConfig (file:///opt/build/repo/node_modules/.pnpm/vite@7.3.3_@types+node@25.6.2_jiti@2.7.0_lightningcss@1.32.0_tsx@4.21.0_yaml@2.8.4/node_modules/vite/dist/node/chunks/config.js:35440:22)
+6:38:49 PM: artifacts/stm-daily build:     at async createBuilder (file:///opt/build/repo/node_modules/.pnpm/vite@7.3.3_@types+node@25.6.2_jiti@2.7.0_lightningcss@1.32.0_tsx@4.21.0_yaml@2.8.4/node_modules/vite/dist/node/chunks/config.js:33895:19)
+6:38:49 PM: artifacts/stm-daily build:     at async CAC.<anonymous> (file:///opt/build/repo/node_modules/.pnpm/vite@7.3.3_@types+node@25.6.2_jiti@2.7.0_lightningcss@1.32.0_tsx@4.21.0_yaml@2.8.4/node_modules/vite/dist/node/cli.js:629:10)
+6:38:49 PM: artifacts/stm-daily build: Failed
+6:38:49 PM: /opt/build/repo/artifacts/stm-daily:
+6:38:49 PM:  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/stm-daily@0.0.0 build: `vite build --config vite.config.ts`
+6:38:49 PM: Exit status 1
+6:38:49 PM: ​
+6:38:49 PM: "build.command" failed                                        
+6:38:49 PM: ────────────────────────────────────────────────────────────────
+6:38:49 PM: ​
+6:38:49 PM:   Error message
+6:38:49 PM:   Command failed with exit code 1: pnpm --filter @workspace/stm-daily... run build (https://ntl.fyi/exit-code-1)
+6:38:49 PM: ​
+6:38:49 PM:   Error location
+6:38:49 PM:   In Build command from Netlify app:
+6:38:49 PM:   pnpm --filter @workspace/stm-daily... run build
+6:38:49 PM: ​
+6:38:49 PM:   Resolved config
+6:38:49 PM:   build:
+6:38:49 PM:     command: pnpm --filter @workspace/stm-daily... run build
+6:38:49 PM:     commandOrigin: ui
+6:38:49 PM:     publish: /opt/build/repo/artifacts/stm-daily/dist
+6:38:49 PM:     publishOrigin: ui
+6:38:49 PM: Build failed due to a user error: Build script returned non-zero exit code: 2
+6:38:49 PM: Failing build: Failed to build site
+6:38:50 PM: Finished processing build request in 26.178s
