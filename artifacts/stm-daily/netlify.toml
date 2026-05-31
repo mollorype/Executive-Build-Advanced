@@ -1,6 +1,6 @@
 [build]
   command   = "pnpm --filter @workspace/stm-daily... run build"
-  publish   = "dist/public"
+  publish   = "artifacts/stm-daily/dist/public"
 
 [build.environment]
   NODE_VERSION = "22"

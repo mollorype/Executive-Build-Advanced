@@ -1,0 +1,113 @@
+3:58:07 PM: build-image version: ac6eb13fbf000e5c09ad677efd8b7c3c2d0142b6 (noble-new-builds)
+3:58:07 PM: buildbot version: 86ef0877d762ab0381f3974d0964093ce9ff978b
+3:58:07 PM: Fetching cached dependencies
+3:58:07 PM: Failed to fetch cache, continuing with build
+3:58:07 PM: Starting to prepare the repo for build
+3:58:07 PM: No cached dependencies found. Cloning fresh repo
+3:58:07 PM: git clone --filter=blob:none https://github.com/mollorype/Executive-Build-Advanced
+3:58:07 PM: Preparing Git Reference refs/heads/main
+3:58:17 PM: Custom publish path detected. Proceeding with the specified path: 'dist/public'
+3:58:17 PM: Installing dependencies
+3:58:17 PM: mise ~/.config/mise/config.toml tools: python@3.14.3
+3:58:17 PM: mise ~/.config/mise/config.toml tools: ruby@3.4.8
+3:58:18 PM: mise ~/.config/mise/config.toml tools: go@1.26.2
+3:58:18 PM: Downloading and installing node v22.22.3...
+3:58:18 PM: Downloading https://nodejs.org/dist/v22.22.3/node-v22.22.3-linux-x64.tar.xz...
+3:58:18 PM: Computing checksum with sha256sum
+3:58:18 PM: Checksums matched!
+3:58:21 PM: Now using node v22.22.3 (npm v10.9.8)
+3:58:21 PM: Enabling Node.js Corepack
+3:58:22 PM: pnpm workspaces detected
+3:58:22 PM: Installing npm packages using pnpm version 10.30.3
+3:58:22 PM: Scope: all 10 workspace projects
+3:58:23 PM: Lockfile is up to date, resolution step is skipped
+3:58:23 PM: Progress: resolved 1, reused 0, downloaded 0, added 0
+3:58:23 PM: Packages: +493
+3:58:23 PM: ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+3:58:24 PM: Progress: resolved 493, reused 0, downloaded 224, added 211
+3:58:25 PM: Progress: resolved 493, reused 0, downloaded 306, added 244
+3:58:26 PM: Progress: resolved 493, reused 0, downloaded 399, added 278
+3:58:26 PM: Progress: resolved 493, reused 0, downloaded 493, added 493, done
+3:58:26 PM: .../esbuild@0.27.3/node_modules/esbuild postinstall$ node install.js
+3:58:27 PM: .../esbuild@0.27.3/node_modules/esbuild postinstall: Done
+3:58:27 PM: devDependencies:
+3:58:27 PM: + prettier 3.8.3
+3:58:27 PM: + typescript 5.9.3
+3:58:27 PM: . preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+3:58:27 PM: . preinstall: Done
+3:58:27 PM: Done in 4.8s using pnpm v10.30.3
+3:58:27 PM: npm packages installed using pnpm
+3:58:28 PM: Successfully installed dependencies
+3:58:28 PM: Detected 0 framework(s)
+3:58:28 PM: Starting build script
+3:58:29 PM: Section completed: initializing
+3:58:30 PM: ​
+3:58:30 PM: Netlify Build                                                 
+3:58:30 PM: ────────────────────────────────────────────────────────────────
+3:58:30 PM: ​
+3:58:30 PM: ❯ Version
+3:58:30 PM:   @netlify/build 35.13.9
+3:58:30 PM: ​
+3:58:30 PM: ❯ Flags
+3:58:30 PM:   accountId: 6a1716a7e915963c947e049b
+3:58:30 PM:   baseRelDir: true
+3:58:30 PM:   buildId: 6a1bff250de8a51d33c02e14
+3:58:30 PM:   deployId: 6a1bff250de8a51d33c02e16
+3:58:30 PM:   packagePath: artifacts/stm-daily
+3:58:30 PM: ​
+3:58:30 PM: ❯ Current directory
+3:58:30 PM:   /opt/build/repo
+3:58:30 PM: ​
+3:58:30 PM: ❯ Config file
+3:58:30 PM:   /opt/build/repo/artifacts/stm-daily/netlify.toml
+3:58:30 PM: ​
+3:58:30 PM: ❯ Context
+3:58:30 PM:   production
+3:58:30 PM: ​
+3:58:30 PM: build.command from netlify.toml                               
+3:58:30 PM: ────────────────────────────────────────────────────────────────
+3:58:30 PM: ​
+3:58:30 PM: $ pnpm --filter @workspace/stm-daily... run build
+3:58:31 PM: Scope: 2 of 10 workspace projects
+3:58:31 PM: artifacts/stm-daily build$ vite build --config vite.config.ts
+3:58:31 PM: artifacts/stm-daily build: vite v7.3.3 building client environment for production...
+3:58:31 PM: artifacts/stm-daily build: transforming...
+3:58:32 PM: artifacts/stm-daily build: ✓ 71 modules transformed.
+3:58:33 PM: Failed during stage 'building site': Build script returned non-zero exit code: 2 (https://ntl.fyi/exit-code-2)
+3:58:33 PM: artifacts/stm-daily build: rendering chunks...
+3:58:33 PM: artifacts/stm-daily build: computing gzip size...
+3:58:33 PM: artifacts/stm-daily build: dist/public/index.html                   1.37 kB │ gzip:   0.54 kB
+3:58:33 PM: artifacts/stm-daily build: dist/public/assets/index-n5OlKPJo.css   88.69 kB │ gzip:  14.99 kB
+3:58:33 PM: artifacts/stm-daily build: dist/public/assets/index-muVeAl8c.js   428.12 kB │ gzip: 120.97 kB
+3:58:33 PM: artifacts/stm-daily build: ✓ built in 1.39s
+3:58:33 PM: artifacts/stm-daily build: Done
+3:58:33 PM: ​
+3:58:33 PM: (build.command completed in 2.1s)
+3:58:33 PM: ​
+3:58:33 PM: Deploy site                                                   
+3:58:33 PM: ────────────────────────────────────────────────────────────────
+3:58:33 PM: ​
+3:58:33 PM: Section completed: deploying
+3:58:33 PM: ​
+3:58:33 PM: Configuration error                                           
+3:58:33 PM: ────────────────────────────────────────────────────────────────
+3:58:33 PM: ​
+3:58:33 PM:   Error message
+3:58:33 PM:   Deploy did not succeed: Deploy directory 'dist/public' does not exist
+3:58:33 PM: ​
+3:58:33 PM:   Resolved config
+3:58:33 PM:   build:
+3:58:33 PM:     command: pnpm --filter @workspace/stm-daily... run build
+3:58:33 PM:     commandOrigin: config
+3:58:33 PM:     environment:
+3:58:33 PM:       - NODE_VERSION
+3:58:33 PM:     publish: /opt/build/repo/dist/public
+3:58:33 PM:     publishOrigin: config
+3:58:33 PM:   redirects:
+3:58:33 PM:     - from: /*
+      status: 200
+      to: /index.html
+  redirectsOrigin: config
+3:58:33 PM: Build failed due to a user error: Build script returned non-zero exit code: 2
+3:58:33 PM: Failing build: Failed to build site
+3:58:33 PM: Finished processing build request in 26.514s
