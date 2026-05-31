@@ -30,6 +30,8 @@ export interface ShiftPayload {
     pipa_amount: number;
     pipa_price: number;
     pipa_total: number;
+    pipa_items?: { product: string; containers: number; price: number; total: number }[];
+    jelly_can_items?: { product: string; pieces: number; liters_per_can: number; total_liters: number; price: number; total: number }[];
     diesel_cash: number;
     diesel_price: number;
   };

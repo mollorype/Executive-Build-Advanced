@@ -334,6 +334,20 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Select-all bar */}
+          {shifts.length > 0 && !loading && (
+            <div className="px-4 py-2.5 border-b border-slate-700/30 flex items-center gap-3">
+              <input type="checkbox"
+                checked={selectedIds.size === shifts.length}
+                onChange={toggleSelectAll}
+                className="w-4 h-4 rounded accent-red-500 cursor-pointer"
+              />
+              <span className="text-slate-500 text-xs">
+                {selectedIds.size > 0 ? `${selectedIds.size} selected` : `${shifts.length} shifts`}
+              </span>
+            </div>
+          )}
+
           {loading ? (
             <div className="p-16 text-center">
               <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-3" />
@@ -346,82 +360,74 @@ export default function Dashboard() {
               <p className="text-slate-600 text-xs mt-1">Try a different date range or check your Supabase table</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[780px]">
-                <thead>
-                  <tr className="border-b border-slate-700/40">
-                    <th className="px-5 py-3 w-10">
-                      <input type="checkbox"
-                        checked={shifts.length > 0 && selectedIds.size === shifts.length}
-                        onChange={toggleSelectAll}
-                        className="w-4 h-4 rounded accent-red-500 cursor-pointer"
-                      />
-                    </th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Date &amp; Time</th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Employee</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Expected Total</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Actual Collected</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Difference</th>
-                    <th className="px-5 py-3" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {shifts.map(shift => {
-                    const diff = shift.difference ?? 0;
-                    const isRedFlag = Math.abs(diff) >= RED_FLAG_THRESHOLD;
-                    return (
-                      <tr
-                        key={shift.id}
-                        onClick={() => setSelectedShift(shift)}
-                        style={isRedFlag ? { backgroundColor: "rgba(185, 28, 28, 0.25)" } : undefined}
-                        className={`border-b border-slate-700/20 last:border-0 cursor-pointer transition-colors ${
-                          selectedIds.has(shift.id) ? "bg-red-900/10" : isRedFlag ? "hover:brightness-110" : "hover:bg-slate-700/20"
-                        }`}
-                      >
-                        <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
-                          <input type="checkbox"
-                            checked={selectedIds.has(shift.id)}
-                            onChange={() => toggleSelect(shift.id)}
-                            className="w-4 h-4 rounded accent-red-500 cursor-pointer"
-                          />
-                        </td>
-                        <td className="px-5 py-3.5 text-slate-300 text-sm whitespace-nowrap">
+            <div className="divide-y divide-slate-700/20">
+              {shifts.map(shift => {
+                const diff = shift.difference ?? 0;
+                const isRedFlag = Math.abs(diff) >= RED_FLAG_THRESHOLD;
+                const isSelected = selectedIds.has(shift.id);
+                return (
+                  <div
+                    key={shift.id}
+                    onClick={() => setSelectedShift(shift)}
+                    className={`group flex items-start gap-3 px-4 py-3.5 cursor-pointer transition-colors ${
+                      isRedFlag
+                        ? "bg-red-900/20 hover:bg-red-900/30"
+                        : isSelected
+                        ? "bg-blue-900/10 hover:bg-blue-900/15"
+                        : "hover:bg-slate-700/20"
+                    }`}
+                  >
+                    {/* Checkbox */}
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelect(shift.id)}
+                      onClick={e => e.stopPropagation()}
+                      className="w-4 h-4 rounded accent-red-500 cursor-pointer mt-1 shrink-0"
+                    />
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      {/* Row 1: Date + employee + flag */}
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        {isRedFlag && <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />}
+                        <span className="text-slate-300 text-xs font-medium truncate">
                           {formatDateTime(shift.created_at)}
-                        </td>
-                        <td className="px-5 py-3.5 text-white text-sm font-medium">
-                          <div className="flex items-center gap-2">
-                            {isRedFlag && <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />}
-                            {shift.employee_username || "—"}
-                          </div>
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-slate-300 text-sm tabular-nums">
-                          {mmk(shift.expected_cash_total)}
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-white font-semibold text-sm tabular-nums">
-                          {mmk(shift.actual_cash_collected)}
-                        </td>
-                        <td className={`px-5 py-3.5 text-right font-bold text-sm tabular-nums ${
+                        </span>
+                        {shift.employee_username && (
+                          <span className="text-slate-600 text-xs shrink-0">· {shift.employee_username}</span>
+                        )}
+                      </div>
+
+                      {/* Row 2: Actual cash + Difference */}
+                      <div className="flex items-baseline justify-between gap-2">
+                        <div>
+                          <span className="text-slate-500 text-[11px]">Actual: </span>
+                          <span className="text-white font-bold text-sm tabular-nums">
+                            {mmk(shift.actual_cash_collected)}
+                          </span>
+                        </div>
+                        <span className={`font-bold text-sm tabular-nums shrink-0 ${
                           isRedFlag ? "text-red-300" : diff >= 0 ? "text-emerald-400" : "text-amber-400"
                         }`}>
                           {diff >= 0 ? "+" : ""}{mmk(diff)}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center justify-end gap-1">
-                            <ChevronRight className="w-4 h-4 text-slate-600" />
-                            <button
-                              onClick={e => { e.stopPropagation(); handleDeleteShift(shift); }}
-                              title="Delete this shift record"
-                              className="text-slate-500 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-lg transition-all"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                      <button
+                        onClick={e => { e.stopPropagation(); handleDeleteShift(shift); }}
+                        className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-lg transition-all"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <ChevronRight className="w-4 h-4 text-slate-600" />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 

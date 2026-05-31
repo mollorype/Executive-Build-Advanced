@@ -26,11 +26,13 @@ interface DieselRow { cash: string; price: string; }
 interface ExpenseItem { name: string; amount: string; }
 type PipaProduct = "92" | "95" | "PD" | "D";
 interface PipaItem { product: PipaProduct; containers: string; price: string; }
+interface JellyCanItem { product: PipaProduct; pieces: string; liters: string; price: string; }
 interface FormData {
   fuel92: FuelRow;
   fuel95: FuelRow;
   premiumDiesel: FuelRow;
   pipa: PipaItem[];
+  jellyCan: JellyCanItem[];
   diesel: DieselRow;
   expenses: ExpenseItem[];
   actualCash: string;
@@ -95,6 +97,7 @@ const EMPTY: FormData = {
   fuel95:        { totalAmount: "", price: "" },
   premiumDiesel: { totalAmount: "", price: "" },
   pipa:          [],
+  jellyCan:      [],
   diesel:        { cash: "", price: "" },
   expenses:      [],
   actualCash:    "",
@@ -244,6 +247,122 @@ function PipaPanel({ items, onChange, lang }: {
           <span className="text-xs font-bold text-amber-700">
             Total: {fmt(items.reduce((s, item) => s + n(item.containers) * n(item.price), 0))} MMK
           </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Jelly Can panel — multi-item, each with product + pieces + L/can + price ──
+function JellyCanPanel({ items, onChange }: {
+  items: JellyCanItem[];
+  onChange: (items: JellyCanItem[]) => void;
+}) {
+  function add() {
+    onChange([...items, { product: "92", pieces: "", liters: "", price: "" }]);
+  }
+  function remove(i: number) { onChange(items.filter((_, idx) => idx !== i)); }
+  function update(i: number, field: keyof JellyCanItem, val: string) {
+    onChange(items.map((item, idx) => idx === i ? { ...item, [field]: val } : item));
+  }
+
+  const panelTotal = items.reduce((s, item) => s + n(item.pieces) * n(item.price), 0);
+
+  return (
+    <div className="bg-white rounded-2xl border border-teal-100 shadow-sm overflow-hidden">
+      <div className="px-4 py-2.5 flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-600">
+        <span className="text-xs font-bold text-white/90 uppercase tracking-widest">Jelly Can · ပုံးဝါ</span>
+        <span className="ml-auto text-[10px] text-white/70">Manual L entry</span>
+      </div>
+
+      {items.length === 0 && (
+        <p className="text-xs text-teal-400/70 text-center py-4">No jelly can entries — tap + to add one</p>
+      )}
+
+      {items.map((item, i) => {
+        const pieces = n(item.pieces);
+        const litersPerCan = n(item.liters);
+        const price = n(item.price);
+        const totalLiters = pieces * litersPerCan;
+        const totalAmt = pieces * price;
+        return (
+          <div key={i} className="px-4 pt-4 pb-3 border-b border-teal-50 last:border-0">
+            <div className="flex items-center gap-2 mb-2">
+              <span className={`text-[10px] font-bold text-white rounded px-1.5 py-0.5 ${PIPA_COLORS[item.product]}`}>
+                {item.product}
+              </span>
+              <span className="text-xs font-semibold text-gray-600">Entry {i + 1}</span>
+              <button type="button" onClick={() => remove(i)}
+                className="ml-auto text-red-400 hover:text-red-600 transition-colors p-0.5">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            {/* Row 1: Product + Pieces */}
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-teal-800/70 uppercase tracking-wider">Product</label>
+                <select value={item.product}
+                  onChange={e => update(i, "product", e.target.value as PipaProduct)}
+                  className="w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none bg-white border-teal-200 text-gray-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-100">
+                  <option value="92">Fuel 92</option>
+                  <option value="95">Fuel 95</option>
+                  <option value="PD">Premium Diesel</option>
+                  <option value="D">Diesel</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-teal-800/70 uppercase tracking-wider">Pieces (အရေအတွက်)</label>
+                <input type="number" value={item.pieces}
+                  onChange={e => update(i, "pieces", e.target.value)}
+                  placeholder="0"
+                  className="w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none bg-white border-teal-200 text-gray-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 placeholder:text-gray-300"
+                />
+              </div>
+            </div>
+            {/* Row 2: Liters per can + Price */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-teal-800/70 uppercase tracking-wider">ပါရှိသောလီတာ (L/can)</label>
+                <input type="number" value={item.liters}
+                  onChange={e => update(i, "liters", e.target.value)}
+                  placeholder="0"
+                  className="w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none bg-white border-teal-200 text-gray-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 placeholder:text-gray-300"
+                />
+                {totalLiters > 0 && (
+                  <p className="text-[10px] text-teal-600 font-semibold">{totalLiters.toLocaleString("en-US", { maximumFractionDigits: 2 })} L total</p>
+                )}
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-teal-800/70 uppercase tracking-wider">Price / Can (K)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-600 text-sm font-medium select-none">K</span>
+                  <input type="number" value={item.price}
+                    onChange={e => update(i, "price", e.target.value)}
+                    placeholder="0"
+                    className="w-full rounded-xl border pl-8 pr-3 py-2.5 text-sm font-medium outline-none bg-white border-teal-200 text-gray-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 placeholder:text-gray-300"
+                  />
+                </div>
+              </div>
+            </div>
+            {totalAmt > 0 && (
+              <p className="text-xs text-teal-700 font-semibold text-right mt-2">{fmt(totalAmt)} MMK</p>
+            )}
+          </div>
+        );
+      })}
+
+      <div className="px-4 py-3 flex items-center justify-between">
+        <button type="button" onClick={add}
+          className="flex items-center gap-1.5 text-xs font-bold text-teal-600 hover:text-teal-800 border border-teal-200 hover:border-teal-400 rounded-xl px-3 py-1.5 transition-all">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Add Jelly Can · ပုံးဝါထည့်ရန်
+        </button>
+        {items.length > 0 && (
+          <span className="text-xs font-bold text-teal-700">Total: {fmt(panelTotal)} MMK</span>
         )}
       </div>
     </div>
@@ -486,7 +605,7 @@ function ShiftForm({ employeeName, onSubmit, onLogout, lang, setLang }: {
 }) {
   const [form, setForm] = useState<FormData>(EMPTY);
 
-  const setFuel = useCallback((key: keyof Omit<FormData, "expenses" | "actualCash" | "pipa">, field: string, val: string) => {
+  const setFuel = useCallback((key: keyof Omit<FormData, "expenses" | "actualCash" | "pipa" | "jellyCan">, field: string, val: string) => {
     setForm(f => ({ ...f, [key]: { ...(f[key] as object), [field]: val } }));
   }, []);
 
@@ -499,10 +618,11 @@ function ShiftForm({ employeeName, onSubmit, onLogout, lang, setLang }: {
   const l95   = n(form.fuel95.price)   > 0 ? t95 / n(form.fuel95.price)   : 0;
   const lPD   = n(form.premiumDiesel.price) > 0 ? tPD / n(form.premiumDiesel.price) : 0;
 
-  const tPipa = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
-  const tD    = n(form.diesel.cash);
+  const tPipa   = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
+  const tJelly  = form.jellyCan.reduce((s, item) => s + n(item.pieces) * n(item.price), 0);
+  const tD      = n(form.diesel.cash);
 
-  const grandTotal  = t92 + t95 + tPD + tPipa + tD;
+  const grandTotal  = t92 + t95 + tPD + tPipa + tJelly + tD;
   const actualCash  = n(form.actualCash);
   const totalExp    = form.expenses.reduce((s, i) => s + n(i.amount), 0);
   const netExpected = grandTotal - totalExp;
@@ -556,6 +676,9 @@ function ShiftForm({ employeeName, onSubmit, onLogout, lang, setLang }: {
             <PipaPanel
               items={form.pipa}
               onChange={items => setForm(f => ({ ...f, pipa: items }))} lang={lang} />
+            <JellyCanPanel
+              items={form.jellyCan}
+              onChange={items => setForm(f => ({ ...f, jellyCan: items }))} />
 
             {/* Diesel — cash only */}
             <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
@@ -625,8 +748,9 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
   const l92   = n(form.fuel92.price)   > 0 ? t92 / n(form.fuel92.price)   : 0;
   const l95   = n(form.fuel95.price)   > 0 ? t95 / n(form.fuel95.price)   : 0;
   const lPD   = n(form.premiumDiesel.price) > 0 ? tPD / n(form.premiumDiesel.price) : 0;
-  const tPipa = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
-  const tD    = n(form.diesel.cash);
+  const tPipa  = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
+  const tJelly = form.jellyCan.reduce((s, item) => s + n(item.pieces) * n(item.price), 0);
+  const tD     = n(form.diesel.cash);
   const totalExp   = form.expenses.reduce((s, i) => s + n(i.amount), 0);
   const actualCash = n(form.actualCash);
 
@@ -682,6 +806,27 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
                     </p>
                   </div>
                   <p className="text-sm font-bold text-amber-600">{fmt(total)} MMK</p>
+                </div>
+              );
+            })}
+            {form.jellyCan.map((item, i) => {
+              const pieces = n(item.pieces);
+              const litersPerCan = n(item.liters);
+              const price = n(item.price);
+              const total = pieces * price;
+              const totalLiters = pieces * litersPerCan;
+              if (total <= 0) return null;
+              return (
+                <div key={`jelly-${i}`} className="px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">
+                      Jelly Can · <span className="text-teal-600">{PIPA_PRODUCT_LABELS[item.product]}</span>
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {pieces} cans · {litersPerCan} L/can · {totalLiters.toLocaleString("en-US", { maximumFractionDigits: 2 })} L total · {fmt(price)} MMK/can
+                    </p>
+                  </div>
+                  <p className="text-sm font-bold text-teal-600">{fmt(total)} MMK</p>
                 </div>
               );
             })}
@@ -869,6 +1014,16 @@ export default function App() {
     })).filter(item => item.containers > 0 || item.price > 0);
     const tPipa = pipaItems.reduce((s, item) => s + item.total, 0);
     const totalPipaContainers = pipaItems.reduce((s, item) => s + item.containers, 0);
+
+    const jellyCanItems = formData.jellyCan.map(item => ({
+      product: item.product,
+      pieces: n(item.pieces),
+      liters_per_can: n(item.liters),
+      total_liters: n(item.pieces) * n(item.liters),
+      price: n(item.price),
+      total: n(item.pieces) * n(item.price),
+    })).filter(item => item.pieces > 0 || item.price > 0);
+
     const totalExp   = formData.expenses.reduce((s, i) => s + n(i.amount), 0);
     const actualCash = n(formData.actualCash);
 
@@ -890,6 +1045,7 @@ export default function App() {
         pipa_price:            pipaItems.length === 1 ? pipaItems[0].price : 0,
         pipa_total:            tPipa,
         pipa_items:            pipaItems,
+        jelly_can_items:       jellyCanItems,
         diesel_cash:           n(formData.diesel.cash),
         diesel_price:          n(formData.diesel.price),
       },
