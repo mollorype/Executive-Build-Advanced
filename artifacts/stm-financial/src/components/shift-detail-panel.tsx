@@ -157,6 +157,45 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
               total={shift.diesel_cash}
               isCashOnly
             />
+
+            {/* Jelly Can — itemized */}
+            {Array.isArray(shift.jelly_can_items) && shift.jelly_can_items.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-2 flex items-center gap-2">
+                  <span className="flex-1 h-px bg-slate-700/60 block" />
+                  Jelly Can — Itemized
+                  <span className="flex-1 h-px bg-slate-700/60 block" />
+                </p>
+                <div className="bg-slate-800/40 border border-teal-700/30 rounded-xl overflow-hidden">
+                  <div className="divide-y divide-slate-700/30">
+                    {shift.jelly_can_items.map((item, i) => (
+                      <div key={i} className="px-4 py-3 flex items-start justify-between gap-3 text-sm">
+                        <div className="min-w-0">
+                          <span className="text-teal-300 font-semibold">
+                            {item.product === "92" ? "Fuel 92" : item.product === "95" ? "Fuel 95" : item.product === "PD" ? "Premium Diesel" : "Diesel"}
+                          </span>
+                          <p className="text-slate-500 text-xs mt-0.5 tabular-nums">
+                            {item.pieces} cans &nbsp;·&nbsp; {item.liters_per_can} L/can &nbsp;·&nbsp; {item.total_liters.toLocaleString("en-US", { maximumFractionDigits: 1 })} L total
+                          </p>
+                          <p className="text-slate-600 text-xs mt-0.5 tabular-nums">
+                            {new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(item.price)} MMK/can
+                          </p>
+                        </div>
+                        <span className="text-teal-300 font-bold tabular-nums shrink-0">
+                          {new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(item.total)} MMK
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="px-4 py-3 border-t border-slate-700/50 bg-slate-800/60 flex justify-between text-sm">
+                    <span className="text-slate-400 font-semibold">Total Jelly Can</span>
+                    <span className="text-teal-400 font-bold tabular-nums">
+                      {mmk(shift.jelly_can_items.reduce((s, i) => s + i.total, 0))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Operational Expenses */}

@@ -758,7 +758,8 @@ function ShiftForm({ employeeName, onSubmit, onLogout, lang, setLang }: {
           <h3 className="text-xs font-bold text-amber-700 uppercase tracking-widest mb-3 flex items-center gap-2">
             <span className="w-4 h-px bg-amber-300 block" />{t(lang, "fuelProducts")}<span className="flex-1 h-px bg-amber-100 block" />
           </h3>
-          <div className="space-y-3">
+          {/* Fuel 92 / 95 / Premium Diesel — 3-up grid on wider screens */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <ProductCard label="Fuel 92" badge="92" color="bg-gradient-to-r from-blue-500 to-blue-600"
               totalAmount={form.fuel92.totalAmount} price={form.fuel92.price} total={t92} liters={l92}
               onTotalAmount={v => setFuel("fuel92", "totalAmount", v)} onPrice={v => setFuel("fuel92", "price", v)} lang={lang} />
@@ -768,6 +769,8 @@ function ShiftForm({ employeeName, onSubmit, onLogout, lang, setLang }: {
             <ProductCard label="Premium Diesel" badge="PD" color="bg-gradient-to-r from-purple-500 to-violet-600"
               totalAmount={form.premiumDiesel.totalAmount} price={form.premiumDiesel.price} total={tPD} liters={lPD}
               onTotalAmount={v => setFuel("premiumDiesel", "totalAmount", v)} onPrice={v => setFuel("premiumDiesel", "price", v)} lang={lang} />
+          </div>
+          <div className="space-y-3 mt-3">
             <PipaPanel
               items={form.pipa}
               onChange={items => setForm(f => ({ ...f, pipa: items }))} lang={lang} />
