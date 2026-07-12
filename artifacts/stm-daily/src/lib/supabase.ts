@@ -37,6 +37,8 @@ export interface ShiftPayload {
   };
   total_expenses: number;
   expenses_breakdown?: { name: string; amount: number }[];
+  additional_cash_items?: { name: string; amount: number }[];
+  additional_cash_total?: number;
   expected_total: number;
   actual_cash: number;
   variance: number;

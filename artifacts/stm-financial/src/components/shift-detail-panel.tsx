@@ -203,6 +203,32 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
             )}
           </div>
 
+          {/* Additional Cash */}
+          {Array.isArray(shift.additional_cash_items) && shift.additional_cash_items.length > 0 && (
+            <div>
+              <SectionHeader icon={<BadgeDollarSign className="w-3.5 h-3.5" />} label="Additional Cash" />
+              <div className="bg-slate-800/40 border border-emerald-700/30 rounded-xl overflow-hidden">
+                <div className="divide-y divide-slate-700/30">
+                  {shift.additional_cash_items.map((item, i) => (
+                    <div key={i} className="px-4 py-3 flex items-center justify-between text-sm">
+                      <span className="text-slate-300 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/70 shrink-0" />
+                        {item.name}
+                      </span>
+                      <span className="text-emerald-400 font-semibold tabular-nums">
+                        +{new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(item.amount)} MMK
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="px-4 py-3 border-t border-slate-700/50 bg-slate-800/60 flex justify-between text-sm">
+                  <span className="text-slate-400 font-semibold">Total Additional</span>
+                  <span className="text-emerald-400 font-bold tabular-nums">+{mmk(shift.additional_cash_total)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Cash Summary */}
           <div>
             <SectionHeader icon={<BadgeDollarSign className="w-3.5 h-3.5" />} label="Cash Summary" />

@@ -24,6 +24,7 @@ type Screen = "login" | "checking" | "denied" | "form" | "confirm" | "success";
 interface FuelRow { totalAmount: string; price: string; }
 interface DieselRow { cash: string; price: string; }
 interface ExpenseItem { name: string; amount: string; }
+interface AdditionalCashItem { name: string; amount: string; }
 type PipaProduct = "92" | "95" | "PD" | "D";
 interface PipaItem { product: PipaProduct; containers: string; price: string; }
 interface JellyCanItem { product: PipaProduct; pieces: string; liters: string; price: string; }
@@ -35,6 +36,7 @@ interface FormData {
   jellyCan: JellyCanItem[];
   diesel: DieselRow;
   expenses: ExpenseItem[];
+  additionalCash: AdditionalCashItem[];
   actualCash: string;
 }
 
@@ -66,6 +68,10 @@ const STRINGS = {
   netExpected:          { en: "Net Expected",              my: "ရှိရမည့်ငွေ" },
   grandTotalShort:      { en: "Grand Total",               my: "စုစုပေါင်းငွေပမာဏ" },
   actualCollected:      { en: "Actual Collected",          my: "ငွေသားပမာဏ" },
+  additionalCashLabel:  { en: "Additional Cash",           my: "နောက်ထပ်ငွေ" },
+  addCashEntry:         { en: "Add Entry",                 my: "ထည့်ရန်" },
+  cashName:             { en: "Description",               my: "အကြောင်းအရာ" },
+  totalAdditional:      { en: "Total Additional",          my: "စုစုပေါင်း နောက်ထပ်ငွေ" },
 } as const;
 
 function t(lang: Lang, key: keyof typeof STRINGS): string {
@@ -93,14 +99,15 @@ function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void 
 }
 
 const EMPTY: FormData = {
-  fuel92:        { totalAmount: "", price: "" },
-  fuel95:        { totalAmount: "", price: "" },
-  premiumDiesel: { totalAmount: "", price: "" },
-  pipa:          [],
-  jellyCan:      [],
-  diesel:        { cash: "", price: "" },
-  expenses:      [],
-  actualCash:    "",
+  fuel92:         { totalAmount: "", price: "" },
+  fuel95:         { totalAmount: "", price: "" },
+  premiumDiesel:  { totalAmount: "", price: "" },
+  pipa:           [],
+  jellyCan:       [],
+  diesel:         { cash: "", price: "" },
+  expenses:       [],
+  additionalCash: [],
+  actualCash:     "",
 };
 
 // ─── Input component ─────────────────────────────────────────────────────────
@@ -501,6 +508,93 @@ function ExpensesPanel({ items, onChange, lang }: {
   );
 }
 
+// ─── Additional Cash panel ────────────────────────────────────────────────────
+function AdditionalCashPanel({ items, onChange, lang }: {
+  items: AdditionalCashItem[];
+  onChange: (items: AdditionalCashItem[]) => void;
+  lang: Lang;
+}) {
+  const [name, setName] = useState("");
+  const [amount, setAmount] = useState("");
+
+  function addItem() {
+    if (!name.trim() && !amount) return;
+    onChange([...items, { name: name.trim(), amount }]);
+    setName(""); setAmount("");
+  }
+  function removeItem(idx: number) {
+    onChange(items.filter((_, i) => i !== idx));
+  }
+
+  const total = items.reduce((s, i) => s + n(i.amount), 0);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex gap-2">
+        <div className="flex-1 flex flex-col gap-1">
+          <label className="text-xs font-semibold text-emerald-800/70 uppercase tracking-wider">{t(lang, "cashName")}</label>
+          <input
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && addItem()}
+            placeholder="e.g. Bonus, Refund…"
+            className="w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none bg-white border-emerald-200 text-gray-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 placeholder:text-gray-300"
+          />
+        </div>
+        <div className="w-32 flex flex-col gap-1">
+          <label className="text-xs font-semibold text-emerald-800/70 uppercase tracking-wider">{t(lang, "amount")}</label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-600 text-sm font-medium select-none">K</span>
+            <input
+              type="number"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && addItem()}
+              placeholder="0"
+              className="w-full rounded-xl border pl-8 pr-3 py-2.5 text-sm font-medium outline-none bg-white border-emerald-200 text-gray-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 placeholder:text-gray-300"
+            />
+          </div>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-transparent uppercase tracking-wider select-none">Add</label>
+          <button
+            type="button"
+            onClick={addItem}
+            className="h-[42px] px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-green-500 text-white font-bold text-sm shadow-sm shadow-emerald-200 hover:from-emerald-600 hover:to-green-600 transition-all active:scale-95"
+          >
+            + {t(lang, "addCashEntry")}
+          </button>
+        </div>
+      </div>
+
+      {items.length > 0 && (
+        <div className="rounded-xl border border-emerald-100 overflow-hidden">
+          {items.map((item, idx) => (
+            <div key={idx} className={["flex items-center justify-between px-4 py-2.5 text-sm", idx > 0 ? "border-t border-emerald-50" : ""].join(" ")}>
+              <span className="font-medium text-gray-700">{item.name}</span>
+              <div className="flex items-center gap-3">
+                <span className="font-semibold text-emerald-700">+{fmt(n(item.amount))} MMK</span>
+                <button
+                  type="button"
+                  onClick={() => removeItem(idx)}
+                  className="w-6 h-6 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors text-xs font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+          <div className="flex justify-between items-center px-4 py-2.5 bg-emerald-50 border-t border-emerald-100">
+            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">{t(lang, "totalAdditional")}</span>
+            <span className="text-sm font-bold text-emerald-800">+{fmt(total)} MMK</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Login screen ─────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin, lang, setLang }: {
   onLogin: (name: string, email: string) => void;
@@ -618,11 +712,12 @@ function ShiftForm({ employeeName, onSubmit, onLogout, lang, setLang }: {
   const l95   = n(form.fuel95.price)   > 0 ? t95 / n(form.fuel95.price)   : 0;
   const lPD   = n(form.premiumDiesel.price) > 0 ? tPD / n(form.premiumDiesel.price) : 0;
 
-  const tPipa   = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
-  const tJelly  = form.jellyCan.reduce((s, item) => s + n(item.pieces) * n(item.price), 0);
-  const tD      = n(form.diesel.cash);
+  const tPipa       = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
+  const tJelly      = form.jellyCan.reduce((s, item) => s + n(item.pieces) * n(item.price), 0);
+  const tD          = n(form.diesel.cash);
+  const tAdditional = form.additionalCash.reduce((s, i) => s + n(i.amount), 0);
 
-  const grandTotal  = t92 + t95 + tPD + tPipa + tJelly + tD;
+  const grandTotal  = t92 + t95 + tPD + tPipa + tJelly + tD + tAdditional;
   const actualCash  = n(form.actualCash);
   const totalExp    = form.expenses.reduce((s, i) => s + n(i.amount), 0);
   const netExpected = grandTotal - totalExp;
@@ -711,6 +806,12 @@ function ShiftForm({ employeeName, onSubmit, onLogout, lang, setLang }: {
             <ExpensesPanel items={form.expenses} onChange={items => setForm(f => ({ ...f, expenses: items }))} lang={lang} />
           </div>
 
+          {/* Additional Cash — itemized */}
+          <div>
+            <p className="text-xs font-semibold text-emerald-700/80 uppercase tracking-wider mb-2">{t(lang, "additionalCashLabel")}</p>
+            <AdditionalCashPanel items={form.additionalCash} onChange={items => setForm(f => ({ ...f, additionalCash: items }))} lang={lang} />
+          </div>
+
           <div className="flex items-center justify-between bg-amber-50 rounded-xl px-4 py-2.5 border border-amber-100">
             <span className="text-xs font-semibold text-amber-700">Net Expected Cash</span>
             <span className="text-sm font-bold text-amber-800">{fmt(netExpected)} MMK</span>
@@ -748,11 +849,12 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
   const l92   = n(form.fuel92.price)   > 0 ? t92 / n(form.fuel92.price)   : 0;
   const l95   = n(form.fuel95.price)   > 0 ? t95 / n(form.fuel95.price)   : 0;
   const lPD   = n(form.premiumDiesel.price) > 0 ? tPD / n(form.premiumDiesel.price) : 0;
-  const tPipa  = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
-  const tJelly = form.jellyCan.reduce((s, item) => s + n(item.pieces) * n(item.price), 0);
-  const tD     = n(form.diesel.cash);
-  const totalExp   = form.expenses.reduce((s, i) => s + n(i.amount), 0);
-  const actualCash = n(form.actualCash);
+  const tPipa       = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
+  const tJelly      = form.jellyCan.reduce((s, item) => s + n(item.pieces) * n(item.price), 0);
+  const tD          = n(form.diesel.cash);
+  const tAdditional = form.additionalCash.reduce((s, i) => s + n(i.amount), 0);
+  const totalExp    = form.expenses.reduce((s, i) => s + n(i.amount), 0);
+  const actualCash  = n(form.actualCash);
 
   const rows = [
     { label: "Fuel 92",        liters: l92,  price: form.fuel92.price,         total: t92,   color: "text-blue-600" },
@@ -830,6 +932,27 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
                 </div>
               );
             })}
+            {form.additionalCash.map((item, i) => {
+              const amt = n(item.amount);
+              if (amt <= 0) return null;
+              return (
+                <div key={`add-${i}`} className="px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">
+                      <span className="text-emerald-600">+</span> {item.name || "Additional Cash"}
+                    </p>
+                    <p className="text-xs text-gray-400">Additional cash income</p>
+                  </div>
+                  <p className="text-sm font-bold text-emerald-600">+{fmt(amt)} MMK</p>
+                </div>
+              );
+            })}
+            {tAdditional > 0 && (
+              <div className="px-4 py-2 bg-emerald-50 flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Total Additional</span>
+                <span className="text-sm font-bold text-emerald-700">+{fmt(tAdditional)} MMK</span>
+              </div>
+            )}
             {tD > 0 && (
               <div className="px-4 py-3 flex items-center justify-between">
                 <div>
@@ -1024,6 +1147,11 @@ export default function App() {
       total: n(item.pieces) * n(item.price),
     })).filter(item => item.pieces > 0 || item.price > 0);
 
+    const additionalCashItems = formData.additionalCash
+      .map(e => ({ name: e.name.trim(), amount: n(e.amount) }))
+      .filter(e => e.name.length > 0 || e.amount > 0);
+    const totalAdditional = additionalCashItems.reduce((s, i) => s + i.amount, 0);
+
     const totalExp   = formData.expenses.reduce((s, i) => s + n(i.amount), 0);
     const actualCash = n(formData.actualCash);
 
@@ -1053,6 +1181,8 @@ export default function App() {
       expenses_breakdown: formData.expenses
         .map(e => ({ name: e.name.trim(), amount: n(e.amount) }))
         .filter(e => e.name.length > 0 || e.amount > 0),
+      additional_cash_items: additionalCashItems,
+      additional_cash_total: totalAdditional,
       expected_total:  grandTotal,
       actual_cash:     actualCash,
       variance:        difference,

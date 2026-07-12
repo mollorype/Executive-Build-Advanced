@@ -55,6 +55,8 @@ export function mapRowToShift(row: Record<string, unknown>): Shift {
     difference: (row[COLS.VARIANCE] as number) ?? 0,
     expenses: (row[COLS.TOTAL_EXPENSES] as number) ?? null,
     expenses_breakdown,
+    additional_cash_items: Array.isArray(row.additional_cash_items) ? (row.additional_cash_items as { name: string; amount: number }[]) : null,
+    additional_cash_total: typeof row.additional_cash_total === "number" ? row.additional_cash_total : null,
     fuel_92_liters: fuel.fuel_92_liters ?? null,
     fuel_92_price: fuel.fuel_92_price ?? null,
     fuel_92_total: fuel.fuel_92_total ?? null,
@@ -131,4 +133,7 @@ export type Shift = {
 
   expenses: number | null;
   expenses_breakdown: ExpenseItem[] | null;
+
+  additional_cash_items: { name: string; amount: number }[] | null;
+  additional_cash_total: number | null;
 };
