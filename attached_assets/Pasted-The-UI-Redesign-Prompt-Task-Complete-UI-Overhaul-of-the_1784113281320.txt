@@ -1,0 +1,24 @@
+The UI Redesign Prompt
+
+Task: Complete UI Overhaul of the Daily App (Ledger Entry) I need to completely redesign the Daily App UI. The current design is overly colorful, cluttered, and uses a side-by-side card layout that is hard to read. It must be updated to match the sleek, professional Dark Mode aesthetic of the main "Executive Dashboard" (using dark grays, subtle borders, and modern minimalism).
+
+1. Color Palette & Theming (Remove the Rainbow)
+
+Strip out all the current bright background colors (the solid blues, greens, purples, oranges, teals, and yellows).
+Implement a strict, clean Dark Mode theme.
+Use a dark, solid background (e.g., #0f111a or similar dark gray/blue-gray).
+Use subtle, semi-transparent panels or cards with thin, subtle borders to separate sections, rather than using heavy, solid background colors.
+2. Fuel Type Layout Change (Row-Based)
+
+Currently, "Fuel 92", "Fuel 95", and "Premium Diesel (PD)" are displayed as three squished cards side-by-side. I want to abandon this column layout.
+Redesign the fuel inputs as a vertical list of clean, full-width horizontal rows.
+Create one dedicated row container for Fuel 92. Below that, create a separate row container for Fuel 95. Below that, a separate row container for Premium Diesel (PD).
+Within each of these rows, align the input fields (for sales, liters, etc.) horizontally so the user reads them left-to-right.
+3. Input Fields & Typography Restyling
+
+Replace the heavy, pitch-black input boxes with modern, dark-themed input fields (e.g., dark gray backgrounds with subtle lighter gray borders on hover/focus).
+Ensure all text (including the Burmese labels) uses a clean, modern sans-serif font. Text should be high-contrast (white or light gray) for readability against the dark theme.
+Maintain the visual hierarchy: The fuel type name (e.g., "FUEL 92") should be distinct and easy to identify at the top-left of its respective row.
+4. Remaining Sections
+
+Apply this exact same clean, dark-mode, single-column row styling to the other sections down the page (Jelly Can, Diesel, Cash Summary). Keep them separated by subtle spacing or thin dividers, not bright colored headers.

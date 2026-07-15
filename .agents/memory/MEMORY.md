@@ -1,1 +1,2 @@
 - [Debt Tracker Architecture](debt-tracker.md) — Supabase tables + score logic + daily app wiring pattern
+- [STM Daily dark UI tokens](stm-daily-dark-ui.md) — dark overhaul complete; token set, fuel layout change, all screens done.

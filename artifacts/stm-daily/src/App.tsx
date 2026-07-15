@@ -161,14 +161,14 @@ function PipaPanel({ items, onChange, lang }: {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
-      <div className="px-4 py-2.5 flex items-center gap-2 bg-gradient-to-r from-amber-500 to-yellow-600">
-        <span className="text-xs font-bold text-white/90 uppercase tracking-widest">{t(lang, "pipa")}</span>
-        <span className="ml-auto text-[10px] text-white/70">1 {t(lang, "pipa")} = 215 L</span>
+    <div className="bg-[#161b22] rounded-2xl border border-[#30363d] overflow-hidden">
+      <div className="px-4 py-2.5 flex items-center gap-2 bg-[#1c2433] border-b border-[#30363d]">
+        <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">{t(lang, "pipa")}</span>
+        <span className="ml-auto text-[10px] text-gray-600">1 {t(lang, "pipa")} = 215 L</span>
       </div>
 
       {items.length === 0 && (
-        <p className="text-xs text-amber-400/70 text-center py-4">No {t(lang, "pipa")} entries — tap + to add one</p>
+        <p className="text-xs text-gray-600 text-center py-5">No {t(lang, "pipa")} entries — tap + to add one</p>
       )}
 
       {items.map((item, i) => {
@@ -176,16 +176,16 @@ function PipaPanel({ items, onChange, lang }: {
         const price = n(item.price);
         const total = containers * price;
         return (
-          <div key={i} className="px-4 pt-4 pb-3 border-b border-amber-50 last:border-0">
-            <div className="flex items-center gap-2 mb-2">
+          <div key={i} className="px-4 pt-4 pb-3 border-b border-[#30363d] last:border-0">
+            <div className="flex items-center gap-2 mb-3">
               <span className={`text-[10px] font-bold text-white rounded px-1.5 py-0.5 ${PIPA_COLORS[item.product]}`}>
                 {item.product}
               </span>
-              <span className="text-xs font-semibold text-gray-600">Entry {i + 1}</span>
+              <span className="text-xs font-semibold text-gray-500">Entry {i + 1}</span>
               <button
                 type="button"
                 onClick={() => remove(i)}
-                className="ml-auto text-red-400 hover:text-red-600 transition-colors p-0.5"
+                className="ml-auto text-gray-600 hover:text-red-400 transition-colors p-0.5"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -194,12 +194,12 @@ function PipaPanel({ items, onChange, lang }: {
             </div>
             <div className="grid grid-cols-3 gap-3">
               {/* Product dropdown */}
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider">Product</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Product</label>
                 <select
                   value={item.product}
                   onChange={e => update(i, "product", e.target.value as PipaProduct)}
-                  className="w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none transition-all bg-white border-amber-200 text-gray-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+                  className="w-full rounded-xl border px-3 py-3 text-sm font-semibold outline-none transition-all bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                 >
                   <option value="92">Fuel 92</option>
                   <option value="95">Fuel 95</option>
@@ -208,17 +208,17 @@ function PipaPanel({ items, onChange, lang }: {
                 </select>
               </div>
               {/* Containers */}
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider">Containers</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Containers</label>
                 <input
                   type="number"
                   value={item.containers}
                   onChange={e => update(i, "containers", e.target.value)}
                   placeholder="0"
-                  className="w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none transition-all bg-white border-amber-200 text-gray-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 placeholder:text-gray-300"
+                  className="w-full rounded-xl border px-3 py-3 text-base font-semibold outline-none transition-all tabular-nums bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-gray-700"
                 />
                 {containers > 0 && (
-                  <p className="text-[10px] text-amber-500 font-semibold">{(containers * 215).toLocaleString()} L</p>
+                  <p className="text-[10px] text-amber-400 font-semibold">{(containers * 215).toLocaleString()} L</p>
                 )}
               </div>
               {/* Price per pipa */}
@@ -230,7 +230,7 @@ function PipaPanel({ items, onChange, lang }: {
               />
             </div>
             {total > 0 && (
-              <p className="text-xs text-amber-700 font-semibold text-right mt-2">{fmt(total)} MMK</p>
+              <p className="text-xs text-amber-400 font-semibold text-right mt-2">{fmt(total)} MMK</p>
             )}
           </div>
         );
@@ -240,7 +240,7 @@ function PipaPanel({ items, onChange, lang }: {
         <button
           type="button"
           onClick={add}
-          className="flex items-center gap-1.5 text-xs font-bold text-amber-600 hover:text-amber-800 border border-amber-200 hover:border-amber-400 rounded-xl px-3 py-1.5 transition-all"
+          className="flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 border border-[#30363d] hover:border-amber-500/50 rounded-xl px-3 py-1.5 transition-all"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -248,7 +248,7 @@ function PipaPanel({ items, onChange, lang }: {
           {t(lang, "addPipaEntry")}
         </button>
         {items.length > 0 && (
-          <span className="text-xs font-bold text-amber-700">
+          <span className="text-xs font-bold text-amber-400">
             Total: {fmt(items.reduce((s, item) => s + n(item.containers) * n(item.price), 0))} MMK
           </span>
         )}
@@ -273,14 +273,14 @@ function JellyCanPanel({ items, onChange }: {
   const panelTotal = items.reduce((s, item) => s + n(item.pieces) * n(item.price), 0);
 
   return (
-    <div className="bg-white rounded-2xl border border-teal-100 shadow-sm overflow-hidden">
-      <div className="px-4 py-2.5 flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-600">
-        <span className="text-xs font-bold text-white/90 uppercase tracking-widest">Jelly Can · ပုံးဝါ</span>
-        <span className="ml-auto text-[10px] text-white/70">Manual L entry</span>
+    <div className="bg-[#161b22] rounded-2xl border border-[#30363d] overflow-hidden">
+      <div className="px-4 py-2.5 flex items-center gap-2 bg-[#1c2433] border-b border-[#30363d]">
+        <span className="text-xs font-bold text-teal-400 uppercase tracking-widest">Jelly Can · ပုံးဝါ</span>
+        <span className="ml-auto text-[10px] text-gray-600">Manual L entry</span>
       </div>
 
       {items.length === 0 && (
-        <p className="text-xs text-teal-400/70 text-center py-4">No jelly can entries — tap + to add one</p>
+        <p className="text-xs text-gray-600 text-center py-5">No jelly can entries — tap + to add one</p>
       )}
 
       {items.map((item, i) => {
@@ -290,14 +290,14 @@ function JellyCanPanel({ items, onChange }: {
         const totalLiters = pieces * litersPerCan;
         const totalAmt = pieces * price;
         return (
-          <div key={i} className="px-4 pt-4 pb-3 border-b border-teal-50 last:border-0">
-            <div className="flex items-center gap-2 mb-2">
+          <div key={i} className="px-4 pt-4 pb-3 border-b border-[#30363d] last:border-0">
+            <div className="flex items-center gap-2 mb-3">
               <span className={`text-[10px] font-bold text-white rounded px-1.5 py-0.5 ${PIPA_COLORS[item.product]}`}>
                 {item.product}
               </span>
-              <span className="text-xs font-semibold text-gray-600">Entry {i + 1}</span>
+              <span className="text-xs font-semibold text-gray-500">Entry {i + 1}</span>
               <button type="button" onClick={() => remove(i)}
-                className="ml-auto text-red-400 hover:text-red-600 transition-colors p-0.5">
+                className="ml-auto text-gray-600 hover:text-red-400 transition-colors p-0.5">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -305,53 +305,53 @@ function JellyCanPanel({ items, onChange }: {
             </div>
             {/* Row 1: Product + Pieces */}
             <div className="grid grid-cols-2 gap-3 mb-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-teal-800/70 uppercase tracking-wider">Product</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Product</label>
                 <select value={item.product}
                   onChange={e => update(i, "product", e.target.value as PipaProduct)}
-                  className="w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none bg-white border-teal-200 text-gray-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-100">
+                  className="w-full rounded-xl border px-3 py-3 text-sm font-semibold outline-none bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
                   <option value="92">Fuel 92</option>
                   <option value="95">Fuel 95</option>
                   <option value="PD">Premium Diesel</option>
                   <option value="D">Diesel</option>
                 </select>
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-teal-800/70 uppercase tracking-wider">Pieces (အရေအတွက်)</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Pieces (အရေအတွက်)</label>
                 <input type="number" value={item.pieces}
                   onChange={e => update(i, "pieces", e.target.value)}
                   placeholder="0"
-                  className="w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none bg-white border-teal-200 text-gray-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 placeholder:text-gray-300"
+                  className="w-full rounded-xl border px-3 py-3 text-base font-semibold outline-none tabular-nums bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-gray-700"
                 />
               </div>
             </div>
             {/* Row 2: Liters per can + Price */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-teal-800/70 uppercase tracking-wider">ပါရှိသောလီတာ (L/can)</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">ပါရှိသောလီတာ (L/can)</label>
                 <input type="number" value={item.liters}
                   onChange={e => update(i, "liters", e.target.value)}
                   placeholder="0"
-                  className="w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none bg-white border-teal-200 text-gray-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 placeholder:text-gray-300"
+                  className="w-full rounded-xl border px-3 py-3 text-base font-semibold outline-none tabular-nums bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-gray-700"
                 />
                 {totalLiters > 0 && (
-                  <p className="text-[10px] text-teal-600 font-semibold">{totalLiters.toLocaleString("en-US", { maximumFractionDigits: 2 })} L total</p>
+                  <p className="text-[10px] text-teal-400 font-semibold">{totalLiters.toLocaleString("en-US", { maximumFractionDigits: 2 })} L total</p>
                 )}
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-teal-800/70 uppercase tracking-wider">Price / Can (K)</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Price / Can (K)</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-600 text-sm font-medium select-none">K</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
                   <input type="number" value={item.price}
                     onChange={e => update(i, "price", e.target.value)}
                     placeholder="0"
-                    className="w-full rounded-xl border pl-8 pr-3 py-2.5 text-sm font-medium outline-none bg-white border-teal-200 text-gray-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 placeholder:text-gray-300"
+                    className="w-full rounded-xl border pl-8 pr-3 py-3 text-base font-semibold outline-none tabular-nums bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-gray-700"
                   />
                 </div>
               </div>
             </div>
             {totalAmt > 0 && (
-              <p className="text-xs text-teal-700 font-semibold text-right mt-2">{fmt(totalAmt)} MMK</p>
+              <p className="text-xs text-teal-400 font-semibold text-right mt-2">{fmt(totalAmt)} MMK</p>
             )}
           </div>
         );
@@ -359,53 +359,49 @@ function JellyCanPanel({ items, onChange }: {
 
       <div className="px-4 py-3 flex items-center justify-between">
         <button type="button" onClick={add}
-          className="flex items-center gap-1.5 text-xs font-bold text-teal-600 hover:text-teal-800 border border-teal-200 hover:border-teal-400 rounded-xl px-3 py-1.5 transition-all">
+          className="flex items-center gap-1.5 text-xs font-bold text-teal-400 hover:text-teal-300 border border-[#30363d] hover:border-teal-500/50 rounded-xl px-3 py-1.5 transition-all">
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
           Add Jelly Can · ပုံးဝါထည့်ရန်
         </button>
         {items.length > 0 && (
-          <span className="text-xs font-bold text-teal-700">Total: {fmt(panelTotal)} MMK</span>
+          <span className="text-xs font-bold text-teal-400">Total: {fmt(panelTotal)} MMK</span>
         )}
       </div>
     </div>
   );
 }
 
-// ─── Product card — enter Total Amount + Liter Price → auto-calculates liters ─
-function ProductCard({ label, badge, color, totalAmount, price, total, liters, onTotalAmount, onPrice, lang }: {
-  label: string; badge: string; color: string;
+// ─── Product card — full-width horizontal row, dark themed ────────────────────
+function ProductCard({ label, badge, accentText, accentBorder, totalAmount, price, total, liters, onTotalAmount, onPrice, lang }: {
+  label: string; badge: string; accentText: string; accentBorder: string;
   totalAmount: string; price: string; total: number; liters: number;
   onTotalAmount: (v: string) => void; onPrice: (v: string) => void;
   lang: Lang;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
-      <div className={`px-4 py-2.5 flex items-center gap-2 ${color}`}>
-        <span className="text-xs font-bold text-white/90 uppercase tracking-widest">{label}</span>
-        <span className="ml-auto text-xs font-bold bg-white/20 text-white rounded-full px-2 py-0.5">{badge}</span>
+    <div className={`bg-[#161b22] rounded-2xl border border-[#30363d] overflow-hidden border-l-4 ${accentBorder}`}>
+      <div className="px-5 pt-4 pb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className={`text-[11px] font-black px-2 py-0.5 rounded-md bg-white/5 ${accentText}`}>{badge}</span>
+          <span className="text-sm font-bold text-white uppercase tracking-wide">{label}</span>
+        </div>
+        {total > 0 && (
+          <span className={`text-base font-bold tabular-nums ${accentText}`}>
+            {fmt(total)} <span className="text-gray-600 text-xs font-normal">MMK</span>
+          </span>
+        )}
       </div>
-      <div className="p-4 grid grid-cols-3 gap-3">
+      <div className="px-5 pb-5 grid grid-cols-2 gap-4">
         <GoldInput label={t(lang, "totalAmount")} value={totalAmount} onChange={onTotalAmount} prefix="K" />
         <GoldInput label={t(lang, "literPrice")} value={price} onChange={onPrice} prefix="K" />
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider">{t(lang, "literSold")}</label>
-          <div className="relative">
-            <input
-              type="text"
-              value={liters > 0 ? liters.toLocaleString("en-US", { maximumFractionDigits: 2 }) : ""}
-              placeholder="Auto"
-              readOnly
-              className="w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none bg-amber-50 border-amber-200 text-amber-700 cursor-default"
-            />
-          </div>
-          {liters > 0 && <p className="text-[10px] text-amber-500 font-semibold">{liters.toLocaleString("en-US", { maximumFractionDigits: 2 })} L</p>}
-        </div>
       </div>
-      {total > 0 && (
-        <div className="px-4 pb-3 -mt-1">
-          <p className="text-xs text-amber-700 font-semibold text-right">{fmt(total)} MMK</p>
+      {liters > 0 && (
+        <div className="px-5 pb-4 -mt-2">
+          <p className={`text-xs font-semibold tabular-nums ${accentText}`}>
+            → {liters.toLocaleString("en-US", { maximumFractionDigits: 2 })} L sold
+          </p>
         </div>
       )}
     </div>
@@ -478,8 +474,8 @@ function ExpensesPanel({ items, onChange, lang }: {
     <div className="flex flex-col gap-3">
       <div className="flex gap-2">
         {/* Name / search combobox */}
-        <div className="flex-1 flex flex-col gap-1 relative" ref={wrapRef}>
-          <label className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider">{t(lang, "expenseName")}</label>
+        <div className="flex-1 flex flex-col gap-1.5 relative" ref={wrapRef}>
+          <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "expenseName")}</label>
           <div className="relative">
             <input
               type="text"
@@ -488,24 +484,24 @@ function ExpensesPanel({ items, onChange, lang }: {
               onKeyDown={e => e.key === "Enter" && addItem()}
               onFocus={() => { if (hits.length > 0) setShowDrop(true); }}
               placeholder="Search profile or free-type…"
-              className={`w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none bg-white text-gray-900 placeholder:text-gray-300 transition-colors ${
+              className={`w-full rounded-xl border px-3 py-3 text-sm font-medium outline-none bg-[#0d1117] text-white placeholder:text-gray-700 transition-colors ${
                 profileId
-                  ? "border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                  : "border-amber-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+                  ? "border-blue-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                  : "border-[#30363d] focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               }`}
             />
             {profileId && (
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold bg-blue-100 text-blue-600 rounded px-1.5 py-0.5 pointer-events-none">
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold bg-blue-500/20 text-blue-400 rounded px-1.5 py-0.5 pointer-events-none">
                 LINKED
               </span>
             )}
             {searching && !profileId && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400 text-xs animate-pulse">…</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs animate-pulse">…</span>
             )}
           </div>
           {showDrop && hits.length > 0 && (
-            <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-amber-200 rounded-xl shadow-xl overflow-hidden">
-              <p className="px-3 py-1.5 text-[10px] font-bold text-amber-700 uppercase tracking-widest bg-amber-50 border-b border-amber-100">
+            <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl overflow-hidden">
+              <p className="px-3 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-[#1c2433] border-b border-[#30363d]">
                 Debt Profiles
               </p>
               {hits.map(h => (
@@ -513,10 +509,10 @@ function ExpensesPanel({ items, onChange, lang }: {
                   key={h.id}
                   type="button"
                   onMouseDown={() => selectHit(h)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-amber-50 transition-colors text-left border-t border-amber-50"
+                  className="w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-[#1c2433] transition-colors text-left border-t border-[#30363d]"
                 >
-                  <span className="font-semibold text-gray-800">{h.name}</span>
-                  <span className="text-xs text-gray-400 ml-2 shrink-0">{h.relation}</span>
+                  <span className="font-semibold text-white">{h.name}</span>
+                  <span className="text-xs text-gray-500 ml-2 shrink-0">{h.relation}</span>
                 </button>
               ))}
             </div>
@@ -524,28 +520,28 @@ function ExpensesPanel({ items, onChange, lang }: {
         </div>
 
         {/* Amount */}
-        <div className="w-32 flex flex-col gap-1">
-          <label className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider">{t(lang, "amount")}</label>
+        <div className="w-32 flex flex-col gap-1.5">
+          <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "amount")}</label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600 text-sm font-medium select-none">K</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
             <input
               type="number"
               value={amount}
               onChange={e => setAmount(e.target.value)}
               onKeyDown={e => e.key === "Enter" && addItem()}
               placeholder="0"
-              className="w-full rounded-xl border pl-8 pr-3 py-2.5 text-sm font-medium outline-none bg-white border-amber-200 text-gray-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 placeholder:text-gray-300"
+              className="w-full rounded-xl border pl-8 pr-3 py-3 text-base font-semibold outline-none tabular-nums bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-gray-700"
             />
           </div>
         </div>
 
         {/* Add button */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-transparent uppercase tracking-wider select-none">Add</label>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] font-bold text-transparent uppercase tracking-widest select-none">Add</label>
           <button
             type="button"
             onClick={addItem}
-            className="h-[42px] px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-white font-bold text-sm shadow-sm shadow-amber-200 hover:from-amber-600 hover:to-yellow-600 transition-all active:scale-95"
+            className="h-[50px] px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition-all active:scale-95"
           >
             + Add
           </button>
@@ -554,8 +550,8 @@ function ExpensesPanel({ items, onChange, lang }: {
 
       {/* Linked profile: payment/debt toggle */}
       {profileId && (
-        <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 space-y-2">
-          <p className="text-[11px] font-bold text-blue-600">✓ Linked to Debt Tracker</p>
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-3 py-2.5 space-y-2">
+          <p className="text-[11px] font-bold text-blue-400">✓ Linked to Debt Tracker</p>
           <div className="flex gap-2">
             <button
               type="button"
@@ -563,7 +559,7 @@ function ExpensesPanel({ items, onChange, lang }: {
               className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold border transition-all ${
                 txnType === "payment"
                   ? "bg-emerald-500 text-white border-emerald-500"
-                  : "bg-white text-gray-500 border-gray-200 hover:text-gray-700"
+                  : "bg-transparent text-gray-500 border-[#30363d] hover:text-gray-300"
               }`}
             >
               ↓ Payment (reduce debt)
@@ -574,7 +570,7 @@ function ExpensesPanel({ items, onChange, lang }: {
               className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold border transition-all ${
                 txnType === "debt"
                   ? "bg-red-500 text-white border-red-500"
-                  : "bg-white text-gray-500 border-gray-200 hover:text-gray-700"
+                  : "bg-transparent text-gray-500 border-[#30363d] hover:text-gray-300"
               }`}
             >
               ↑ Add Debt (increase balance)
@@ -585,34 +581,34 @@ function ExpensesPanel({ items, onChange, lang }: {
 
       {/* Item list */}
       {items.length > 0 && (
-        <div className="rounded-xl border border-amber-100 overflow-hidden">
+        <div className="rounded-xl border border-[#30363d] overflow-hidden">
           {items.map((item, idx) => (
-            <div key={idx} className={["flex items-center justify-between px-4 py-2.5 text-sm", idx > 0 ? "border-t border-amber-50" : ""].join(" ")}>
+            <div key={idx} className={["flex items-center justify-between px-4 py-2.5 text-sm bg-[#161b22]", idx > 0 ? "border-t border-[#30363d]" : ""].join(" ")}>
               <div className="flex items-center gap-2 min-w-0">
-                <span className="font-medium text-gray-700 truncate">{item.name}</span>
+                <span className="font-medium text-gray-300 truncate">{item.name}</span>
                 {item.profileId && (
                   <span className={`text-[9px] font-bold rounded px-1 py-0.5 shrink-0 ${
-                    item.txnType === "debt" ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"
+                    item.txnType === "debt" ? "bg-red-500/20 text-red-400" : "bg-emerald-500/20 text-emerald-400"
                   }`}>
                     {item.txnType === "debt" ? "↑ DEBT" : "↓ PAY"}
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-3 shrink-0">
-                <span className="font-semibold text-amber-700">{fmt(n(item.amount))} MMK</span>
+                <span className="font-semibold text-amber-400 tabular-nums">{fmt(n(item.amount))} MMK</span>
                 <button
                   type="button"
                   onClick={() => removeItem(idx)}
-                  className="w-6 h-6 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors text-xs font-bold"
+                  className="w-6 h-6 flex items-center justify-center rounded-full bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors text-xs font-bold"
                 >
                   ✕
                 </button>
               </div>
             </div>
           ))}
-          <div className="flex justify-between items-center px-4 py-2.5 bg-amber-50 border-t border-amber-100">
-            <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">{t(lang, "totalExpenses")}</span>
-            <span className="text-sm font-bold text-amber-800">{fmt(total)} MMK</span>
+          <div className="flex justify-between items-center px-4 py-2.5 bg-[#1c2433] border-t border-[#30363d]">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t(lang, "totalExpenses")}</span>
+            <span className="text-sm font-bold text-amber-400 tabular-nums">{fmt(total)} MMK</span>
           </div>
         </div>
       )}
@@ -637,44 +633,44 @@ function LoginScreen({ onLogin, lang, setLang }: {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-yellow-50 to-white flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-[#0f111a] flex flex-col items-center justify-center px-4">
       <div className="absolute top-4 right-4">
         <LangToggle lang={lang} setLang={setLang} />
       </div>
       <div className="mb-8 text-center">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-400 to-yellow-600 shadow-lg shadow-amber-200 mb-4">
-          <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-blue-600/20 mb-4">
+          <svg className="w-10 h-10 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2M12 2a10 10 0 100 20A10 10 0 0012 2z" />
           </svg>
         </div>
-        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">STM <span className="text-amber-600">Daily</span></h1>
+        <h1 className="text-3xl font-bold text-white tracking-tight">STM <span className="text-blue-400">Daily</span></h1>
         <p className="text-sm text-gray-500 mt-1">Daily Shift Report Portal</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white rounded-3xl shadow-xl shadow-amber-100 border border-amber-100 p-8">
-        <h2 className="text-lg font-bold text-gray-800 mb-1">{t(lang, "signInTitle")}</h2>
-        <p className="text-sm text-gray-400 mb-6">Enter your work email to start your shift report.</p>
+      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-[#161b22] rounded-2xl border border-[#30363d] p-8">
+        <h2 className="text-lg font-bold text-white mb-1">{t(lang, "signInTitle")}</h2>
+        <p className="text-sm text-gray-500 mb-6">Enter your work email to start your shift report.</p>
 
-        <label className="block text-xs font-semibold text-amber-700 uppercase tracking-wider mb-1.5">{t(lang, "workEmail")}</label>
+        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">{t(lang, "workEmail")}</label>
         <input
           type="email"
           value={email}
           onChange={e => { setEmail(e.target.value); setError(""); }}
           placeholder="you@gmail.com"
-          className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-100 transition-all placeholder:text-gray-300"
+          className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-gray-700"
           autoFocus
           required
         />
-        {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
+        {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
 
         <button
           type="submit"
-          className="mt-5 w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-bold rounded-xl py-3 text-sm shadow-md shadow-amber-200 transition-all active:scale-[0.98]"
+          className="mt-5 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl py-3 text-sm transition-all active:scale-[0.98]"
         >
           Continue →
         </button>
       </form>
-      <p className="text-xs text-gray-400 mt-6">STM Financial Systems · Confidential</p>
+      <p className="text-xs text-gray-700 mt-6">STM Financial Systems · Confidential</p>
     </div>
   );
 }
@@ -682,10 +678,10 @@ function LoginScreen({ onLogin, lang, setLang }: {
 // ─── Checking screen ──────────────────────────────────────────────────────────
 function CheckingScreen() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-white flex items-center justify-center">
+    <div className="min-h-screen bg-[#0f111a] flex items-center justify-center">
       <div className="text-center">
-        <div className="w-12 h-12 border-4 border-amber-200 border-t-amber-500 rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-amber-700 font-semibold">Verifying access…</p>
+        <div className="w-12 h-12 border-4 border-[#30363d] border-t-blue-500 rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-gray-400 font-semibold">Verifying access…</p>
       </div>
     </div>
   );
@@ -694,20 +690,20 @@ function CheckingScreen() {
 // ─── Access Denied screen ─────────────────────────────────────────────────────
 function DeniedScreen({ email, onBack }: { email: string; onBack: () => void }) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-white flex flex-col items-center justify-center px-4 text-center">
-      <div className="w-20 h-20 rounded-3xl bg-red-100 flex items-center justify-center mb-6">
-        <svg className="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <div className="min-h-screen bg-[#0f111a] flex flex-col items-center justify-center px-4 text-center">
+      <div className="w-20 h-20 rounded-3xl bg-red-500/10 flex items-center justify-center mb-6">
+        <svg className="w-10 h-10 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
         </svg>
       </div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Not Granted</h2>
+      <h2 className="text-2xl font-bold text-white mb-2">Access Not Granted</h2>
       <p className="text-gray-500 text-sm mb-1">
-        <span className="font-semibold text-gray-700">{email}</span> is not on the approved list.
+        <span className="font-semibold text-gray-300">{email}</span> is not on the approved list.
       </p>
-      <p className="text-gray-400 text-sm mb-8">Contact your manager to get access.</p>
+      <p className="text-gray-600 text-sm mb-8">Contact your manager to get access.</p>
       <button
         onClick={onBack}
-        className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white font-bold rounded-xl px-8 py-3 text-sm shadow-md shadow-amber-200"
+        className="bg-[#161b22] border border-[#30363d] hover:border-gray-500 text-gray-300 hover:text-white font-bold rounded-xl px-8 py-3 text-sm transition-colors"
       >
         ← Try a Different Email
       </button>
@@ -752,24 +748,24 @@ function ShiftForm({ employeeName, onSubmit, onLogout, lang, setLang }: {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white">
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-amber-100 px-4 py-3 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center shrink-0">
-          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <div className="min-h-screen bg-[#0f111a]">
+      <div className="sticky top-0 z-10 bg-[#0f111a]/95 backdrop-blur border-b border-[#30363d] px-4 py-3 flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
+          <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2M12 2a10 10 0 100 20A10 10 0 0012 2z" />
           </svg>
         </div>
         <div>
-          <p className="text-xs text-amber-700 font-semibold uppercase tracking-widest">STM Daily</p>
-          <p className="text-sm font-bold text-gray-900 capitalize">{employeeName}'s Shift Report</p>
+          <p className="text-xs text-gray-500 font-semibold uppercase tracking-widest">STM Daily</p>
+          <p className="text-sm font-bold text-white capitalize">{employeeName}'s Shift Report</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <p className="text-xs text-gray-400">{new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
+          <p className="text-xs text-gray-600">{new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
           <LangToggle lang={lang} setLang={setLang} />
           <button
             type="button"
             onClick={onLogout}
-            className="text-xs text-amber-700/60 hover:text-amber-800 font-semibold border border-amber-200 hover:border-amber-300 rounded-lg px-2.5 py-1 transition-colors"
+            className="text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1 transition-colors"
           >
             Switch User
           </button>
@@ -778,18 +774,18 @@ function ShiftForm({ employeeName, onSubmit, onLogout, lang, setLang }: {
 
       <form onSubmit={handleSubmit} className="max-w-2xl mx-auto px-4 py-6 space-y-4">
         <div>
-          <h3 className="text-xs font-bold text-amber-700 uppercase tracking-widest mb-3 flex items-center gap-2">
-            <span className="w-4 h-px bg-amber-300 block" />{t(lang, "fuelProducts")}<span className="flex-1 h-px bg-amber-100 block" />
+          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <span className="flex-1 h-px bg-[#30363d] block" />{t(lang, "fuelProducts")}<span className="flex-1 h-px bg-[#30363d] block" />
           </h3>
-          {/* Fuel 92 / 95 / Premium Diesel — 3-up grid on wider screens */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <ProductCard label="Fuel 92" badge="92" color="bg-gradient-to-r from-blue-500 to-blue-600"
+          {/* Fuel rows — full-width vertical stack */}
+          <div className="space-y-3">
+            <ProductCard label="Fuel 92" badge="92" accentText="text-blue-400" accentBorder="border-l-blue-500"
               totalAmount={form.fuel92.totalAmount} price={form.fuel92.price} total={t92} liters={l92}
               onTotalAmount={v => setFuel("fuel92", "totalAmount", v)} onPrice={v => setFuel("fuel92", "price", v)} lang={lang} />
-            <ProductCard label="Fuel 95" badge="95" color="bg-gradient-to-r from-green-500 to-emerald-600"
+            <ProductCard label="Fuel 95" badge="95" accentText="text-emerald-400" accentBorder="border-l-emerald-500"
               totalAmount={form.fuel95.totalAmount} price={form.fuel95.price} total={t95} liters={l95}
               onTotalAmount={v => setFuel("fuel95", "totalAmount", v)} onPrice={v => setFuel("fuel95", "price", v)} lang={lang} />
-            <ProductCard label="Premium Diesel" badge="PD" color="bg-gradient-to-r from-purple-500 to-violet-600"
+            <ProductCard label="Premium Diesel" badge="PD" accentText="text-purple-400" accentBorder="border-l-purple-500"
               totalAmount={form.premiumDiesel.totalAmount} price={form.premiumDiesel.price} total={tPD} liters={lPD}
               onTotalAmount={v => setFuel("premiumDiesel", "totalAmount", v)} onPrice={v => setFuel("premiumDiesel", "price", v)} lang={lang} />
           </div>
@@ -802,47 +798,49 @@ function ShiftForm({ employeeName, onSubmit, onLogout, lang, setLang }: {
               onChange={items => setForm(f => ({ ...f, jellyCan: items }))} />
 
             {/* Diesel — cash only */}
-            <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
-              <div className="px-4 py-2.5 flex items-center gap-2 bg-gradient-to-r from-orange-500 to-red-500">
-                <span className="text-xs font-bold text-white/90 uppercase tracking-widest">Diesel</span>
-                <span className="ml-auto text-xs font-bold bg-white/20 text-white rounded-full px-2 py-0.5">D</span>
+            <div className="bg-[#161b22] rounded-2xl border border-[#30363d] border-l-4 border-l-orange-500 overflow-hidden">
+              <div className="px-5 pt-4 pb-2 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[11px] font-black px-2 py-0.5 rounded-md bg-white/5 text-orange-400">D</span>
+                  <span className="text-sm font-bold text-white uppercase tracking-wide">Diesel</span>
+                </div>
+                {tD > 0 && <span className="text-base font-bold tabular-nums text-orange-400">{fmt(tD)} <span className="text-gray-600 text-xs font-normal">MMK</span></span>}
               </div>
-              <div className="p-4 grid grid-cols-2 gap-3">
+              <div className="px-5 pb-5 grid grid-cols-2 gap-4">
                 <GoldInput label={t(lang, "cashAmount")} value={form.diesel.cash} onChange={v => setFuel("diesel", "cash", v)} prefix="K" />
                 <GoldInput label="Price / L" value={form.diesel.price} onChange={v => setFuel("diesel", "price", v)} prefix="K" />
               </div>
-              {tD > 0 && <div className="px-4 pb-3 -mt-1"><p className="text-xs text-amber-700 font-semibold text-right">{fmt(tD)} MMK cash</p></div>}
             </div>
           </div>
         </div>
 
         {/* Grand Total */}
-        <div className="bg-gradient-to-r from-amber-400 to-yellow-500 rounded-2xl p-4 text-white shadow-md shadow-amber-200">
-          <p className="text-xs font-bold uppercase tracking-widest opacity-80">{t(lang, "grandTotalLabel")}</p>
-          <p className="text-3xl font-bold mt-1">{fmt(grandTotal)} <span className="text-sm font-medium opacity-80">MMK</span></p>
+        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">{t(lang, "grandTotalLabel")}</p>
+          <p className="text-3xl font-bold mt-1.5 text-white tabular-nums">{fmt(grandTotal)} <span className="text-base font-normal text-gray-500">MMK</span></p>
         </div>
 
         {/* Cash Summary */}
-        <div className="bg-white rounded-2xl border border-amber-100 shadow-sm p-4 space-y-4">
-          <h3 className="text-xs font-bold text-amber-700 uppercase tracking-widest">Cash Summary</h3>
+        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
+          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Cash Summary</h3>
 
           {/* Expenses — itemized */}
           <div>
-            <p className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider mb-2">{t(lang, "operationalExpenses")}</p>
+            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">{t(lang, "operationalExpenses")}</p>
             <ExpensesPanel items={form.expenses} onChange={items => setForm(f => ({ ...f, expenses: items }))} lang={lang} />
           </div>
 
-          <div className="flex items-center justify-between bg-amber-50 rounded-xl px-4 py-2.5 border border-amber-100">
-            <span className="text-xs font-semibold text-amber-700">Net Expected Cash</span>
-            <span className="text-sm font-bold text-amber-800">{fmt(netExpected)} MMK</span>
+          <div className="flex items-center justify-between bg-[#1c2433] rounded-xl px-4 py-2.5 border border-[#30363d]">
+            <span className="text-xs font-semibold text-gray-400">Net Expected Cash</span>
+            <span className="text-sm font-bold text-white tabular-nums">{fmt(netExpected)} MMK</span>
           </div>
           <GoldInput label={t(lang, "actualCash")} value={form.actualCash} onChange={v => setForm(f => ({ ...f, actualCash: v }))} placeholder="0" prefix="K" />
           <div className={["flex items-center justify-between rounded-xl px-4 py-3 border",
-            difference === 0 ? "bg-gray-50 border-gray-200" : difference > 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
+            difference === 0 ? "bg-[#1c2433] border-[#30363d]" : difference > 0 ? "bg-emerald-500/10 border-emerald-500/30" : "bg-red-500/10 border-red-500/30"
           ].join(" ")}>
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-600">{t(lang, "difference")}</span>
-            <span className={["text-base font-bold",
-              difference === 0 ? "text-gray-500" : difference > 0 ? "text-green-600" : "text-red-600"
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-500">{t(lang, "difference")}</span>
+            <span className={["text-base font-bold tabular-nums",
+              difference === 0 ? "text-gray-400" : difference > 0 ? "text-emerald-400" : "text-red-400"
             ].join(" ")}>
               {form.actualCash ? fmtSigned(difference) : "—"}
             </span>
@@ -850,7 +848,7 @@ function ShiftForm({ employeeName, onSubmit, onLogout, lang, setLang }: {
         </div>
 
         <button type="submit"
-          className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-bold rounded-2xl py-4 text-base shadow-lg shadow-amber-200 transition-all active:scale-[0.98] mt-2">
+          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98] mt-2">
           {t(lang, "reviewSubmit")}
         </button>
       </form>
@@ -876,36 +874,36 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
   const actualCash  = n(form.actualCash);
 
   const rows = [
-    { label: "Fuel 92",        liters: l92,  price: form.fuel92.price,         total: t92,   color: "text-blue-600" },
-    { label: "Fuel 95",        liters: l95,  price: form.fuel95.price,         total: t95,   color: "text-green-600" },
-    { label: "Premium Diesel", liters: lPD,  price: form.premiumDiesel.price,  total: tPD,   color: "text-purple-600" },
+    { label: "Fuel 92",        liters: l92,  price: form.fuel92.price,         total: t92,   color: "text-blue-400" },
+    { label: "Fuel 95",        liters: l95,  price: form.fuel95.price,         total: t95,   color: "text-emerald-400" },
+    { label: "Premium Diesel", liters: lPD,  price: form.premiumDiesel.price,  total: tPD,   color: "text-purple-400" },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white">
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-amber-100 px-4 py-3 flex items-center gap-3">
-        <button onClick={onBack} className="text-amber-600 text-sm font-semibold flex items-center gap-1 hover:text-amber-800 transition-colors">← Back</button>
-        <p className="text-sm font-bold text-gray-900 mx-auto">Review Submission</p>
+    <div className="min-h-screen bg-[#0f111a]">
+      <div className="sticky top-0 z-10 bg-[#0f111a]/95 backdrop-blur border-b border-[#30363d] px-4 py-3 flex items-center gap-3">
+        <button onClick={onBack} className="text-gray-400 hover:text-white text-sm font-semibold flex items-center gap-1 transition-colors">← Back</button>
+        <p className="text-sm font-bold text-white mx-auto">Review Submission</p>
         <div className="w-14" />
       </div>
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
-        <div className="bg-white rounded-2xl border border-amber-100 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-            <span className="text-lg font-bold text-amber-700">{employeeName[0].toUpperCase()}</span>
+        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center">
+            <span className="text-lg font-bold text-blue-400">{employeeName[0].toUpperCase()}</span>
           </div>
           <div>
-            <p className="font-bold text-gray-900 capitalize">{employeeName}</p>
-            <p className="text-xs text-gray-400">{email} · {new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+            <p className="font-bold text-white capitalize">{employeeName}</p>
+            <p className="text-xs text-gray-500">{email} · {new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-amber-100 overflow-hidden">
-          <div className="px-4 py-3 border-b border-amber-50"><h3 className="text-xs font-bold text-amber-700 uppercase tracking-widest">Products</h3></div>
-          <div className="divide-y divide-amber-50">
+        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#30363d]"><h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Products</h3></div>
+          <div className="divide-y divide-[#30363d]">
             {rows.map(r => r.total > 0 && (
               <div key={r.label} className="px-4 py-3 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-800">{r.label}</p>
+                  <p className="text-sm font-semibold text-white">{r.label}</p>
                   <p className="text-xs text-gray-400">{r.liters.toLocaleString("en-US", { maximumFractionDigits: 2 })} L · {fmt(n(r.price))} MMK/L</p>
                 </div>
                 <p className={`text-sm font-bold ${r.color}`}>{fmt(r.total)} MMK</p>
@@ -919,14 +917,14 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
               return (
                 <div key={`pipa-${i}`} className="px-4 py-3 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-gray-800">
-                      Pipa · <span className="text-amber-600">{PIPA_PRODUCT_LABELS[item.product]}</span>
+                    <p className="text-sm font-semibold text-white">
+                      Pipa · <span className="text-amber-400">{PIPA_PRODUCT_LABELS[item.product]}</span>
                     </p>
                     <p className="text-xs text-gray-400">
                       {containers} containers · {(containers * 215).toLocaleString()} L · {fmt(price)} MMK/pipa
                     </p>
                   </div>
-                  <p className="text-sm font-bold text-amber-600">{fmt(total)} MMK</p>
+                  <p className="text-sm font-bold text-amber-400">{fmt(total)} MMK</p>
                 </div>
               );
             })}
@@ -940,24 +938,24 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
               return (
                 <div key={`jelly-${i}`} className="px-4 py-3 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-gray-800">
-                      Jelly Can · <span className="text-teal-600">{PIPA_PRODUCT_LABELS[item.product]}</span>
+                    <p className="text-sm font-semibold text-white">
+                      Jelly Can · <span className="text-teal-400">{PIPA_PRODUCT_LABELS[item.product]}</span>
                     </p>
                     <p className="text-xs text-gray-400">
                       {pieces} cans · {litersPerCan} L/can · {totalLiters.toLocaleString("en-US", { maximumFractionDigits: 2 })} L total · {fmt(price)} MMK/can
                     </p>
                   </div>
-                  <p className="text-sm font-bold text-teal-600">{fmt(total)} MMK</p>
+                  <p className="text-sm font-bold text-teal-400">{fmt(total)} MMK</p>
                 </div>
               );
             })}
             {tD > 0 && (
               <div className="px-4 py-3 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-800">Diesel</p>
+                  <p className="text-sm font-semibold text-white">Diesel</p>
                   <p className="text-xs text-gray-400">Cash only · {fmt(n(form.diesel.price))} MMK/L</p>
                 </div>
-                <p className="text-sm font-bold text-orange-600">{fmt(tD)} MMK</p>
+                <p className="text-sm font-bold text-orange-400">{fmt(tD)} MMK</p>
               </div>
             )}
           </div>
@@ -965,39 +963,39 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
 
         {/* Expenses breakdown */}
         {form.expenses.length > 0 && (
-          <div className="bg-white rounded-2xl border border-amber-100 overflow-hidden">
-            <div className="px-4 py-3 border-b border-amber-50"><h3 className="text-xs font-bold text-amber-700 uppercase tracking-widest">Expenses</h3></div>
-            <div className="divide-y divide-amber-50">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-2xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-[#30363d]"><h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Expenses</h3></div>
+            <div className="divide-y divide-[#30363d]">
               {form.expenses.map((exp, idx) => (
                 <div key={idx} className="px-4 py-3 flex justify-between text-sm">
-                  <span className="text-gray-600">{exp.name}</span>
-                  <span className="font-semibold text-amber-700">−{fmt(n(exp.amount))} MMK</span>
+                  <span className="text-gray-400">{exp.name}</span>
+                  <span className="font-semibold text-red-400">−{fmt(n(exp.amount))} MMK</span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        <div className="bg-white rounded-2xl border border-amber-100 overflow-hidden">
-          <div className="px-4 py-3 border-b border-amber-50"><h3 className="text-xs font-bold text-amber-700 uppercase tracking-widest">Cash Summary</h3></div>
-          <div className="divide-y divide-amber-50">
-            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "grandTotalShort")}</span><span className="font-bold text-gray-900">{fmt(grandTotal)} MMK</span></div>
-            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "totalExpenses")}</span><span className="font-semibold text-amber-700">−{fmt(totalExp)} MMK</span></div>
-            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "netExpected")}</span><span className="font-bold text-gray-900">{fmt(grandTotal - totalExp)} MMK</span></div>
-            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "actualCollected")}</span><span className="font-bold text-gray-900">{fmt(actualCash)} MMK</span></div>
-            <div className={["px-4 py-3 flex justify-between text-sm font-bold", difference === 0 ? "bg-gray-50" : difference > 0 ? "bg-green-50" : "bg-red-50"].join(" ")}>
-              <span className={difference >= 0 ? "text-green-700" : "text-red-700"}>{t(lang, "difference")}</span>
-              <span className={difference >= 0 ? "text-green-700" : "text-red-700"}>{fmtSigned(difference)}</span>
+        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#30363d]"><h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Cash Summary</h3></div>
+          <div className="divide-y divide-[#30363d]">
+            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "grandTotalShort")}</span><span className="font-bold text-white tabular-nums">{fmt(grandTotal)} MMK</span></div>
+            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "totalExpenses")}</span><span className="font-semibold text-red-400 tabular-nums">−{fmt(totalExp)} MMK</span></div>
+            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "netExpected")}</span><span className="font-bold text-white tabular-nums">{fmt(grandTotal - totalExp)} MMK</span></div>
+            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "actualCollected")}</span><span className="font-bold text-white tabular-nums">{fmt(actualCash)} MMK</span></div>
+            <div className={["px-4 py-3 flex justify-between text-sm font-bold", difference === 0 ? "bg-[#1c2433]" : difference > 0 ? "bg-emerald-500/10" : "bg-red-500/10"].join(" ")}>
+              <span className={difference >= 0 ? "text-emerald-400" : "text-red-400"}>{t(lang, "difference")}</span>
+              <span className={["tabular-nums", difference >= 0 ? "text-emerald-400" : "text-red-400"].join(" ")}>{fmtSigned(difference)}</span>
             </div>
           </div>
         </div>
 
         <button onClick={onConfirm} disabled={submitting}
-          className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 disabled:opacity-60 text-white font-bold rounded-2xl py-4 text-base shadow-lg shadow-amber-200 transition-all active:scale-[0.98]">
+          className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98]">
           {submitting ? "Submitting…" : "Confirm & Submit ✓"}
         </button>
         <button onClick={onBack} disabled={submitting}
-          className="w-full text-amber-600 font-semibold py-2 text-sm hover:text-amber-800 transition-colors">
+          className="w-full text-gray-500 font-semibold py-2 text-sm hover:text-white transition-colors">
           ← Go back and edit
         </button>
       </div>
@@ -1008,23 +1006,23 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
 // ─── Success screen ───────────────────────────────────────────────────────────
 function SuccessScreen({ employeeName, onNewShift }: { employeeName: string; onNewShift: () => void }) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-yellow-50 to-white flex flex-col items-center justify-center px-4 text-center">
+    <div className="min-h-screen bg-[#0f111a] flex flex-col items-center justify-center px-4 text-center">
       <div className="relative mb-8">
-        <div className="success-ring w-28 h-28 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 shadow-2xl shadow-amber-300 flex items-center justify-center">
-          <svg className="w-14 h-14 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <div className="success-ring w-28 h-28 rounded-full bg-blue-600/20 border-2 border-blue-500/30 flex items-center justify-center">
+          <svg className="w-14 h-14 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
         {["top-0 right-0", "bottom-2 left-0", "top-4 -left-4", "-top-2 left-8"].map((pos, i) => (
-          <div key={i} className={`absolute ${pos} w-3 h-3 bg-amber-400 rounded-full float-up float-up-${i + 1}`} style={{ animationDelay: `${i * 0.1 + 0.3}s` }} />
+          <div key={i} className={`absolute ${pos} w-3 h-3 bg-blue-400/60 rounded-full float-up float-up-${i + 1}`} style={{ animationDelay: `${i * 0.1 + 0.3}s` }} />
         ))}
       </div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-2 float-up float-up-1">Shift <span className="gold-shimmer">Submitted!</span></h1>
-      <p className="text-gray-500 mb-1 float-up float-up-2 capitalize">Great work, <strong>{employeeName}</strong>.</p>
+      <h1 className="text-3xl font-bold text-white mb-2 float-up float-up-1">Shift <span className="text-blue-400">Submitted!</span></h1>
+      <p className="text-gray-400 mb-1 float-up float-up-2 capitalize">Great work, <strong className="text-white">{employeeName}</strong>.</p>
       <p className="text-sm text-gray-400 mb-8 float-up float-up-3">Your shift report has been recorded successfully.</p>
       <div className="float-up float-up-4 space-y-3 w-full max-w-xs">
         <button onClick={onNewShift}
-          className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-bold rounded-2xl py-3.5 shadow-lg shadow-amber-200 transition-all active:scale-[0.98]">
+          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl py-3.5 transition-all active:scale-[0.98]">
           Submit Another Shift
         </button>
         <p className="text-xs text-gray-400">STM Financial Systems · {new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</p>
