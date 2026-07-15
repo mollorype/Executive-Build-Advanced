@@ -87,11 +87,11 @@ function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void 
         setLang(next);
         localStorage.setItem(LANG_KEY, next);
       }}
-      className="flex items-center gap-1 bg-amber-100 hover:bg-amber-200 border border-amber-200 rounded-lg px-2 py-1 transition-colors"
+      className="flex items-center gap-1 bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] rounded-lg px-2 py-1 transition-colors"
     >
-      <span className={`text-[11px] font-bold ${lang === "en" ? "text-amber-800" : "text-amber-400"}`}>EN</span>
-      <span className="text-amber-300 text-[10px]">|</span>
-      <span className={`text-[11px] font-bold ${lang === "my" ? "text-amber-800" : "text-amber-400"}`}>မြ</span>
+      <span className={`text-[11px] font-bold ${lang === "en" ? "text-white" : "text-gray-600"}`}>EN</span>
+      <span className="text-gray-700 text-[10px]">|</span>
+      <span className={`text-[11px] font-bold ${lang === "my" ? "text-white" : "text-gray-600"}`}>မြ</span>
     </button>
   );
 }
@@ -115,11 +115,11 @@ function GoldInput({
   placeholder?: string; readOnly?: boolean; prefix?: string;
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider">{label}</label>
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{label}</label>
       <div className="relative">
         {prefix && (
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600 text-sm font-medium select-none">{prefix}</span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">{prefix}</span>
         )}
         <input
           type="number"
@@ -128,11 +128,11 @@ function GoldInput({
           placeholder={placeholder}
           readOnly={readOnly}
           className={[
-            "w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none transition-all",
+            "w-full rounded-xl border px-3 py-3 text-base font-semibold outline-none transition-all tabular-nums",
             prefix ? "pl-8" : "",
             readOnly
-              ? "bg-amber-50 border-amber-200 text-amber-700 cursor-default"
-              : "bg-white border-amber-200 text-gray-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 placeholder:text-gray-300",
+              ? "bg-[#0d1117] border-[#30363d] text-gray-500 cursor-default"
+              : "bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-gray-700",
           ].join(" ")}
         />
       </div>
