@@ -80,22 +80,28 @@ router.post("/alert/check", async (req: Request, res: Response) => {
     phones.push(profile.phone_number as string);
   }
 
-  // Build LLM prompt
+  // Build violation label in Burmese
+  const violationLabel = violationType === "credit"
+    ? `ချေးငွေ ကန့်သတ်ချက် ကျော်လွန်မှု — ကန့်သတ်ချက်: ${fmtMMK(profile.credit_limit)}, လက်ကျန်: ${fmtMMK(balance)}`
+    : `ငွေပြန်ဆပ်ရမည့် ရက် လွန်မြောက်မှု — သတ်မှတ်ရက်: ${profile.payment_due_date}, လက်ကျန်: ${fmtMMK(balance)}`;
+
+  // Build LLM prompt — strict Burmese output
   const systemPrompt =
-    "You are an operations alert system for STM Financial. " +
-    "Draft a concise notification to our field staff telling them to call a debtor who has violated their account terms. " +
-    "Include: Debtor Name, Relation, Current Balance, the specific reason for violation " +
-    "(Over Credit Limit OR Past Due Date), and list all phone numbers on file. " +
-    "Write this in a natural, actionable Burmese (or English) message instructing staff to dial them immediately.";
+    "သင်သည် STM Financial ၏ operations alert system ဖြစ်သည်။ " +
+    "ချေးငွေ ကန့်သတ်ချက် ကျော်လွန်သည့် သို့မဟုတ် ငွေပြန်ဆပ်ရမည့် ရက် လွန်မြောက်သည့် ဖောက်သည်အကြောင်း " +
+    "field staff များကို ချက်ချင်း ဆက်သွယ်ရန် အသိပေးသော Telegram notification message တစ်ခု ရေးပေးပါ။ " +
+    "မြန်မာဘာသာဖြင့်သာ ရေးပါ (do NOT write in English). " +
+    "ဖောက်သည်အမည်၊ ဆက်ဆံရေး၊ လက်ကျန်ငွေ၊ ချိုးဖောက်မှုအကြောင်းရင်း နှင့် ဖုန်းနံပါတ်များ ထည့်သွင်းပါ။ " +
+    "တိုတောင်း၊ ရှင်းလင်း၊ အဆင်ပြေသော format ဖြင့် ရေးပါ။";
 
   const userPrompt =
-    `Debtor: ${profile.name}\n` +
-    `Relation: ${profile.relation}\n` +
-    (profile.age ? `Age: ${profile.age}\n` : "") +
-    `Current Balance: ${fmtMMK(balance)}\n` +
-    `Violation: ${violationReason}\n` +
-    `Phone numbers: ${phones.length > 0 ? phones.join(", ") : "None on file"}\n\n` +
-    "Please write the alert message now.";
+    `ဖောက်သည်အမည်: ${profile.name}\n` +
+    `ဆက်ဆံရေး: ${profile.relation}\n` +
+    (profile.age ? `အသက်: ${profile.age}\n` : "") +
+    `လက်ကျန်ငွေ: ${fmtMMK(balance)}\n` +
+    `ချိုးဖောက်မှု: ${violationLabel}\n` +
+    `ဖုန်းနံပါတ်: ${phones.length > 0 ? phones.join(", ") : "မရှိပါ"}\n\n` +
+    "အထက်ပါ အချက်အလက်များ ထည့်သွင်းပြီး မြန်မာဘာသာဖြင့် alert message ရေးပေးပါ။";
 
   // Call Gemini
   let alertMessage = "";
@@ -111,31 +117,37 @@ router.post("/alert/check", async (req: Request, res: Response) => {
           body: JSON.stringify({
             system_instruction: { parts: [{ text: systemPrompt }] },
             contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-            generationConfig: { maxOutputTokens: 512 },
+            generationConfig: { maxOutputTokens: 600 },
           }),
         }
       );
+      const gemData = await gemRes.json() as {
+        candidates?: { content: { parts: { text: string }[] } }[];
+        error?: { message: string };
+      };
       if (gemRes.ok) {
-        const gemData = await gemRes.json() as {
-          candidates?: { content: { parts: { text: string }[] } }[];
-        };
         alertMessage = gemData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+      } else {
+        console.error("[Gemini error]", gemData.error?.message);
       }
-    } catch {
-      // fall through to plain fallback
+    } catch (e) {
+      console.error("[Gemini fetch error]", e);
     }
   }
 
-  // Plain fallback if no Gemini key or call failed
+  // Burmese fallback if Gemini fails
   if (!alertMessage) {
+    const violationMM = violationType === "credit"
+      ? `ချေးငွေ ကန့်သတ်ချက် ကျော်လွန်နေသည် (ကန့်သတ်: ${fmtMMK(profile.credit_limit)})`
+      : `ငွေပြန်ဆပ်ရမည့် ရက် (${profile.payment_due_date}) လွန်မြောက်နေသည်`;
     alertMessage =
-      `⚠️ <b>STM Financial — Account Alert</b>\n\n` +
-      `<b>Debtor:</b> ${profile.name} (${profile.relation})\n` +
-      (profile.age ? `<b>Age:</b> ${profile.age}\n` : "") +
-      `<b>Balance:</b> ${fmtMMK(balance)}\n` +
-      `<b>Violation:</b> ${violationReason}\n` +
-      (phones.length > 0 ? `<b>Phone:</b> ${phones.join(" | ")}\n` : "") +
-      `\nPlease contact this debtor immediately.`;
+      `⚠️ <b>STM Financial — သတိပေးချက်</b>\n\n` +
+      `<b>ဖောက်သည်:</b> ${profile.name} (${profile.relation})\n` +
+      (profile.age ? `<b>အသက်:</b> ${profile.age}\n` : "") +
+      `<b>လက်ကျန်ငွေ:</b> ${fmtMMK(balance)}\n` +
+      `<b>အကြောင်းရင်း:</b> ${violationMM}\n` +
+      (phones.length > 0 ? `<b>ဖုန်းနံပါတ်:</b> ${phones.join(" | ")}\n` : "") +
+      `\nဤဖောက်သည်အား ချက်ချင်း ဆက်သွယ်ပေးပါ။`;
   }
 
   // Send to Telegram
