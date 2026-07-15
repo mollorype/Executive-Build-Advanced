@@ -1,0 +1,34 @@
+Task: Implement Profile Edits, Multi-Phone Inputs, Optional Limits, and Automated Telegram Alerts
+
+I need to upgrade the Financial App to support advanced profile editing, optional risk limits, and automated Telegram alerts using my official bot credentials. Please implement the following specifications:
+
+1. DATABASE SCHEMA UPDATES (MongoDB/PostgreSQL/SQLites)
+* Phone Numbers: Modify the profile schema to store an array of up to 3 phone numbers: Primary (Required), Secondary (Optional), and Tertiary (Optional).
+* Credit Limit: Add an optional/nullable numeric field called "creditLimit" (Can be left blank).
+* Payment Due Date: Add an optional/nullable date field called "paymentDueDate" (Can be left blank).
+
+2. UI UPDATES (CREATE & EDIT PROFILE FORMS)
+* Edit Profile Button: On the Individual Profile Detail Page, add an "Edit Profile" button (pencil/gear icon). Clicking it should open a dark-mode modal containing all profile details.
+* Editable Fields: Name, Age, Relation, Phone Numbers, Credit Limit, and Payment Due Date. (Note: The "Total Debt Amount" must NOT be directly editable here).
+* Dynamic Phone Number Inputs: 
+  - Show one primary phone field by default (Required).
+  - Add a small "+" button to dynamically add a second and third optional phone number field.
+  - Show an "x" next to the optional fields to remove them. Limit active fields to 3.
+  - Enforce the "09-000000000" format on all active phone inputs as the user types.
+* Optional Limit Inputs: 
+  - The "Credit Limit" and "Payment Due Date" fields must be fully optional. If the user leaves them blank, save them as null/empty in the database.
+
+3. AUTOMATED BACKGROUND TRIGGERS
+Every time a transaction is added (either via the Daily App or manually) or when the app runs its daily cron job, check the following conditions:
+* Violation A (Amount Exceeded): Check if the debtor's "Total Debt" is greater than their "Credit Limit" (only if a Credit Limit is set/not blank).
+* Violation B (Overdue Date): Check if today's date is past the debtor's "Payment Due Date" (only if a Due Date is set/not blank and their balance is still greater than 0).
+* Ensure each specific trigger fires only ONCE per violation cycle to prevent spamming.
+
+4. LLM & TELEGRAM GROUP INTEGRATION
+If a violation is triggered, perform the following automated background steps:
+* Step A (AI Generation): Send a backend request to the LLM (Gemini or OpenAI API) to write an alert.
+  - LLM System Prompt: "You are an operations alert system for STM Financial. Draft a concise notification to our field staff telling them to call a debtor who has violated their account terms. Include: Debtor Name, Relation, Current Balance, the specific reason for violation (Over Credit Limit OR Past Due Date), and list all 2 to 3 phone numbers on file. Write this in a natural, actionable Burmese (or English) message instructing staff to dial them immediately."
+* Step B (Telegram Post): Take the generated text and send a POST request to the Telegram Bot API:
+  - API Token: Use "8931554753:AAF5ddvNA95tUdIzp-beizxzLZ3LggcCNhQ" (retrieve from environment variables as TELEGRAM_BOT_TOKEN).
+  - Chat ID: Use "-5553308311" (retrieve from environment variables as TELEGRAM_CHAT_ID).
+  - Use parse_mode: "HTML" or "Markdown" to format the message cleanly for the staff group chat.
