@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth-context";
 import {
-  Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, PackageSearch
+  Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, PackageSearch, CreditCard,
 } from "lucide-react";
 
 type Props = { children: React.ReactNode };
@@ -10,6 +10,7 @@ type Props = { children: React.ReactNode };
 const navItems = [
   { path: "/dashboard", label: "Operations", icon: LayoutDashboard },
   { path: "/po-registry", label: "PO Registry", icon: PackageSearch },
+  { path: "/debt-tracker", label: "Debt Tracker", icon: CreditCard },
   { path: "/manage-access", label: "Manage Access", icon: Users },
 ];
 

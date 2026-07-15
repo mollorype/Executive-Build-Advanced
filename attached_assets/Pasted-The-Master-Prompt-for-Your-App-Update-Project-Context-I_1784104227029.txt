@@ -1,0 +1,46 @@
+The Master Prompt for Your App Update
+
+Project Context: I am updating my existing financial management system, which consists of two web applications: a "Daily App" used by employees on the ground, and a main "Financial App" (Executive Dashboard) with a dark-mode UI. I need to update the Daily App and build a comprehensive "Debt Tracker" feature in the Financial App.
+
+Task 1: Update the Daily App (Expense Entry)
+
+Modify the existing expense entry section. Replace the standard text input for "cause" with a searchable dropdown/autocomplete bar.
+This search bar must query the "Debt Profiles" database in the Financial App.
+The employee will search for a profile tag, enter the payment amount, and hit submit.
+This submission must push a transaction directly to the Debt Tracker in the Financial App, automatically deducting from or adding to that profile's balance.
+Task 2: Build the "Debt Tracker" Feature (Financial App) Add a new primary section called "Debt Tracker" with the following pages and capabilities:
+
+Page A: Create A Debt Profile Create a form with the following fields to establish a new debtor:
+
+Name: Text input (Required).
+Relation: Dropdown menu with options: Friends, Family, Own, Contract, Vendor, Employee, Other.
+Date: Date picker (Defaults to today's date if left blank).
+Total Debt: Numeric input (Optional, can be left blank if unknown at creation).
+Phone Number: Text input that automatically forces the format 09-000000000.
+Submit Button: "Create Profile".
+Page B: Debt Ledger Dashboard
+
+Header: A search bar to find specific profiles.
+Filter System: Sort by Date (Oldest/Newest) and Amount (Highest/Lowest).
+List View: A clean list displaying only the Profile Name and the Total Debt Amount.
+Interaction: Clicking anywhere on a profile's row should open their detailed Profile Page.
+Page C: Individual Profile Detail Page When a profile is clicked from the dashboard, open a detailed view containing:
+
+Header Info: Name, Age, Relation, Phone Number, Total Debt Amount, and Date of Last Payment.
+Visuals: A Pie Chart showing the percentage of the debt paid vs. remaining debt.
+Credit Score: A visual indicator of their custom credit score (logic to be defined).
+Manual Entry: A form to manually add a new debt or payment to this specific profile (Input: Amount, Date, Note, Submit button).
+Transaction History: A table listing all transactions (both from the Daily App and manual entries). Each row must show the date, time, amount, and a unique, auto-generated Transaction Number.
+Admin Controls: Every transaction in the history must have a "Delete" icon to remove the entry and automatically recalculate the total balance.
+need a "Trust & Repayment Score" (scaled from 0 to 100) to know at a glance if this person is reliable.
+
+Here is a simple logic system you could use to calculate it:
+
+The Baseline (Start at 50): Every new profile starts with a neutral score of 50.
+Positive Actions (Adding Points):
++5 points every time a payment is logged via the Daily App or manual entry.
++10 points when a debt is fully paid off (hits zero).
+Negative Actions (Deducting Points):
+-5 points if 30 days pass without a payment on an active balance.
+-10 points if 60 days pass without a payment.
+Visual Tiers: You can tie the score to colors on their profile (e.g., 80-100 is Green/Excellent, 40-79 is Yellow/Average, 0-39 is Red/High Risk).

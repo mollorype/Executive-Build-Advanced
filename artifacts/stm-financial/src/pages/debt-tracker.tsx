@@ -1,0 +1,410 @@
+import { useState, useEffect, useCallback } from "react";
+import {
+  supabase, DebtProfile, DEBT_TABLES, RELATIONS, DebtRelation,
+  calculateScore, scoreColor, scoreTier, mmkFmt, formatPhone, generateTxnNumber,
+} from "@/lib/debt-supabase";
+import DebtProfileDetail from "@/components/debt-profile-detail";
+import {
+  Plus, Search, SortAsc, User, Phone, X, Calendar, CreditCard,
+  AlertTriangle, CheckCircle, TrendingDown, Loader2,
+} from "lucide-react";
+
+const RELATION_COLORS: Record<DebtRelation, string> = {
+  Friends:  "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  Family:   "bg-purple-500/20 text-purple-300 border-purple-500/30",
+  Own:      "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+  Contract: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+  Vendor:   "bg-orange-500/20 text-orange-300 border-orange-500/30",
+  Employee: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+  Other:    "bg-slate-500/20 text-slate-300 border-slate-500/30",
+};
+
+type SortKey = "newest" | "oldest" | "highest" | "lowest";
+
+export default function DebtTracker() {
+  const [profiles, setProfiles] = useState<DebtProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<SortKey>("newest");
+  const [selectedProfile, setSelectedProfile] = useState<DebtProfile | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+
+  const [name, setName] = useState("");
+  const [relation, setRelation] = useState<DebtRelation>("Other");
+  const [phone, setPhone] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [totalDebt, setTotalDebt] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
+
+  const fetchProfiles = useCallback(async () => {
+    const { data } = await supabase
+      .from(DEBT_TABLES.PROFILES)
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (data) setProfiles(data as DebtProfile[]);
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchProfiles().finally(() => setLoading(false));
+  }, [fetchProfiles]);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) { setCreateError("Name is required."); return; }
+    setCreating(true);
+    setCreateError("");
+    const debt = totalDebt ? parseFloat(totalDebt) : null;
+    const { error } = await supabase.from(DEBT_TABLES.PROFILES).insert({
+      name: name.trim(),
+      relation,
+      phone_number: phone || null,
+      date,
+      total_debt: debt,
+      current_balance: debt ?? 0,
+      score: 50,
+    });
+    setCreating(false);
+    if (error) { setCreateError(error.message); return; }
+    setName(""); setRelation("Other"); setPhone(""); setDate(new Date().toISOString().slice(0, 10)); setTotalDebt("");
+    setShowCreate(false);
+    fetchProfiles();
+  }
+
+  function resetCreate() {
+    setName(""); setRelation("Other"); setPhone(""); setDate(new Date().toISOString().slice(0, 10));
+    setTotalDebt(""); setCreateError("");
+  }
+
+  const filtered = profiles
+    .filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (sortBy === "oldest") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      if (sortBy === "highest") return b.current_balance - a.current_balance;
+      return a.current_balance - b.current_balance;
+    });
+
+  const totalOwed = profiles.reduce((s, p) => s + Math.max(0, p.current_balance), 0);
+  const redFlags = profiles.filter(p => p.score < 40).length;
+  const cleared = profiles.filter(p => p.current_balance <= 0).length;
+
+  return (
+    <div className="flex-1 overflow-auto">
+      {/* Page header */}
+      <div className="px-6 py-5 border-b border-slate-700/50">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Debt Tracker</h1>
+            <p className="text-slate-400 text-sm mt-0.5">Manage debt profiles & repayment history</p>
+          </div>
+          <button
+            onClick={() => { resetCreate(); setShowCreate(true); }}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl px-4 py-2 text-sm transition-all"
+          >
+            <Plus className="w-4 h-4" /> New Profile
+          </button>
+        </div>
+      </div>
+
+      <div className="p-6 space-y-5">
+        {/* Stats row */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                <TrendingDown className="w-4 h-4 text-red-400" />
+              </div>
+              <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Owed</span>
+            </div>
+            <p className="text-lg font-bold text-white tabular-nums">{mmkFmt(totalOwed)}</p>
+            <p className="text-slate-500 text-xs mt-1">{profiles.length} active profiles</p>
+          </div>
+          <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                <CheckCircle className="w-4 h-4 text-emerald-400" />
+              </div>
+              <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Cleared</span>
+            </div>
+            <p className="text-lg font-bold text-white">{cleared}</p>
+            <p className="text-slate-500 text-xs mt-1">Fully paid off</p>
+          </div>
+          <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4 col-span-2 md:col-span-1">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+              </div>
+              <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">High Risk</span>
+            </div>
+            <p className="text-lg font-bold text-white">{redFlags}</p>
+            <p className="text-slate-500 text-xs mt-1">Score below 40</p>
+          </div>
+        </div>
+
+        {/* Search + Sort */}
+        <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4 flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search profiles by name…"
+              className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-9 pr-4 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-slate-600"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <SortAsc className="w-4 h-4 text-slate-500 shrink-0" />
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as SortKey)}
+              className="bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="highest">Highest Balance</option>
+              <option value="lowest">Lowest Balance</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Profile list */}
+        <div className="bg-[#111827] border border-slate-700/50 rounded-xl overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-slate-700/50 flex items-center gap-2">
+            <CreditCard className="w-4 h-4 text-blue-400" />
+            <h2 className="text-white font-semibold text-sm">Debt Profiles</h2>
+            <span className="ml-auto text-slate-500 text-xs">{filtered.length} {filtered.length === 1 ? "profile" : "profiles"}</span>
+          </div>
+
+          {loading ? (
+            <div className="p-16 text-center">
+              <Loader2 className="w-8 h-8 text-blue-500/50 animate-spin mx-auto mb-3" />
+              <p className="text-slate-500 text-sm">Loading profiles…</p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="p-16 text-center">
+              <CreditCard className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+              <p className="text-slate-400 text-sm font-medium">
+                {search ? "No profiles match your search" : "No debt profiles yet"}
+              </p>
+              {!search && (
+                <button
+                  onClick={() => { resetCreate(); setShowCreate(true); }}
+                  className="mt-4 text-blue-400 hover:text-blue-300 text-xs font-semibold"
+                >
+                  Create the first profile →
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Desktop table header */}
+              <div className="hidden md:flex items-center px-5 py-2 bg-slate-800/50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-700/30">
+                <div className="flex-1">Name</div>
+                <div className="w-28">Relation</div>
+                <div className="w-36 text-right">Balance</div>
+                <div className="w-28 text-right">Score</div>
+                <div className="w-10" />
+              </div>
+              <div className="divide-y divide-slate-700/20">
+                {filtered.map(profile => {
+                  const paid = profile.current_balance <= 0;
+                  const risk = profile.score < 40;
+                  const sc = scoreColor(profile.score);
+                  const tier = scoreTier(profile.score);
+                  return (
+                    <div
+                      key={profile.id}
+                      onClick={() => setSelectedProfile(profile)}
+                      className="group flex items-center px-5 py-3.5 cursor-pointer hover:bg-slate-700/20 transition-colors gap-4"
+                    >
+                      {/* Avatar */}
+                      <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-bold text-sm shrink-0">
+                        {profile.name[0].toUpperCase()}
+                      </div>
+
+                      {/* Name + phone (flex-1) */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-semibold text-sm truncate">{profile.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {profile.phone_number && (
+                            <span className="text-slate-500 text-xs flex items-center gap-1">
+                              <Phone className="w-3 h-3" /> {profile.phone_number}
+                            </span>
+                          )}
+                          {/* Relation badge on mobile */}
+                          <span className={`md:hidden text-[10px] font-semibold px-1.5 py-0.5 rounded border ${RELATION_COLORS[profile.relation]}`}>
+                            {profile.relation}
+                          </span>
+                        </div>
+                        {/* Mobile: balance + score row */}
+                        <div className="flex items-center justify-between mt-1.5 md:hidden">
+                          <span className={`font-bold text-sm tabular-nums ${paid ? "text-emerald-400" : risk ? "text-red-400" : "text-white"}`}>
+                            {paid ? "Cleared" : mmkFmt(profile.current_balance)}
+                          </span>
+                          <span className="text-xs font-bold" style={{ color: sc }}>
+                            {profile.score}/100 · {tier}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Desktop: relation */}
+                      <div className="hidden md:block w-28">
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded border ${RELATION_COLORS[profile.relation]}`}>
+                          {profile.relation}
+                        </span>
+                      </div>
+
+                      {/* Desktop: balance */}
+                      <div className="hidden md:block w-36 text-right">
+                        <span className={`font-bold text-sm tabular-nums ${paid ? "text-emerald-400" : risk ? "text-red-400" : "text-white"}`}>
+                          {paid ? "✓ Cleared" : mmkFmt(profile.current_balance)}
+                        </span>
+                      </div>
+
+                      {/* Desktop: score */}
+                      <div className="hidden md:block w-28 text-right">
+                        <span className="text-sm font-bold tabular-nums" style={{ color: sc }}>
+                          {profile.score}<span className="text-slate-600 font-normal">/100</span>
+                        </span>
+                        <p className="text-xs mt-0.5" style={{ color: sc }}>{tier}</p>
+                      </div>
+
+                      <div className="w-10 flex justify-end">
+                        <span className="text-slate-600 group-hover:text-slate-400 transition-colors">›</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Create Profile Panel */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowCreate(false)} />
+          <div className="relative w-full max-w-md bg-[#0f1623] border-l border-slate-700/50 h-full overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 bg-[#0f1623]/95 backdrop-blur border-b border-slate-700/50 px-6 py-4 flex items-center justify-between z-10">
+              <div>
+                <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold">New Profile</p>
+                <h2 className="text-white font-bold text-base">Create Debt Profile</h2>
+              </div>
+              <button onClick={() => setShowCreate(false)} className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreate} className="p-6 space-y-5">
+              {/* Name */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Full name or alias"
+                  className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600"
+                  required
+                />
+              </div>
+
+              {/* Relation */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Relation</label>
+                <select
+                  value={relation}
+                  onChange={e => setRelation(e.target.value as DebtRelation)}
+                  className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                >
+                  {RELATIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Phone Number</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={e => setPhone(formatPhone(e.target.value))}
+                    placeholder="09-000000000"
+                    maxLength={13}
+                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600"
+                  />
+                </div>
+              </div>
+
+              {/* Date */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Date</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={e => setDate(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  />
+                </div>
+              </div>
+
+              {/* Total Debt */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Total Debt (optional)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium select-none">K</span>
+                  <input
+                    type="number"
+                    value={totalDebt}
+                    onChange={e => setTotalDebt(e.target.value)}
+                    placeholder="Leave blank if unknown"
+                    min="0"
+                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600"
+                  />
+                </div>
+                <p className="text-xs text-slate-600 mt-1">Can be added or updated later via transactions.</p>
+              </div>
+
+              {createError && (
+                <div className="flex items-start gap-2 bg-red-900/30 border border-red-700/40 rounded-xl px-4 py-3 text-xs text-red-300">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  {createError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={creating}
+                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold rounded-xl py-3 text-sm transition-all flex items-center justify-center gap-2"
+              >
+                {creating ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating…</> : "Create Profile"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Profile Detail Panel */}
+      {selectedProfile && (
+        <DebtProfileDetail
+          profile={selectedProfile}
+          onClose={() => setSelectedProfile(null)}
+          onUpdated={() => {
+            fetchProfiles();
+            setSelectedProfile(null);
+          }}
+          onProfileChange={(p) => setSelectedProfile(p)}
+        />
+      )}
+    </div>
+  );
+}

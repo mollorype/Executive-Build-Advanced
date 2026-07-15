@@ -9,6 +9,7 @@ import Dashboard from "@/pages/dashboard";
 import ManageAccess from "@/pages/manage-access";
 import AccessDenied from "@/pages/access-denied";
 import PORegistry from "@/pages/po-registry";
+import DebtTracker from "@/pages/debt-tracker";
 
 const queryClient = new QueryClient();
 
@@ -88,6 +89,12 @@ function Router() {
       <Route path="/po-registry">
         <ProtectedRoute>
           <PORegistry />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/debt-tracker">
+        <ProtectedRoute>
+          <DebtTracker />
         </ProtectedRoute>
       </Route>
 

@@ -1,0 +1,1 @@
+- [Debt Tracker Architecture](debt-tracker.md) — Supabase tables + score logic + daily app wiring pattern

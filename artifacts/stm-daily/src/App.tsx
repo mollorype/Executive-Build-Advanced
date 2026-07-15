@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { submitShift, type ShiftPayload, supabase } from "./lib/supabase";
 import "./index.css";
 
@@ -23,7 +23,7 @@ type Screen = "login" | "checking" | "denied" | "form" | "confirm" | "success";
 
 interface FuelRow { totalAmount: string; price: string; }
 interface DieselRow { cash: string; price: string; }
-interface ExpenseItem { name: string; amount: string; }
+interface ExpenseItem { name: string; amount: string; profileId?: string; }
 interface AdditionalCashItem { name: string; amount: string; }
 type PipaProduct = "92" | "95" | "PD" | "D";
 interface PipaItem { product: PipaProduct; containers: string; price: string; }
@@ -415,7 +415,9 @@ function ProductCard({ label, badge, color, totalAmount, price, total, liters, o
   );
 }
 
-// ─── Expenses panel — add items by name + amount ──────────────────────────────
+// ─── Expenses panel — searchable debt profile dropdown + amount ────────────────
+type ProfileHit = { id: string; name: string; relation: string };
+
 function ExpensesPanel({ items, onChange, lang }: {
   items: ExpenseItem[];
   onChange: (items: ExpenseItem[]) => void;
@@ -423,37 +425,107 @@ function ExpensesPanel({ items, onChange, lang }: {
 }) {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
+  const [profileId, setProfileId] = useState<string | undefined>(undefined);
+  const [hits, setHits] = useState<ProfileHit[]>([]);
+  const [showDrop, setShowDrop] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setShowDrop(false);
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, []);
+
+  async function handleNameChange(val: string) {
+    setName(val);
+    setProfileId(undefined);
+    if (!val.trim()) { setHits([]); setShowDrop(false); return; }
+    setSearching(true);
+    const { data } = await supabase
+      .from("debt_profiles")
+      .select("id, name, relation")
+      .ilike("name", `%${val.trim()}%`)
+      .limit(6);
+    setSearching(false);
+    if (data && data.length > 0) {
+      setHits(data as ProfileHit[]);
+      setShowDrop(true);
+    } else {
+      setHits([]);
+      setShowDrop(false);
+    }
+  }
+
+  function selectHit(hit: ProfileHit) {
+    setName(hit.name);
+    setProfileId(hit.id);
+    setHits([]);
+    setShowDrop(false);
+  }
 
   function addItem() {
-    const trimName = name.trim();
-    const trimAmount = amount.trim();
-    if (!trimName || !trimAmount) return;
-    onChange([...items, { name: trimName, amount: trimAmount }]);
-    setName("");
-    setAmount("");
+    if (!name.trim() || !amount.trim()) return;
+    onChange([...items, { name: name.trim(), amount: amount.trim(), profileId }]);
+    setName(""); setAmount(""); setProfileId(undefined); setHits([]); setShowDrop(false);
   }
 
-  function removeItem(idx: number) {
-    onChange(items.filter((_, i) => i !== idx));
-  }
+  function removeItem(idx: number) { onChange(items.filter((_, i) => i !== idx)); }
 
   const total = items.reduce((s, i) => s + n(i.amount), 0);
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Add row */}
       <div className="flex gap-2">
-        <div className="flex-1 flex flex-col gap-1">
+        {/* Name / search combobox */}
+        <div className="flex-1 flex flex-col gap-1 relative" ref={wrapRef}>
           <label className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider">{t(lang, "expenseName")}</label>
-          <input
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && addItem()}
-            placeholder="e.g. Oil, Maintenance…"
-            className="w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none bg-white border-amber-200 text-gray-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 placeholder:text-gray-300"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={name}
+              onChange={e => handleNameChange(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && addItem()}
+              onFocus={() => { if (hits.length > 0) setShowDrop(true); }}
+              placeholder="Search profile or free-type…"
+              className={`w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none bg-white text-gray-900 placeholder:text-gray-300 transition-colors ${
+                profileId
+                  ? "border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  : "border-amber-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+              }`}
+            />
+            {profileId && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold bg-blue-100 text-blue-600 rounded px-1.5 py-0.5 pointer-events-none">
+                LINKED
+              </span>
+            )}
+            {searching && !profileId && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400 text-xs animate-pulse">…</span>
+            )}
+          </div>
+          {showDrop && hits.length > 0 && (
+            <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-amber-200 rounded-xl shadow-xl overflow-hidden">
+              <p className="px-3 py-1.5 text-[10px] font-bold text-amber-700 uppercase tracking-widest bg-amber-50 border-b border-amber-100">
+                Debt Profiles
+              </p>
+              {hits.map(h => (
+                <button
+                  key={h.id}
+                  type="button"
+                  onMouseDown={() => selectHit(h)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-amber-50 transition-colors text-left border-t border-amber-50"
+                >
+                  <span className="font-semibold text-gray-800">{h.name}</span>
+                  <span className="text-xs text-gray-400 ml-2 shrink-0">{h.relation}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
+        {/* Amount */}
         <div className="w-32 flex flex-col gap-1">
           <label className="text-xs font-semibold text-amber-800/70 uppercase tracking-wider">{t(lang, "amount")}</label>
           <div className="relative">
@@ -468,6 +540,8 @@ function ExpensesPanel({ items, onChange, lang }: {
             />
           </div>
         </div>
+
+        {/* Add button */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold text-transparent uppercase tracking-wider select-none">Add</label>
           <button
@@ -480,13 +554,25 @@ function ExpensesPanel({ items, onChange, lang }: {
         </div>
       </div>
 
+      {/* Linked profile hint */}
+      {profileId && (
+        <p className="text-[11px] text-blue-600 font-semibold bg-blue-50 rounded-lg px-3 py-1.5 border border-blue-100">
+          ✓ Linked to debt profile — payment will be recorded in Debt Tracker on submit
+        </p>
+      )}
+
       {/* Item list */}
       {items.length > 0 && (
         <div className="rounded-xl border border-amber-100 overflow-hidden">
           {items.map((item, idx) => (
             <div key={idx} className={["flex items-center justify-between px-4 py-2.5 text-sm", idx > 0 ? "border-t border-amber-50" : ""].join(" ")}>
-              <span className="font-medium text-gray-700">{item.name}</span>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="font-medium text-gray-700 truncate">{item.name}</span>
+                {item.profileId && (
+                  <span className="text-[9px] font-bold bg-blue-100 text-blue-600 rounded px-1 py-0.5 shrink-0">DEBT</span>
+                )}
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
                 <span className="font-semibold text-amber-700">{fmt(n(item.amount))} MMK</span>
                 <button
                   type="button"
@@ -1192,6 +1278,42 @@ export default function App() {
     };
 
     const { error } = await submitShift(payload);
+
+    if (!error) {
+      // Push debt transactions for any linked expenses
+      const linkedExpenses = formData.expenses.filter(e => e.profileId && n(e.amount) > 0);
+      for (const expense of linkedExpenses) {
+        const d = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+        const txnNum = `TXN-${d}-${Math.floor(Math.random() * 90000) + 10000}`;
+        const paymentAmt = -n(expense.amount);
+
+        await supabase.from("debt_transactions").insert({
+          profile_id: expense.profileId,
+          amount: paymentAmt,
+          date: new Date().toISOString().slice(0, 10),
+          note: `Payment via Daily Shift — ${employeeName}`,
+          transaction_number: txnNum,
+          source: "daily_app",
+        });
+
+        const { data: prof } = await supabase
+          .from("debt_profiles")
+          .select("current_balance, score")
+          .eq("id", expense.profileId)
+          .single();
+
+        if (prof) {
+          const newBalance = prof.current_balance + paymentAmt;
+          const newScore = Math.min(100, (prof.score ?? 50) + 5);
+          await supabase.from("debt_profiles").update({
+            current_balance: newBalance,
+            score: newScore,
+            last_payment_at: new Date().toISOString(),
+          }).eq("id", expense.profileId);
+        }
+      }
+    }
+
     setSubmitting(false);
 
     if (error) {
