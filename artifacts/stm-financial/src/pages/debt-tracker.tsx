@@ -6,7 +6,7 @@ import {
 import DebtProfileDetail from "@/components/debt-profile-detail";
 import {
   Plus, Search, SortAsc, User, Phone, X, Calendar, CreditCard,
-  AlertTriangle, CheckCircle, TrendingDown, Loader2,
+  AlertTriangle, CheckCircle, TrendingDown, Loader2, Trash2,
 } from "lucide-react";
 
 const RELATION_COLORS: Record<DebtRelation, string> = {
@@ -18,6 +18,8 @@ const RELATION_COLORS: Record<DebtRelation, string> = {
   Employee: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
   Other:    "bg-slate-500/20 text-slate-300 border-slate-500/30",
 };
+
+const NO_SCORE_RELATIONS = new Set<DebtRelation>(["Own", "Family"]);
 
 type SortKey = "newest" | "oldest" | "highest" | "lowest";
 
@@ -49,6 +51,12 @@ export default function DebtTracker() {
     setLoading(true);
     fetchProfiles().finally(() => setLoading(false));
   }, [fetchProfiles]);
+
+  async function handleDeleteProfile(profile: DebtProfile) {
+    if (!window.confirm(`Delete "${profile.name}" and all their transactions?\n\nThis cannot be undone.`)) return;
+    const { error } = await supabase.from(DEBT_TABLES.PROFILES).delete().eq("id", profile.id);
+    if (!error) fetchProfiles();
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -244,9 +252,11 @@ export default function DebtTracker() {
                           <span className={`font-bold text-sm tabular-nums ${paid ? "text-emerald-400" : risk ? "text-red-400" : "text-white"}`}>
                             {paid ? "Cleared" : mmkFmt(profile.current_balance)}
                           </span>
-                          <span className="text-xs font-bold" style={{ color: sc }}>
-                            {profile.score}/100 · {tier}
-                          </span>
+                          {!NO_SCORE_RELATIONS.has(profile.relation) && (
+                            <span className="text-xs font-bold" style={{ color: sc }}>
+                              {profile.score}/100 · {tier}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -266,13 +276,26 @@ export default function DebtTracker() {
 
                       {/* Desktop: score */}
                       <div className="hidden md:block w-28 text-right">
-                        <span className="text-sm font-bold tabular-nums" style={{ color: sc }}>
-                          {profile.score}<span className="text-slate-600 font-normal">/100</span>
-                        </span>
-                        <p className="text-xs mt-0.5" style={{ color: sc }}>{tier}</p>
+                        {NO_SCORE_RELATIONS.has(profile.relation) ? (
+                          <span className="text-xs text-slate-600 italic">N/A</span>
+                        ) : (
+                          <>
+                            <span className="text-sm font-bold tabular-nums" style={{ color: sc }}>
+                              {profile.score}<span className="text-slate-600 font-normal">/100</span>
+                            </span>
+                            <p className="text-xs mt-0.5" style={{ color: sc }}>{tier}</p>
+                          </>
+                        )}
                       </div>
 
-                      <div className="w-10 flex justify-end">
+                      <div className="w-10 flex justify-end items-center gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteProfile(profile); }}
+                          className="opacity-0 group-hover:opacity-100 text-slate-700 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-lg transition-all"
+                          title="Delete profile"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                         <span className="text-slate-600 group-hover:text-slate-400 transition-colors">›</span>
                       </div>
                     </div>

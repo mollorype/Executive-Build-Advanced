@@ -9,6 +9,8 @@ import {
   AlertTriangle, CheckCircle, Loader2, Calendar,
 } from "lucide-react";
 
+const NO_SCORE_RELATIONS = new Set(["Own", "Family"]);
+
 type Props = {
   profile: DebtProfile;
   onClose: () => void;
@@ -190,7 +192,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
               <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
               <p className="text-emerald-300 font-semibold text-sm">Debt fully cleared</p>
             </div>
-          ) : isHighRisk ? (
+          ) : (isHighRisk && !NO_SCORE_RELATIONS.has(profile.relation)) ? (
             <div className="flex items-center gap-3 bg-red-900/30 border border-red-700/50 rounded-xl px-4 py-3">
               <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
               <p className="text-red-300 font-semibold text-sm">High Risk — Low repayment activity</p>
@@ -227,36 +229,44 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
             </div>
           </div>
 
-          {/* Chart + Score row */}
-          <div className={`grid gap-4 ${hasPieData ? "grid-cols-2" : "grid-cols-1 place-items-center"}`}>
-            {hasPieData && (
-              <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4 flex flex-col items-center">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Repayment Progress</p>
-                <ResponsiveContainer width={120} height={120}>
-                  <PieChart>
-                    <Pie data={pieData} cx={55} cy={55} innerRadius={30} outerRadius={50} paddingAngle={2} dataKey="value">
-                      {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", fontSize: "12px" }}
-                      formatter={(v: number) => [mmkFmt(v), ""]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex gap-3 mt-1 text-xs">
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Paid</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Left</span>
+          {/* Chart + Score row — score hidden for Own/Family */}
+          {(hasPieData || !NO_SCORE_RELATIONS.has(profile.relation)) && (
+            <div className={`grid gap-4 ${
+              hasPieData && !NO_SCORE_RELATIONS.has(profile.relation)
+                ? "grid-cols-2"
+                : "grid-cols-1 place-items-center"
+            }`}>
+              {hasPieData && (
+                <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4 flex flex-col items-center">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Repayment Progress</p>
+                  <ResponsiveContainer width={120} height={120}>
+                    <PieChart>
+                      <Pie data={pieData} cx={55} cy={55} innerRadius={30} outerRadius={50} paddingAngle={2} dataKey="value">
+                        {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", fontSize: "12px" }}
+                        formatter={(v: number) => [mmkFmt(v), ""]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex gap-3 mt-1 text-xs">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Paid</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Left</span>
+                  </div>
                 </div>
-              </div>
-            )}
-            <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4 flex flex-col items-center justify-center">
-              <ScoreGauge score={profile.score} />
-              <div className="mt-2 space-y-1 text-xs text-slate-600 text-center">
-                <p>80–100 Excellent · 40–79 Average</p>
-                <p>0–39 High Risk</p>
-              </div>
+              )}
+              {!NO_SCORE_RELATIONS.has(profile.relation) && (
+                <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4 flex flex-col items-center justify-center">
+                  <ScoreGauge score={profile.score} />
+                  <div className="mt-2 space-y-1 text-xs text-slate-600 text-center">
+                    <p>80–100 Excellent · 40–79 Average</p>
+                    <p>0–39 High Risk</p>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
           {/* Add Transaction */}
           <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
