@@ -9,13 +9,19 @@ export { supabase };
   CREATE TABLE debt_profiles (
     id              uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     name            text NOT NULL,
+    age             integer,
     relation        text NOT NULL DEFAULT 'Other',
     phone_number    text,
+    phone_numbers   text[] NOT NULL DEFAULT '{}',
     date            date NOT NULL DEFAULT CURRENT_DATE,
     total_debt      numeric,
     current_balance numeric NOT NULL DEFAULT 0,
     score           integer NOT NULL DEFAULT 50,
     last_payment_at timestamptz,
+    credit_limit    numeric,
+    payment_due_date date,
+    credit_alert_fired  boolean NOT NULL DEFAULT false,
+    overdue_alert_fired boolean NOT NULL DEFAULT false,
     created_at      timestamptz NOT NULL DEFAULT now()
   );
 
@@ -35,6 +41,15 @@ export { supabase };
   CREATE POLICY "allow_all" ON debt_profiles USING (true) WITH CHECK (true);
   ALTER TABLE debt_transactions ENABLE ROW LEVEL SECURITY;
   CREATE POLICY "allow_all" ON debt_transactions USING (true) WITH CHECK (true);
+
+  -- MIGRATION (if table already exists, add new columns):
+  ALTER TABLE debt_profiles
+    ADD COLUMN IF NOT EXISTS age integer,
+    ADD COLUMN IF NOT EXISTS phone_numbers text[] NOT NULL DEFAULT '{}',
+    ADD COLUMN IF NOT EXISTS credit_limit numeric,
+    ADD COLUMN IF NOT EXISTS payment_due_date date,
+    ADD COLUMN IF NOT EXISTS credit_alert_fired boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS overdue_alert_fired boolean NOT NULL DEFAULT false;
   ══════════════════════════════════════════════════════════════
 */
 
@@ -49,13 +64,19 @@ export const RELATIONS: DebtRelation[] = ["Friends", "Family", "Own", "Contract"
 export type DebtProfile = {
   id: string;
   name: string;
+  age: number | null;
   relation: DebtRelation;
   phone_number: string | null;
+  phone_numbers: string[];
   date: string;
   total_debt: number | null;
   current_balance: number;
   score: number;
   last_payment_at: string | null;
+  credit_limit: number | null;
+  payment_due_date: string | null;
+  credit_alert_fired: boolean;
+  overdue_alert_fired: boolean;
   created_at: string;
 };
 
@@ -114,4 +135,12 @@ export function formatPhone(raw: string): string {
   const digits = raw.replace(/\D/g, "");
   if (digits.length <= 2) return digits;
   return digits.slice(0, 2) + "-" + digits.slice(2, 11);
+}
+
+export function getDisplayPhones(profile: DebtProfile): string[] {
+  if (profile.phone_numbers && profile.phone_numbers.length > 0) {
+    return profile.phone_numbers.filter(Boolean);
+  }
+  if (profile.phone_number) return [profile.phone_number];
+  return [];
 }
