@@ -19,7 +19,7 @@ function fmtSigned(v: number): string {
 }
 
 // ─── types ───────────────────────────────────────────────────────────────────
-type Screen = "login" | "checking" | "denied" | "form" | "confirm" | "success";
+type Screen = "login" | "checking" | "denied" | "mode-select" | "form" | "confirm" | "success" | "receipt" | "settings";
 
 interface FuelRow { totalAmount: string; price: string; }
 interface DieselRow { cash: string; price: string; }
@@ -712,10 +712,11 @@ function DeniedScreen({ email, onBack }: { email: string; onBack: () => void }) 
 }
 
 // ─── Shift form ───────────────────────────────────────────────────────────────
-function ShiftForm({ employeeName, onSubmit, onLogout, lang, setLang }: {
+function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang }: {
   employeeName: string;
   onSubmit: (data: FormData, grandTotal: number, difference: number) => void;
   onLogout: () => void;
+  onBack: () => void;
   lang: Lang; setLang: (l: Lang) => void;
 }) {
   const [form, setForm] = useState<FormData>(EMPTY);
@@ -762,6 +763,13 @@ function ShiftForm({ employeeName, onSubmit, onLogout, lang, setLang }: {
         <div className="ml-auto flex items-center gap-2">
           <p className="text-xs text-gray-600">{new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
           <LangToggle lang={lang} setLang={setLang} />
+          <button
+            type="button"
+            onClick={onBack}
+            className="text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1 transition-colors"
+          >
+            ← Modes
+          </button>
           <button
             type="button"
             onClick={onLogout}
@@ -1031,6 +1039,409 @@ function SuccessScreen({ employeeName, onNewShift }: { employeeName: string; onN
   );
 }
 
+// ─── App Config (localStorage) ────────────────────────────────────────────────
+const CONFIG_KEY = "stm_app_config";
+interface AppConfig { pricePerLiter: string; stationPhone: string; receiptMotto: string; }
+const DEFAULT_CONFIG: AppConfig = { pricePerLiter: "1200", stationPhone: "09-3339777", receiptMotto: "Thank You For Your Purchase!" };
+function loadConfig(): AppConfig {
+  try {
+    const raw = localStorage.getItem(CONFIG_KEY);
+    if (!raw) return { ...DEFAULT_CONFIG };
+    return { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
+  } catch { return { ...DEFAULT_CONFIG }; }
+}
+function saveConfig(cfg: AppConfig) { localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg)); }
+
+// ─── Mode Select Screen ───────────────────────────────────────────────────────
+function ModeSelectScreen({ employeeName, onShift, onReceipt, onSettings, onLogout, lang, setLang }: {
+  employeeName: string; onShift: () => void; onReceipt: () => void;
+  onSettings: () => void; onLogout: () => void; lang: Lang; setLang: (l: Lang) => void;
+}) {
+  return (
+    <div className="min-h-screen bg-[#0f111a] flex flex-col">
+      <div className="sticky top-0 z-10 bg-[#0f111a]/95 backdrop-blur border-b border-[#30363d] px-4 py-3 flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
+          <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2M12 2a10 10 0 100 20A10 10 0 0012 2z" />
+          </svg>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 font-semibold uppercase tracking-widest">STM Daily</p>
+          <p className="text-sm font-bold text-white capitalize">{employeeName}</p>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <LangToggle lang={lang} setLang={setLang} />
+          <button type="button" onClick={onSettings}
+            className="w-8 h-8 flex items-center justify-center rounded-xl bg-[#161b22] border border-[#30363d] hover:border-gray-500 text-gray-400 hover:text-white transition-colors"
+            title="App Settings">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+          <button type="button" onClick={onLogout}
+            className="text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1 transition-colors">
+            Switch User
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 gap-5 max-w-sm mx-auto w-full">
+        <div className="text-center mb-2">
+          <h2 className="text-2xl font-bold text-white">Select Mode</h2>
+          <p className="text-sm text-gray-500 mt-1">What would you like to do?</p>
+        </div>
+
+        <button type="button" onClick={onShift}
+          className="w-full bg-[#161b22] border-2 border-[#30363d] hover:border-blue-500/60 hover:bg-blue-600/5 rounded-2xl p-6 text-left transition-all active:scale-[0.98] group">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-blue-600/20 flex items-center justify-center shrink-0 group-hover:bg-blue-600/30 transition-colors">
+              <svg className="w-6 h-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-base font-bold text-white">Daily Shift Submission</p>
+              <p className="text-sm text-gray-500 mt-0.5">Record end-of-shift meter readings, fuel sales &amp; expenses</p>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-xs font-semibold text-blue-400">
+            Open form
+            <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+          </div>
+        </button>
+
+        <button type="button" onClick={onReceipt}
+          className="w-full bg-[#161b22] border-2 border-[#30363d] hover:border-emerald-500/60 hover:bg-emerald-600/5 rounded-2xl p-6 text-left transition-all active:scale-[0.98] group">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-emerald-600/20 flex items-center justify-center shrink-0 group-hover:bg-emerald-600/30 transition-colors">
+              <svg className="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-base font-bold text-white">Issue Customer Receipt</p>
+              <p className="text-sm text-gray-500 mt-0.5">Generate a digital receipt for an individual pump transaction</p>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-xs font-semibold text-emerald-400">
+            Issue receipt
+            <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+          </div>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── App Settings Screen ───────────────────────────────────────────────────────
+function AppSettingsScreen({ onBack }: { onBack: () => void }) {
+  const [cfg, setCfg] = useState<AppConfig>(loadConfig);
+  const [saved, setSaved] = useState(false);
+
+  function handleSave() {
+    saveConfig(cfg);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  const fieldCls = "w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-gray-700";
+  const labelCls = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5";
+
+  return (
+    <div className="min-h-screen bg-[#0f111a]">
+      <div className="sticky top-0 z-10 bg-[#0f111a]/95 backdrop-blur border-b border-[#30363d] px-4 py-3 flex items-center">
+        <button onClick={onBack} className="text-gray-400 hover:text-white text-sm font-semibold flex items-center gap-1 transition-colors">← Back</button>
+        <p className="text-sm font-bold text-white mx-auto">App Settings</p>
+        <div className="w-14" />
+      </div>
+      <div className="max-w-sm mx-auto px-4 py-8 space-y-6">
+        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-5">
+          <div>
+            <label className={labelCls}>Default Price Per Liter (MMK)</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
+              <input type="number" value={cfg.pricePerLiter}
+                onChange={e => setCfg(c => ({ ...c, pricePerLiter: e.target.value }))}
+                placeholder="1200" className={"pl-8 " + fieldCls} />
+            </div>
+            <p className="text-xs text-gray-600 mt-1.5">Auto-filled in the Customer Receipt form</p>
+          </div>
+          <div>
+            <label className={labelCls}>Station Phone Number</label>
+            <input type="text" value={cfg.stationPhone}
+              onChange={e => setCfg(c => ({ ...c, stationPhone: e.target.value }))}
+              placeholder="09-3339777" className={fieldCls} />
+            <p className="text-xs text-gray-600 mt-1.5">Printed on the receipt footer</p>
+          </div>
+          <div>
+            <label className={labelCls}>Receipt Motto</label>
+            <input type="text" value={cfg.receiptMotto}
+              onChange={e => setCfg(c => ({ ...c, receiptMotto: e.target.value }))}
+              placeholder="Thank You For Your Purchase!" className={fieldCls} />
+            <p className="text-xs text-gray-600 mt-1.5">Closing phrase printed on each receipt</p>
+          </div>
+        </div>
+        <button type="button" onClick={handleSave}
+          className={`w-full font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98] ${saved ? "bg-emerald-600 text-white" : "bg-blue-600 hover:bg-blue-500 text-white"}`}>
+          {saved ? "✓ Saved!" : "Save Changes"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Customer Receipt Screen ───────────────────────────────────────────────────
+type PaymentStatus = "paid" | "debt";
+type PaymentMethod = "Cash" | "K Pay" | "MMQR";
+type CalcMode = "liters" | "amount";
+
+interface GeneratedReceipt {
+  staffName: string; customerName: string; payStatus: PaymentStatus;
+  payMethod: PaymentMethod; pricePerLiter: number; totalLiters: number;
+  totalAmount: number; stationPhone: string; receiptMotto: string;
+  receiptNo: string; timestamp: string;
+}
+
+function CustomerReceiptScreen({ employeeName, onBack }: { employeeName: string; onBack: () => void }) {
+  const [staffName, setStaffName] = useState(employeeName);
+  const [customerName, setCustomerName] = useState("");
+  const [payStatus, setPayStatus] = useState<PaymentStatus>("paid");
+  const [payMethod, setPayMethod] = useState<PaymentMethod>("Cash");
+  const [pricePerLiter, setPricePerLiter] = useState(() => loadConfig().pricePerLiter || "1200");
+  const [calcMode, setCalcMode] = useState<CalcMode>("liters");
+  const [litersInput, setLitersInput] = useState("");
+  const [amountInput, setAmountInput] = useState("");
+  const [receipt, setReceipt] = useState<GeneratedReceipt | null>(null);
+
+  const price = parseFloat(pricePerLiter) || 0;
+  const liters = calcMode === "liters"
+    ? (parseFloat(litersInput) || 0)
+    : (price > 0 ? (parseFloat(amountInput) || 0) / price : 0);
+  const amount = calcMode === "amount"
+    ? (parseFloat(amountInput) || 0)
+    : liters * price;
+
+  function fmtL(v: number) { return v.toLocaleString("en-US", { maximumFractionDigits: 3 }); }
+  function fmtK(v: number) { return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.round(v)); }
+
+  function handleGenerate() {
+    if (price <= 0 || (calcMode === "liters" ? liters <= 0 : amount <= 0)) return;
+    const cfg = loadConfig();
+    const d = new Date();
+    const dateStr = d.toISOString().slice(0, 10).replace(/-/g, "");
+    setReceipt({
+      staffName, customerName, payStatus, payMethod,
+      pricePerLiter: price, totalLiters: liters, totalAmount: amount,
+      stationPhone: cfg.stationPhone || "09-3339777",
+      receiptMotto: cfg.receiptMotto || "Thank You For Your Purchase!",
+      receiptNo: `RCP-${dateStr}-${Math.floor(Math.random() * 9000) + 1000}`,
+      timestamp: d.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }),
+    });
+  }
+
+  const fieldCls = "w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-gray-700";
+  const labelCls = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5";
+
+  if (receipt) {
+    return (
+      <div className="min-h-screen bg-[#0f111a]">
+        <div className="sticky top-0 z-10 bg-[#0f111a]/95 backdrop-blur border-b border-[#30363d] px-4 py-3 flex items-center">
+          <button onClick={() => setReceipt(null)} className="text-gray-400 hover:text-white text-sm font-semibold flex items-center gap-1 transition-colors">
+            ← New Receipt
+          </button>
+          <p className="text-sm font-bold text-white mx-auto">Receipt Generated</p>
+          <button onClick={onBack} className="text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1 transition-colors">
+            Switch Mode
+          </button>
+        </div>
+        <div className="max-w-sm mx-auto px-4 py-8">
+          <div className="bg-white rounded-3xl overflow-hidden shadow-2xl">
+            <div className="bg-[#0f111a] px-6 pt-6 pb-4 text-center">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-600/20 mb-3">
+                <svg className="w-6 h-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-bold text-white">STM Fuel Station</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Customer Receipt</p>
+            </div>
+            <div className="border-t-2 border-dashed border-gray-200 mx-4" />
+            <div className="px-6 py-5 space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Receipt No.</span>
+                <span className="font-bold text-gray-800 text-xs">{receipt.receiptNo}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Date &amp; Time</span>
+                <span className="font-semibold text-gray-800 text-xs text-right">{receipt.timestamp}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Staff</span>
+                <span className="font-semibold text-gray-800 capitalize">{receipt.staffName || "—"}</span>
+              </div>
+              {receipt.customerName && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Customer</span>
+                  <span className="font-semibold text-gray-800">{receipt.customerName}</span>
+                </div>
+              )}
+            </div>
+            <div className="border-t-2 border-dashed border-gray-200 mx-4" />
+            <div className="px-6 py-5 space-y-3">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Fuel Details</p>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Price / Liter</span>
+                <span className="font-semibold text-gray-800">{fmtK(receipt.pricePerLiter)} MMK</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Total Liters</span>
+                <span className="font-semibold text-gray-800">{fmtL(receipt.totalLiters)} L</span>
+              </div>
+              <div className="flex justify-between text-sm font-bold border-t border-gray-100 pt-3 mt-1">
+                <span className="text-gray-700">Total Amount</span>
+                <span className="text-gray-900 text-base">{fmtK(receipt.totalAmount)} MMK</span>
+              </div>
+            </div>
+            <div className="border-t-2 border-dashed border-gray-200 mx-4" />
+            <div className="px-6 py-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Payment</span>
+                <div className="flex items-center gap-2">
+                  {receipt.payStatus === "paid" ? (
+                    <>
+                      <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full">PAID</span>
+                      <span className="text-sm font-semibold text-gray-800">{receipt.payMethod}</span>
+                    </>
+                  ) : (
+                    <span className="text-xs font-bold bg-red-100 text-red-700 px-2.5 py-0.5 rounded-full">DEBT / CREDIT</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="border-t-2 border-dashed border-gray-200 mx-4" />
+            <div className="px-6 py-5 text-center space-y-1.5">
+              <p className="text-xs text-gray-400">📞 {receipt.stationPhone}</p>
+              <p className="text-sm font-semibold text-gray-600">{receipt.receiptMotto}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0f111a]">
+      <div className="sticky top-0 z-10 bg-[#0f111a]/95 backdrop-blur border-b border-[#30363d] px-4 py-3 flex items-center">
+        <button onClick={onBack} className="text-gray-400 hover:text-white text-sm font-semibold flex items-center gap-1 transition-colors">
+          ← Switch Mode
+        </button>
+        <p className="text-sm font-bold text-white mx-auto">Issue Customer Receipt</p>
+        <div className="w-28" />
+      </div>
+      <div className="max-w-sm mx-auto px-4 py-6 space-y-5">
+        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Transaction Info</p>
+          <div>
+            <label className={labelCls}>Employee Name</label>
+            <input type="text" value={staffName} onChange={e => setStaffName(e.target.value)}
+              placeholder="Your name" className={fieldCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Customer Name <span className="text-gray-600 normal-case font-normal">(optional)</span></label>
+            <input type="text" value={customerName} onChange={e => setCustomerName(e.target.value)}
+              placeholder="Leave blank if not needed" className={fieldCls} />
+          </div>
+        </div>
+
+        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Payment</p>
+          <div className="flex gap-2">
+            {(["paid", "debt"] as PaymentStatus[]).map(s => (
+              <button key={s} type="button" onClick={() => setPayStatus(s)}
+                className={`flex-1 py-3 rounded-xl text-sm font-bold border transition-all ${
+                  payStatus === s
+                    ? s === "paid" ? "bg-emerald-500 text-white border-emerald-500" : "bg-red-500 text-white border-red-500"
+                    : "bg-transparent text-gray-500 border-[#30363d] hover:text-gray-300"
+                }`}>
+                {s === "paid" ? "✓ Paid" : "↑ Debt"}
+              </button>
+            ))}
+          </div>
+          {payStatus === "paid" && (
+            <div>
+              <label className={labelCls}>Payment Method</label>
+              <div className="flex gap-2">
+                {(["Cash", "K Pay", "MMQR"] as PaymentMethod[]).map(m => (
+                  <button key={m} type="button" onClick={() => setPayMethod(m)}
+                    className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
+                      payMethod === m ? "bg-blue-600 text-white border-blue-600" : "bg-transparent text-gray-500 border-[#30363d] hover:text-gray-300"
+                    }`}>
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Fuel Calculation</p>
+          <div>
+            <label className={labelCls}>Price Per Liter (MMK)</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
+              <input type="number" value={pricePerLiter} onChange={e => setPricePerLiter(e.target.value)}
+                placeholder="1200" className={"pl-8 " + fieldCls} />
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Calculate By</label>
+            <div className="flex gap-2">
+              {(["liters", "amount"] as CalcMode[]).map(m => (
+                <button key={m} type="button" onClick={() => setCalcMode(m)}
+                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
+                    calcMode === m ? "bg-blue-600 text-white border-blue-600" : "bg-transparent text-gray-500 border-[#30363d] hover:text-gray-300"
+                  }`}>
+                  {m === "liters" ? "Total Liters" : "Total Amount"}
+                </button>
+              ))}
+            </div>
+          </div>
+          {calcMode === "liters" ? (
+            <div>
+              <label className={labelCls}>Total Liters (L)</label>
+              <input type="number" value={litersInput} onChange={e => setLitersInput(e.target.value)}
+                placeholder="0.000" className={fieldCls} />
+              {liters > 0 && price > 0 && (
+                <p className="text-sm font-bold text-emerald-400 mt-2">→ Total Amount: {fmtK(amount)} MMK</p>
+              )}
+            </div>
+          ) : (
+            <div>
+              <label className={labelCls}>Total Amount (MMK)</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
+                <input type="number" value={amountInput} onChange={e => setAmountInput(e.target.value)}
+                  placeholder="0" className={"pl-8 " + fieldCls} />
+              </div>
+              {amount > 0 && price > 0 && (
+                <p className="text-sm font-bold text-emerald-400 mt-2">→ Total Liters: {fmtL(liters)} L</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <button type="button" onClick={handleGenerate}
+          disabled={price <= 0 || (calcMode === "liters" ? liters <= 0 : amount <= 0)}
+          className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98]">
+          Generate Receipt →
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Session persistence ──────────────────────────────────────────────────────
 const SESSION_KEY = "stm_daily_session";
 const SESSION_DAYS = 30;
@@ -1075,7 +1486,7 @@ export default function App() {
     if (saved) {
       setEmployeeName(saved.name);
       setEmail(saved.mail);
-      setScreen("form");
+      setScreen("mode-select");
     }
   }, []);
 
@@ -1094,7 +1505,7 @@ export default function App() {
       setScreen("denied");
     } else {
       saveSession(name, mail);
-      setScreen("form");
+      setScreen("mode-select");
     }
   }
 
@@ -1227,15 +1638,33 @@ export default function App() {
     setFormData(EMPTY);
     setGrandTotal(0);
     setDifference(0);
-    setScreen("form");
+    setScreen("mode-select");
   }
 
   return (
     <>
-      {screen === "login"    && <LoginScreen onLogin={handleLogin} lang={lang} setLang={setLang} />}
-      {screen === "checking" && <CheckingScreen />}
-      {screen === "denied"   && <DeniedScreen email={email} onBack={() => setScreen("login")} />}
-      {screen === "form"     && <ShiftForm employeeName={employeeName} onSubmit={handleFormSubmit} onLogout={handleLogout} lang={lang} setLang={setLang} />}
+      {screen === "login"       && <LoginScreen onLogin={handleLogin} lang={lang} setLang={setLang} />}
+      {screen === "checking"    && <CheckingScreen />}
+      {screen === "denied"      && <DeniedScreen email={email} onBack={() => setScreen("login")} />}
+      {screen === "mode-select" && (
+        <ModeSelectScreen
+          employeeName={employeeName}
+          onShift={() => setScreen("form")}
+          onReceipt={() => setScreen("receipt")}
+          onSettings={() => setScreen("settings")}
+          onLogout={handleLogout}
+          lang={lang} setLang={setLang}
+        />
+      )}
+      {screen === "form"     && (
+        <ShiftForm
+          employeeName={employeeName}
+          onSubmit={handleFormSubmit}
+          onLogout={handleLogout}
+          onBack={() => setScreen("mode-select")}
+          lang={lang} setLang={setLang}
+        />
+      )}
       {screen === "confirm"  && (
         <>
           <ConfirmScreen
@@ -1251,6 +1680,8 @@ export default function App() {
         </>
       )}
       {screen === "success"  && <SuccessScreen employeeName={employeeName} onNewShift={handleNewShift} />}
+      {screen === "receipt"  && <CustomerReceiptScreen employeeName={employeeName} onBack={() => setScreen("mode-select")} />}
+      {screen === "settings" && <AppSettingsScreen onBack={() => setScreen("mode-select")} />}
     </>
   );
 }

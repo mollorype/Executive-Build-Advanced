@@ -1,0 +1,33 @@
+Task: Implement Startup Mode Selection, Customer Retail Receipt View, and App Admin Configuration
+
+I want to restructure the startup flow of the STM Daily App and add a customizable Customer Receipt generator. Please implement the following specifications:
+
+1. STARTUP MODE SELECTION SCREEN
+* Create a clean, dark-mode launch screen that presents two primary choices:
+  - Button A: "Daily Shift Submission" (For bulk end-of-shift meter readings).
+  - Button B: "Issue Customer Receipt" (For individual customer transactions at the pump).
+* Provide a clear "Switch Mode" or "Back" navigation button inside both screens so employees can switch workflows easily.
+
+2. CUSTOMER RETAIL RECEIPT FORM
+If the employee selects "Issue Customer Receipt", display this tailored entry form:
+* Employee Name: Text input or selector for the staff member on duty.
+* Customer Name: Text input (Can be left blank).
+* Payment Status Toggle: Choose between "Paid" or "Debt".
+* Conditional Payment Method: If "Paid" is selected, display a dropdown with three specific choices: [Cash, K pay, MMQR]. If "Debt" is selected, hide this dropdown.
+* Fuel Calculations:
+  - Price Per Liter: Auto-filled from the App Configuration Settings, but remains fully editable by the employee if a quick adjustment is needed.
+  - Calculation Toggle: Allow inputting by "Total Liters" (calculates Total Amount) or by "Total Amount" (calculates Total Liters) based on the Price Per Liter.
+
+3. DIGITAL RECEIPT GENERATION & DISPLAY
+Upon clicking "Generate Receipt", render a clean, professional digital receipt block on screen featuring:
+* Transaction Details: Customer Name, Employee Name, Price Per Liter, Total Liters, Total Amount, and Payment Status (including Payment Method if Paid).
+* Receipt Footer (Normal Phrases): 
+  - Display the Station Phone Number (Default: 09-3339777).
+  - Display the Station Motto/Phrase (Default: "Thank You For Your Purchase !").
+
+4. APP CONFIGURATION SETTINGS SCREEN (Preventing Hardcoded Values)
+Create a dedicated "App Settings" page or section accessible to prevent being stuck with outdated data. This screen must allow editing the app's default global variables:
+* Edit Default Price Per Liter: Changes the auto-fill value used in the receipt form.
+* Edit Station Phone Number: Updates the default phone number printed on the receipt footer.
+* Edit Receipt Motto: Updates the default "Thank You For Your Purchase !" phrase printed on the receipt footer.
+* Save Changes: Clicking save updates these values in local storage or the database so the form always pulls the newest information automatically.
