@@ -1041,8 +1041,8 @@ function SuccessScreen({ employeeName, onNewShift }: { employeeName: string; onN
 
 // ─── App Config (localStorage) ────────────────────────────────────────────────
 const CONFIG_KEY = "stm_app_config";
-interface AppConfig { pricePerLiter: string; stationPhone: string; receiptMotto: string; }
-const DEFAULT_CONFIG: AppConfig = { pricePerLiter: "1200", stationPhone: "09-3339777", receiptMotto: "Thank You For Your Purchase!" };
+interface AppConfig { price92: string; pricePD: string; price95: string; priceHSD: string; stationPhone: string; receiptMotto: string; }
+const DEFAULT_CONFIG: AppConfig = { price92: "1200", pricePD: "1400", price95: "1350", priceHSD: "1100", stationPhone: "09-3339777", receiptMotto: "Thank You For Your Purchase!" };
 function loadConfig(): AppConfig {
   try {
     const raw = localStorage.getItem(CONFIG_KEY);
@@ -1139,14 +1139,24 @@ function AppSettingsScreen({ onBack }: { onBack: () => void }) {
   const [cfg, setCfg] = useState<AppConfig>(loadConfig);
   const [saved, setSaved] = useState(false);
 
-  function handleSave() {
-    saveConfig(cfg);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }
+  function handleSave() { saveConfig(cfg); setSaved(true); setTimeout(() => setSaved(false), 2000); }
 
   const fieldCls = "w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-gray-700";
   const labelCls = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5";
+
+  function PriceField({ label, field, placeholder }: { label: string; field: keyof AppConfig; placeholder: string }) {
+    return (
+      <div>
+        <label className={labelCls}>{label}</label>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
+          <input type="number" value={cfg[field] as string}
+            onChange={e => setCfg(c => ({ ...c, [field]: e.target.value }))}
+            placeholder={placeholder} className={"pl-8 " + fieldCls} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0f111a]">
@@ -1155,31 +1165,28 @@ function AppSettingsScreen({ onBack }: { onBack: () => void }) {
         <p className="text-sm font-bold text-white mx-auto">App Settings</p>
         <div className="w-14" />
       </div>
-      <div className="max-w-sm mx-auto px-4 py-8 space-y-6">
-        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-5">
-          <div>
-            <label className={labelCls}>Default Price Per Liter (MMK)</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
-              <input type="number" value={cfg.pricePerLiter}
-                onChange={e => setCfg(c => ({ ...c, pricePerLiter: e.target.value }))}
-                placeholder="1200" className={"pl-8 " + fieldCls} />
-            </div>
-            <p className="text-xs text-gray-600 mt-1.5">Auto-filled in the Customer Receipt form</p>
-          </div>
+      <div className="max-w-sm mx-auto px-4 py-8 space-y-5">
+        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Default Prices Per Liter (MMK)</p>
+          <PriceField label="92 RON" field="price92" placeholder="1200" />
+          <PriceField label="PD (Premium Diesel)" field="pricePD" placeholder="1400" />
+          <PriceField label="95 RON" field="price95" placeholder="1350" />
+          <PriceField label="HSD (Diesel)" field="priceHSD" placeholder="1100" />
+          <p className="text-xs text-gray-600">Auto-filled in the Customer Receipt form per product</p>
+        </div>
+        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Receipt Footer</p>
           <div>
             <label className={labelCls}>Station Phone Number</label>
             <input type="text" value={cfg.stationPhone}
               onChange={e => setCfg(c => ({ ...c, stationPhone: e.target.value }))}
               placeholder="09-3339777" className={fieldCls} />
-            <p className="text-xs text-gray-600 mt-1.5">Printed on the receipt footer</p>
           </div>
           <div>
             <label className={labelCls}>Receipt Motto</label>
             <input type="text" value={cfg.receiptMotto}
               onChange={e => setCfg(c => ({ ...c, receiptMotto: e.target.value }))}
               placeholder="Thank You For Your Purchase!" className={fieldCls} />
-            <p className="text-xs text-gray-600 mt-1.5">Closing phrase printed on each receipt</p>
           </div>
         </div>
         <button type="button" onClick={handleSave}
@@ -1195,44 +1202,82 @@ function AppSettingsScreen({ onBack }: { onBack: () => void }) {
 type PaymentStatus = "paid" | "debt";
 type PaymentMethod = "Cash" | "K Pay" | "MMQR";
 type CalcMode = "liters" | "amount";
+type ProductType = "92 RON" | "PD" | "95" | "HSD";
 
+const PRODUCT_LABELS: Record<ProductType, string> = {
+  "92 RON": "92 RON", "PD": "PD (Premium Diesel)", "95": "95 RON", "HSD": "HSD (Diesel)",
+};
+const PRODUCT_PRICE_KEYS: Record<ProductType, keyof AppConfig> = {
+  "92 RON": "price92", "PD": "pricePD", "95": "price95", "HSD": "priceHSD",
+};
+
+interface CartItem { id: number; product: ProductType; pricePerLiter: string; calcMode: CalcMode; litersInput: string; amountInput: string; }
+interface ReceiptLine { product: ProductType; pricePerLiter: number; liters: number; amount: number; }
 interface GeneratedReceipt {
-  staffName: string; customerName: string; payStatus: PaymentStatus;
-  payMethod: PaymentMethod; pricePerLiter: number; totalLiters: number;
-  totalAmount: number; stationPhone: string; receiptMotto: string;
-  receiptNo: string; timestamp: string;
+  staffName: string; customerName: string; payStatus: PaymentStatus; payMethod: PaymentMethod;
+  items: ReceiptLine[]; grandTotal: number;
+  stationPhone: string; receiptMotto: string; receiptNo: string; timestamp: string;
 }
 
+function computeRow(item: CartItem): { liters: number; amount: number } {
+  const price = parseFloat(item.pricePerLiter) || 0;
+  if (item.calcMode === "liters") {
+    const liters = parseFloat(item.litersInput) || 0;
+    return { liters, amount: liters * price };
+  }
+  const amount = parseFloat(item.amountInput) || 0;
+  return { liters: price > 0 ? amount / price : 0, amount };
+}
+
+let _nextId = 1;
+
 function CustomerReceiptScreen({ employeeName, onBack }: { employeeName: string; onBack: () => void }) {
+  const cfg0 = loadConfig();
   const [staffName, setStaffName] = useState(employeeName);
   const [customerName, setCustomerName] = useState("");
   const [payStatus, setPayStatus] = useState<PaymentStatus>("paid");
   const [payMethod, setPayMethod] = useState<PaymentMethod>("Cash");
-  const [pricePerLiter, setPricePerLiter] = useState(() => loadConfig().pricePerLiter || "1200");
-  const [calcMode, setCalcMode] = useState<CalcMode>("liters");
-  const [litersInput, setLitersInput] = useState("");
-  const [amountInput, setAmountInput] = useState("");
+  const [cart, setCart] = useState<CartItem[]>([
+    { id: _nextId++, product: "92 RON", pricePerLiter: cfg0.price92, calcMode: "liters", litersInput: "", amountInput: "" },
+  ]);
   const [receipt, setReceipt] = useState<GeneratedReceipt | null>(null);
-
-  const price = parseFloat(pricePerLiter) || 0;
-  const liters = calcMode === "liters"
-    ? (parseFloat(litersInput) || 0)
-    : (price > 0 ? (parseFloat(amountInput) || 0) / price : 0);
-  const amount = calcMode === "amount"
-    ? (parseFloat(amountInput) || 0)
-    : liters * price;
 
   function fmtL(v: number) { return v.toLocaleString("en-US", { maximumFractionDigits: 3 }); }
   function fmtK(v: number) { return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.round(v)); }
 
+  function addRow() {
+    if (cart.length >= 4) return;
+    const cfg = loadConfig();
+    const product: ProductType = "92 RON";
+    setCart(c => [...c, { id: _nextId++, product, pricePerLiter: cfg[PRODUCT_PRICE_KEYS[product]] as string, calcMode: "liters", litersInput: "", amountInput: "" }]);
+  }
+
+  function removeRow(id: number) { setCart(c => c.filter(r => r.id !== id)); }
+
+  function updateRow(id: number, patch: Partial<CartItem>) {
+    setCart(c => c.map(r => {
+      if (r.id !== id) return r;
+      const updated = { ...r, ...patch };
+      if (patch.product) {
+        const cfg = loadConfig();
+        updated.pricePerLiter = cfg[PRODUCT_PRICE_KEYS[patch.product as ProductType]] as string;
+      }
+      return updated;
+    }));
+  }
+
   function handleGenerate() {
-    if (price <= 0 || (calcMode === "liters" ? liters <= 0 : amount <= 0)) return;
+    const lines: ReceiptLine[] = cart.map(item => {
+      const { liters, amount } = computeRow(item);
+      return { product: item.product, pricePerLiter: parseFloat(item.pricePerLiter) || 0, liters, amount };
+    }).filter(l => l.liters > 0 && l.pricePerLiter > 0);
+    if (lines.length === 0) return;
+    const grandTotal = lines.reduce((s, l) => s + l.amount, 0);
     const cfg = loadConfig();
     const d = new Date();
     const dateStr = d.toISOString().slice(0, 10).replace(/-/g, "");
     setReceipt({
-      staffName, customerName, payStatus, payMethod,
-      pricePerLiter: price, totalLiters: liters, totalAmount: amount,
+      staffName, customerName, payStatus, payMethod, items: lines, grandTotal,
       stationPhone: cfg.stationPhone || "09-3339777",
       receiptMotto: cfg.receiptMotto || "Thank You For Your Purchase!",
       receiptNo: `RCP-${dateStr}-${Math.floor(Math.random() * 9000) + 1000}`,
@@ -1240,89 +1285,109 @@ function CustomerReceiptScreen({ employeeName, onBack }: { employeeName: string;
     });
   }
 
-  const fieldCls = "w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-gray-700";
+  const fieldCls = "w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-3 py-2.5 text-sm font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-gray-700";
   const labelCls = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5";
+
+  const canGenerate = cart.some(item => {
+    const { liters } = computeRow(item);
+    return liters > 0 && (parseFloat(item.pricePerLiter) || 0) > 0;
+  });
 
   if (receipt) {
     return (
       <div className="min-h-screen bg-[#0f111a]">
-        <div className="sticky top-0 z-10 bg-[#0f111a]/95 backdrop-blur border-b border-[#30363d] px-4 py-3 flex items-center">
+        {/* Action bar — hidden on print */}
+        <div className="sticky top-0 z-10 bg-[#0f111a]/95 backdrop-blur border-b border-[#30363d] px-4 py-3 flex items-center gap-2 print:hidden">
           <button onClick={() => setReceipt(null)} className="text-gray-400 hover:text-white text-sm font-semibold flex items-center gap-1 transition-colors">
             ← New Receipt
           </button>
           <p className="text-sm font-bold text-white mx-auto">Receipt Generated</p>
-          <button onClick={onBack} className="text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1 transition-colors">
+          <button onClick={() => window.print()}
+            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+            Print
+          </button>
+          <button onClick={onBack} className="text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1.5 transition-colors">
             Switch Mode
           </button>
         </div>
-        <div className="max-w-sm mx-auto px-4 py-8">
-          <div className="bg-white rounded-3xl overflow-hidden shadow-2xl">
-            <div className="bg-[#0f111a] px-6 pt-6 pb-4 text-center">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-600/20 mb-3">
-                <svg className="w-6 h-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                </svg>
-              </div>
-              <h2 className="text-lg font-bold text-white">STM Fuel Station</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Customer Receipt</p>
+
+        {/* Receipt — this is what gets printed */}
+        <div className="max-w-sm mx-auto px-4 py-6">
+          <div className="receipt-printable bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-lg font-mono">
+            {/* Station header */}
+            <div className="px-6 pt-5 pb-4 text-center border-b border-dashed border-gray-300">
+              <p className="text-base font-black text-gray-900 leading-tight">Shwe Thzain Moe Fuel Station</p>
+              <p className="text-xs text-gray-500 mt-0.5">Customer Receipt</p>
             </div>
-            <div className="border-t-2 border-dashed border-gray-200 mx-4" />
-            <div className="px-6 py-5 space-y-3">
-              <div className="flex justify-between text-sm">
+
+            {/* Meta */}
+            <div className="px-5 py-4 space-y-1.5 border-b border-dashed border-gray-300 text-xs">
+              <div className="flex justify-between">
                 <span className="text-gray-500">Receipt No.</span>
-                <span className="font-bold text-gray-800 text-xs">{receipt.receiptNo}</span>
+                <span className="font-bold text-gray-800">{receipt.receiptNo}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between">
                 <span className="text-gray-500">Date &amp; Time</span>
-                <span className="font-semibold text-gray-800 text-xs text-right">{receipt.timestamp}</span>
+                <span className="text-gray-800">{receipt.timestamp}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between">
                 <span className="text-gray-500">Staff</span>
                 <span className="font-semibold text-gray-800 capitalize">{receipt.staffName || "—"}</span>
               </div>
               {receipt.customerName && (
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between">
                   <span className="text-gray-500">Customer</span>
                   <span className="font-semibold text-gray-800">{receipt.customerName}</span>
                 </div>
               )}
-            </div>
-            <div className="border-t-2 border-dashed border-gray-200 mx-4" />
-            <div className="px-6 py-5 space-y-3">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Fuel Details</p>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Price / Liter</span>
-                <span className="font-semibold text-gray-800">{fmtK(receipt.pricePerLiter)} MMK</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Total Liters</span>
-                <span className="font-semibold text-gray-800">{fmtL(receipt.totalLiters)} L</span>
-              </div>
-              <div className="flex justify-between text-sm font-bold border-t border-gray-100 pt-3 mt-1">
-                <span className="text-gray-700">Total Amount</span>
-                <span className="text-gray-900 text-base">{fmtK(receipt.totalAmount)} MMK</span>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Payment</span>
+                <span className="font-semibold text-gray-800">
+                  {receipt.payStatus === "paid" ? `PAID · ${receipt.payMethod}` : "DEBT / CREDIT"}
+                </span>
               </div>
             </div>
-            <div className="border-t-2 border-dashed border-gray-200 mx-4" />
-            <div className="px-6 py-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">Payment</span>
-                <div className="flex items-center gap-2">
-                  {receipt.payStatus === "paid" ? (
-                    <>
-                      <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full">PAID</span>
-                      <span className="text-sm font-semibold text-gray-800">{receipt.payMethod}</span>
-                    </>
-                  ) : (
-                    <span className="text-xs font-bold bg-red-100 text-red-700 px-2.5 py-0.5 rounded-full">DEBT / CREDIT</span>
-                  )}
-                </div>
+
+            {/* Itemized table */}
+            <div className="px-5 py-3 border-b border-dashed border-gray-300">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Items</p>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-gray-400 border-b border-gray-100">
+                    <th className="text-left font-semibold pb-1.5">Product</th>
+                    <th className="text-right font-semibold pb-1.5">Price/L</th>
+                    <th className="text-right font-semibold pb-1.5">Liters</th>
+                    <th className="text-right font-semibold pb-1.5">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {receipt.items.map((line, i) => (
+                    <tr key={i}>
+                      <td className="py-1.5 font-semibold text-gray-800">{line.product}</td>
+                      <td className="py-1.5 text-right text-gray-600">{fmtK(line.pricePerLiter)}</td>
+                      <td className="py-1.5 text-right text-gray-600">{fmtL(line.liters)}</td>
+                      <td className="py-1.5 text-right font-bold text-gray-900">{fmtK(line.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Grand total */}
+            <div className="px-5 py-4 border-b border-dashed border-gray-300">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-black text-gray-900">GRAND TOTAL</span>
+                <span className="text-base font-black text-gray-900">{fmtK(receipt.grandTotal)} MMK</span>
               </div>
             </div>
-            <div className="border-t-2 border-dashed border-gray-200 mx-4" />
-            <div className="px-6 py-5 text-center space-y-1.5">
-              <p className="text-xs text-gray-400">📞 {receipt.stationPhone}</p>
-              <p className="text-sm font-semibold text-gray-600">{receipt.receiptMotto}</p>
+
+            {/* Footer */}
+            <div className="px-5 py-4 text-center text-xs space-y-1">
+              <p className="text-gray-500">📞 {receipt.stationPhone}</p>
+              <p className="font-semibold text-gray-700">{receipt.receiptMotto}</p>
             </div>
           </div>
         </div>
@@ -1333,13 +1398,13 @@ function CustomerReceiptScreen({ employeeName, onBack }: { employeeName: string;
   return (
     <div className="min-h-screen bg-[#0f111a]">
       <div className="sticky top-0 z-10 bg-[#0f111a]/95 backdrop-blur border-b border-[#30363d] px-4 py-3 flex items-center">
-        <button onClick={onBack} className="text-gray-400 hover:text-white text-sm font-semibold flex items-center gap-1 transition-colors">
-          ← Switch Mode
-        </button>
+        <button onClick={onBack} className="text-gray-400 hover:text-white text-sm font-semibold flex items-center gap-1 transition-colors">← Switch Mode</button>
         <p className="text-sm font-bold text-white mx-auto">Issue Customer Receipt</p>
         <div className="w-28" />
       </div>
-      <div className="max-w-sm mx-auto px-4 py-6 space-y-5">
+      <div className="max-w-sm mx-auto px-4 py-6 space-y-4">
+
+        {/* Transaction info */}
         <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Transaction Info</p>
           <div>
@@ -1354,12 +1419,13 @@ function CustomerReceiptScreen({ employeeName, onBack }: { employeeName: string;
           </div>
         </div>
 
+        {/* Payment */}
         <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Payment</p>
           <div className="flex gap-2">
             {(["paid", "debt"] as PaymentStatus[]).map(s => (
               <button key={s} type="button" onClick={() => setPayStatus(s)}
-                className={`flex-1 py-3 rounded-xl text-sm font-bold border transition-all ${
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all ${
                   payStatus === s
                     ? s === "paid" ? "bg-emerald-500 text-white border-emerald-500" : "bg-red-500 text-white border-red-500"
                     : "bg-transparent text-gray-500 border-[#30363d] hover:text-gray-300"
@@ -1369,71 +1435,119 @@ function CustomerReceiptScreen({ employeeName, onBack }: { employeeName: string;
             ))}
           </div>
           {payStatus === "paid" && (
-            <div>
-              <label className={labelCls}>Payment Method</label>
-              <div className="flex gap-2">
-                {(["Cash", "K Pay", "MMQR"] as PaymentMethod[]).map(m => (
-                  <button key={m} type="button" onClick={() => setPayMethod(m)}
-                    className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
-                      payMethod === m ? "bg-blue-600 text-white border-blue-600" : "bg-transparent text-gray-500 border-[#30363d] hover:text-gray-300"
-                    }`}>
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Fuel Calculation</p>
-          <div>
-            <label className={labelCls}>Price Per Liter (MMK)</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
-              <input type="number" value={pricePerLiter} onChange={e => setPricePerLiter(e.target.value)}
-                placeholder="1200" className={"pl-8 " + fieldCls} />
-            </div>
-          </div>
-          <div>
-            <label className={labelCls}>Calculate By</label>
             <div className="flex gap-2">
-              {(["liters", "amount"] as CalcMode[]).map(m => (
-                <button key={m} type="button" onClick={() => setCalcMode(m)}
-                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
-                    calcMode === m ? "bg-blue-600 text-white border-blue-600" : "bg-transparent text-gray-500 border-[#30363d] hover:text-gray-300"
+              {(["Cash", "K Pay", "MMQR"] as PaymentMethod[]).map(m => (
+                <button key={m} type="button" onClick={() => setPayMethod(m)}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
+                    payMethod === m ? "bg-blue-600 text-white border-blue-600" : "bg-transparent text-gray-500 border-[#30363d] hover:text-gray-300"
                   }`}>
-                  {m === "liters" ? "Total Liters" : "Total Amount"}
+                  {m}
                 </button>
               ))}
             </div>
-          </div>
-          {calcMode === "liters" ? (
-            <div>
-              <label className={labelCls}>Total Liters (L)</label>
-              <input type="number" value={litersInput} onChange={e => setLitersInput(e.target.value)}
-                placeholder="0.000" className={fieldCls} />
-              {liters > 0 && price > 0 && (
-                <p className="text-sm font-bold text-emerald-400 mt-2">→ Total Amount: {fmtK(amount)} MMK</p>
-              )}
-            </div>
-          ) : (
-            <div>
-              <label className={labelCls}>Total Amount (MMK)</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
-                <input type="number" value={amountInput} onChange={e => setAmountInput(e.target.value)}
-                  placeholder="0" className={"pl-8 " + fieldCls} />
-              </div>
-              {amount > 0 && price > 0 && (
-                <p className="text-sm font-bold text-emerald-400 mt-2">→ Total Liters: {fmtL(liters)} L</p>
-              )}
-            </div>
           )}
         </div>
 
-        <button type="button" onClick={handleGenerate}
-          disabled={price <= 0 || (calcMode === "liters" ? liters <= 0 : amount <= 0)}
+        {/* Products */}
+        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-[#30363d] flex items-center justify-between">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Products</p>
+            <span className="text-[10px] text-gray-600">{cart.length}/4 items</span>
+          </div>
+
+          {cart.map((item, idx) => {
+            const { liters, amount } = computeRow(item);
+            const price = parseFloat(item.pricePerLiter) || 0;
+            return (
+              <div key={item.id} className={`px-4 py-4 space-y-3 ${idx > 0 ? "border-t border-[#30363d]" : ""}`}>
+                {/* Row header */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase">Item {idx + 1}</span>
+                  {cart.length > 1 && (
+                    <button type="button" onClick={() => removeRow(item.id)}
+                      className="ml-auto text-gray-600 hover:text-red-400 transition-colors p-0.5">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+
+                {/* Product type */}
+                <div>
+                  <label className={labelCls}>Product Type</label>
+                  <select value={item.product}
+                    onChange={e => updateRow(item.id, { product: e.target.value as ProductType })}
+                    className={fieldCls + " bg-[#0d1117]"}>
+                    {(Object.keys(PRODUCT_LABELS) as ProductType[]).map(p => (
+                      <option key={p} value={p}>{PRODUCT_LABELS[p]}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Price per liter */}
+                <div>
+                  <label className={labelCls}>Price Per Liter (MMK)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
+                    <input type="number" value={item.pricePerLiter}
+                      onChange={e => updateRow(item.id, { pricePerLiter: e.target.value })}
+                      placeholder="0" className={"pl-8 " + fieldCls} />
+                  </div>
+                </div>
+
+                {/* Calc mode toggle + input */}
+                <div>
+                  <div className="flex gap-2 mb-2">
+                    {(["liters", "amount"] as CalcMode[]).map(m => (
+                      <button key={m} type="button" onClick={() => updateRow(item.id, { calcMode: m })}
+                        className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
+                          item.calcMode === m ? "bg-blue-600 text-white border-blue-600" : "bg-transparent text-gray-500 border-[#30363d]"
+                        }`}>
+                        {m === "liters" ? "By Liters" : "By Amount"}
+                      </button>
+                    ))}
+                  </div>
+                  {item.calcMode === "liters" ? (
+                    <>
+                      <input type="number" value={item.litersInput}
+                        onChange={e => updateRow(item.id, { litersInput: e.target.value })}
+                        placeholder="0.000 L" className={fieldCls} />
+                      {liters > 0 && price > 0 && (
+                        <p className="text-xs font-bold text-emerald-400 mt-1.5">→ {new Intl.NumberFormat("en-US").format(Math.round(amount))} MMK</p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
+                        <input type="number" value={item.amountInput}
+                          onChange={e => updateRow(item.id, { amountInput: e.target.value })}
+                          placeholder="0" className={"pl-8 " + fieldCls} />
+                      </div>
+                      {amount > 0 && price > 0 && (
+                        <p className="text-xs font-bold text-emerald-400 mt-1.5">→ {liters.toLocaleString("en-US", { maximumFractionDigits: 3 })} L</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Add product button */}
+          <div className="px-4 py-3 border-t border-[#30363d]">
+            <button type="button" onClick={addRow} disabled={cart.length >= 4}
+              className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 hover:text-emerald-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Add Product {cart.length >= 4 ? "(max 4)" : ""}
+            </button>
+          </div>
+        </div>
+
+        <button type="button" onClick={handleGenerate} disabled={!canGenerate}
           className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98]">
           Generate Receipt →
         </button>

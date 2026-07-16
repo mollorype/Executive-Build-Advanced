@@ -55,3 +55,22 @@
 .float-up-2 { animation-delay: 0.25s; opacity: 0; }
 .float-up-3 { animation-delay: 0.35s; opacity: 0; }
 .float-up-4 { animation-delay: 0.45s; opacity: 0; }
+
+/* ─── Print styles — show only receipt, hide everything else ─── */
+@media print {
+  body * { visibility: hidden !important; }
+  .receipt-printable,
+  .receipt-printable * { visibility: visible !important; }
+  .receipt-printable {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    max-width: 420px !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 16px !important;
+    background: white !important;
+  }
+}

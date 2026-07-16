@@ -1,0 +1,47 @@
+Ah, my bad! That makes complete sense. In a real station environment, a customer might fill up their car with 92 RON and grab a container of Diesel in the exact same visit—they definitely don't want four separate pieces of paper.
+Let's restructure the form so it acts like a true multi-item shopping cart, strips out all the fancy UI fluff for a clean white receipt layout, and locks in the exact station identity.
+Here is your updated, refined master prompt to feed directly into your Replit AI assistant:
+📋 Copy-Paste Master Prompt for Replit AI
+Task: Implement Multi-Product Receipt Generator, Plain White Layout, One-Click Printing, and Configuration
+
+Please completely rewrite the "Issue Customer Receipt" module based on these updated operational requirements:
+
+1. STATION BRANDING & VISUAL STYLE
+* Header Title: Must strictly read text-only: "Shwe Thzain Moe Fuel Station". Do NOT include any logo placeholders or image slots.
+* Receipt Layout: The generated receipt view must be a clean, minimalist, plain white background box with dark text (resembling a real thermal printer slip).
+
+2. CUSTOMER RECEIPT FORM (MULTI-PRODUCT SUPPORT)
+* General Info: Input fields for Employee Name (Required) and Customer Name (Optional).
+* Payment Status Toggle: Choose between "Paid" or "Debt". If "Paid", show a dropdown with [Cash, K pay, MMQR]. If "Debt", hide it.
+* Dynamic Product Grid: Allow the employee to add multiple items to a single receipt. 
+  - Provide an "Add Product" button. The form can support up to 4 product rows simultaneously.
+  - Dropdown options for Product Type must strictly be: [92 RON, PD (Premium Diesel), 95, HSD (Diesel)].
+  - Each product row must include:
+    * Product Type Dropdown.
+    * Price Per Liter (Auto-filled from App Settings, but fully editable).
+    * Toggle Input: Choose to type "Total Liters" (auto-calculates row amount) or type "Total Amount" (auto-calculates row liters).
+  - Include a trash/remove icon next to each row to delete it from the receipt.
+
+3. DIGITAL RECEIPT GENERATION & DISPLAY
+Upon clicking "Generate Receipt", display the plain white ticket preview showing:
+* Header: "Shwe Thzain Moe Fuel Station"
+* Metadata: Date/Time, Employee Name, Customer Name, Payment Status (and method if paid).
+* Itemized Table: A clean table showing Product Type, Price/Liter, Liters, and Subtotal for each item added.
+* Totals Section: Clearly display the Grand Total Amount (MMK).
+* Footer (Normal Phrases):
+  - Station Phone: "09-3339777"
+  - Station Motto: "Thank You For Your Purchase !"
+
+4. ONE-CLICK PRINTING FUNCTION (PC & MOBILE)
+* Add a prominent "Print Receipt" action button next to the generated preview.
+* When clicked, it must execute JavaScript `window.print()`.
+* Implement a CSS print stylesheet (`@media print`) that ensures when printing:
+  - The entire app UI, sidebars, navigation layout, and action buttons are completely hidden.
+  - Only the plain white receipt content box is visible, centered, and scaled perfectly for paper printers, desktop PDF saves, and native iOS/Android mobile print/share dialog sheets.
+
+5. APP CONFIGURATION SETTINGS SCREEN
+Ensure the Admin Configuration page allows modifying the defaults so the app never gets stuck with wrong data:
+* Fields to edit default prices individually for: 92 RON, PD (Premium Diesel), 95, and HSD (Diesel).
+* Field to edit the default Station Phone Number.
+* Field to edit the default Receipt Footer Motto.
+
