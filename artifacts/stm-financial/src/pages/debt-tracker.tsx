@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   supabase, DebtProfile, DEBT_TABLES, RELATIONS, DebtRelation,
   calculateScore, scoreColor, scoreTier, mmkFmt, formatPhone, generateTxnNumber,
+  combineDateWithCurrentTime,
 } from "@/lib/debt-supabase";
 import DebtProfileDetail from "@/components/debt-profile-detail";
 import {
@@ -118,7 +119,7 @@ export default function DebtTracker() {
       await supabase.from(DEBT_TABLES.TRANSACTIONS).insert({
         profile_id: profileData.id,
         amount: debt,
-        date,
+        date: combineDateWithCurrentTime(date),
         note: createFuelRemarks.trim() || null,
         transaction_number: generateTxnNumber(),
         source: "manual",
@@ -558,14 +559,14 @@ export default function DebtTracker() {
                       <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Liters (L)</label>
                       <input type="number" value={createFuelLiters}
                         onChange={e => handleCreateLitersChange(e.target.value)}
-                        placeholder="0.000" min="0" step="0.001"
+                        placeholder="0.000" min="0" step="any"
                         className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Gallons (G)</label>
                       <input type="number" value={createFuelGallons}
                         onChange={e => handleCreateGallonsChange(e.target.value)}
-                        placeholder="0.0000" min="0" step="0.0001"
+                        placeholder="0.0000" min="0" step="any"
                         className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
                     </div>
                   </div>

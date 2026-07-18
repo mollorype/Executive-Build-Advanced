@@ -40,12 +40,17 @@ export { supabase };
     created_at         timestamptz NOT NULL DEFAULT now()
   );
 
-  -- MIGRATION (if debt_transactions already exists, add fuel columns):
+  -- MIGRATION (if debt_transactions already exists, add fuel + gallons columns
+  -- AND change date column to timestamptz to preserve time-of-day):
   ALTER TABLE debt_transactions
     ADD COLUMN IF NOT EXISTS product_type    text,
     ADD COLUMN IF NOT EXISTS price_per_liter numeric,
     ADD COLUMN IF NOT EXISTS liters          numeric,
     ADD COLUMN IF NOT EXISTS gallons         numeric;
+
+  -- Run this separately to upgrade the date column to full timestamp:
+  ALTER TABLE debt_transactions
+    ALTER COLUMN date TYPE timestamptz USING (date::timestamptz);
 
   -- Enable RLS + permissive policies (adjust for production):
   ALTER TABLE debt_profiles ENABLE ROW LEVEL SECURITY;
@@ -105,6 +110,19 @@ export type DebtTransaction = {
   gallons: number | null;
   created_at: string;
 };
+
+/**
+ * Combines a user-selected date (YYYY-MM-DD) with the current local time
+ * so that multiple entries on the same day stay in chronological order.
+ * PostgreSQL accepts the resulting ISO string in both `date` and `timestamptz` columns.
+ */
+export function combineDateWithCurrentTime(dateStr: string): string {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const ss = String(now.getSeconds()).padStart(2, "0");
+  return `${dateStr}T${hh}:${mm}:${ss}`;
+}
 
 export function generateTxnNumber(): string {
   const d = new Date().toISOString().slice(0, 10).replace(/-/g, "");

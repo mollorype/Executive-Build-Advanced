@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
   supabase, DebtProfile, DebtTransaction, DEBT_TABLES, RELATIONS, DebtRelation,
   generateTxnNumber, calculateScore, scoreColor, scoreTier, mmkFmt, formatPhone,
-  getDisplayPhones,
+  getDisplayPhones, combineDateWithCurrentTime,
 } from "@/lib/debt-supabase";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import {
@@ -55,7 +55,9 @@ function ScoreGauge({ score }: { score: number }) {
 
 function fmtDate(d: string) {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  // Append local noon to prevent UTC-midnight timezone shift on date-only strings
+  const safeStr = /^\d{4}-\d{2}-\d{2}$/.test(d) ? `${d}T12:00:00` : d;
+  return new Date(safeStr).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 function fmtDateTime(d: string) {
   if (!d) return "—";
@@ -149,7 +151,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     const { error: txnErr } = await supabase.from(DEBT_TABLES.TRANSACTIONS).insert({
       profile_id: profile.id,
       amount: finalAmount,
-      date: txnDate,
+      date: combineDateWithCurrentTime(txnDate),
       note: txnNote.trim() || null,
       transaction_number: txnNum,
       source: "manual",
@@ -490,14 +492,14 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                       <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Liters (L)</label>
                       <input type="number" value={fuelLitersInput}
                         onChange={e => handleFuelLitersChange(e.target.value)}
-                        placeholder="0.000" min="0" step="0.001"
+                        placeholder="0.000" min="0" step="any"
                         className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
                     </div>
                     <div>
                       <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Gallons (G)</label>
                       <input type="number" value={fuelGallonsInput}
                         onChange={e => handleFuelGallonsChange(e.target.value)}
-                        placeholder="0.0000" min="0" step="0.0001"
+                        placeholder="0.0000" min="0" step="any"
                         className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
                     </div>
                   </div>
