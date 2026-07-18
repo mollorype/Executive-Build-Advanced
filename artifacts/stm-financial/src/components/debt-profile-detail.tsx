@@ -130,6 +130,14 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     e.preventDefault();
     setTxnError("");
 
+    // ── Capture the EXACT system clock at the moment the button is pressed ──
+    // Date comes from the manual date picker (txnDate); time from the system clock right now.
+    const now = new Date();
+    const currentHours   = String(now.getHours()).padStart(2, "0");
+    const currentMinutes = String(now.getMinutes()).padStart(2, "0");
+    const currentSeconds = String(now.getSeconds()).padStart(2, "0");
+    const txnTimestamp = `${txnDate} ${currentHours}:${currentMinutes}:${currentSeconds}`;
+
     let amt: number;
     if (showFuelFields) {
       amt = fuelAmountNum;
@@ -151,7 +159,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     const { error: txnErr } = await supabase.from(DEBT_TABLES.TRANSACTIONS).insert({
       profile_id: profile.id,
       amount: finalAmount,
-      date: combineDateWithCurrentTime(txnDate),
+      date: txnTimestamp,
       note: txnNote.trim() || null,
       transaction_number: txnNum,
       source: "manual",
@@ -164,7 +172,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     if (txnErr) { setTxnError(txnErr.message); setSubmitting(false); return; }
 
     const allTxns = [...transactions, {
-      id: "", profile_id: profile.id, amount: finalAmount, date: combineDateWithCurrentTime(txnDate),
+      id: "", profile_id: profile.id, amount: finalAmount, date: txnTimestamp,
       note: txnNote, transaction_number: txnNum, source: "manual" as const,
       product_type: showFuelFields ? fuelProduct : null,
       price_per_liter: showFuelFields && fuelPriceComputed > 0 ? fuelPriceComputed : null,

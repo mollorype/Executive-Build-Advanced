@@ -116,10 +116,18 @@ export default function DebtTracker() {
 
     // For non-Family/Own with a starting debt: also create an initial transaction with fuel details
     if (!isSimpleRelation && debt != null && debt > 0 && profileData?.id) {
+      // ── Capture the EXACT system clock at the moment of submission ──
+      // Date comes from the manual date picker (date state); time from the system clock right now.
+      const now = new Date();
+      const currentHours   = String(now.getHours()).padStart(2, "0");
+      const currentMinutes = String(now.getMinutes()).padStart(2, "0");
+      const currentSeconds = String(now.getSeconds()).padStart(2, "0");
+      const txnTimestamp = `${date} ${currentHours}:${currentMinutes}:${currentSeconds}`;
+
       await supabase.from(DEBT_TABLES.TRANSACTIONS).insert({
         profile_id: profileData.id,
         amount: debt,
-        date: combineDateWithCurrentTime(date),
+        date: txnTimestamp,
         note: createFuelRemarks.trim() || null,
         transaction_number: generateTxnNumber(),
         source: "manual",
