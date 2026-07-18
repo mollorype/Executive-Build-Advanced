@@ -116,13 +116,16 @@ export default function DebtTracker() {
 
     // For non-Family/Own with a starting debt: also create an initial transaction with fuel details
     if (!isSimpleRelation && debt != null && debt > 0 && profileData?.id) {
-      // ── Capture the EXACT system clock at the moment of submission ──
-      // Date comes from the manual date picker (date state); time from the system clock right now.
+      // ── Build a timezone-safe timestamp from the user's chosen date + current local time ──
+      // Parse picker value as LOCAL integers to avoid UTC-midnight shift.
+      const [year, month, day] = date.split("-").map(Number);
+      const finalTimestamp = new Date(year, month - 1, day); // local midnight
       const now = new Date();
-      const currentHours   = String(now.getHours()).padStart(2, "0");
-      const currentMinutes = String(now.getMinutes()).padStart(2, "0");
-      const currentSeconds = String(now.getSeconds()).padStart(2, "0");
-      const txnTimestamp = `${date} ${currentHours}:${currentMinutes}:${currentSeconds}`;
+      finalTimestamp.setHours(now.getHours());
+      finalTimestamp.setMinutes(now.getMinutes());
+      finalTimestamp.setSeconds(now.getSeconds());
+      finalTimestamp.setMilliseconds(0);
+      const txnTimestamp = finalTimestamp.toISOString(); // UTC equivalent of local time
 
       await supabase.from(DEBT_TABLES.TRANSACTIONS).insert({
         profile_id: profileData.id,

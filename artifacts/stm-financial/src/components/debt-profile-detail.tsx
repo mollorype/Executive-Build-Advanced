@@ -135,13 +135,16 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     e.preventDefault();
     setTxnError("");
 
-    // ── Capture the EXACT system clock at the moment the button is pressed ──
-    // Date comes from the manual date picker (txnDate); time from the system clock right now.
+    // ── Build a timezone-safe timestamp from the user's chosen date + current local time ──
+    // Parse picker value as LOCAL integers to avoid UTC-midnight shift.
+    const [year, month, day] = txnDate.split("-").map(Number);
+    const finalTimestamp = new Date(year, month - 1, day); // local midnight
     const now = new Date();
-    const currentHours   = String(now.getHours()).padStart(2, "0");
-    const currentMinutes = String(now.getMinutes()).padStart(2, "0");
-    const currentSeconds = String(now.getSeconds()).padStart(2, "0");
-    const txnTimestamp = `${txnDate} ${currentHours}:${currentMinutes}:${currentSeconds}`;
+    finalTimestamp.setHours(now.getHours());
+    finalTimestamp.setMinutes(now.getMinutes());
+    finalTimestamp.setSeconds(now.getSeconds());
+    finalTimestamp.setMilliseconds(0);
+    const txnTimestamp = finalTimestamp.toISOString(); // UTC equivalent of local time
 
     let amt: number;
     if (showFuelFields) {
