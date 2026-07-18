@@ -41,6 +41,17 @@ export default function DebtTracker() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
 
+  // Fuel fields for the initial debt entry — non-Family/Own only
+  const [createFuelProduct, setCreateFuelProduct] = useState<"92 RON" | "PD" | "95" | "HSD">("92 RON");
+  const [createFuelLiters, setCreateFuelLiters] = useState("");
+  const [createFuelRemarks, setCreateFuelRemarks] = useState("");
+
+  const isSimpleRelation = NO_SCORE_RELATIONS.has(relation);
+  const createFuelAmountNum = parseFloat(totalDebt) || 0;
+  const createFuelLitersNum = parseFloat(createFuelLiters) || 0;
+  const createFuelPriceComputed = createFuelAmountNum > 0 && createFuelLitersNum > 0
+    ? createFuelAmountNum / createFuelLitersNum : 0;
+
   const fetchProfiles = useCallback(async () => {
     const { data } = await supabase
       .from(DEBT_TABLES.PROFILES)
@@ -65,31 +76,54 @@ export default function DebtTracker() {
     if (!name.trim()) { setCreateError("Name is required."); return; }
     setCreating(true);
     setCreateError("");
+
     const debt = totalDebt ? parseFloat(totalDebt) : null;
     const cleanPhones = phones.map(p => p.trim()).filter(Boolean);
-    const { error } = await supabase.from(DEBT_TABLES.PROFILES).insert({
-      name: name.trim(),
-      relation,
-      phone_number: cleanPhones[0] || null,
-      phone_numbers: cleanPhones,
-      date,
-      total_debt: debt,
-      current_balance: debt ?? 0,
-      score: 50,
-      credit_limit: creditLimit ? parseFloat(creditLimit) : null,
-      payment_due_date: paymentDueDate || null,
-    });
+
+    const { data: profileData, error: profileError } = await supabase
+      .from(DEBT_TABLES.PROFILES)
+      .insert({
+        name: name.trim(),
+        relation,
+        phone_number: cleanPhones[0] || null,
+        phone_numbers: cleanPhones,
+        date,
+        total_debt: debt,
+        current_balance: debt ?? 0,
+        score: 50,
+        credit_limit: creditLimit ? parseFloat(creditLimit) : null,
+        payment_due_date: paymentDueDate || null,
+      })
+      .select("id")
+      .single();
+
+    if (profileError) { setCreateError(profileError.message); setCreating(false); return; }
+
+    // For non-Family/Own with a starting debt: also create an initial transaction with fuel details
+    if (!isSimpleRelation && debt != null && debt > 0 && profileData?.id) {
+      await supabase.from(DEBT_TABLES.TRANSACTIONS).insert({
+        profile_id: profileData.id,
+        amount: debt,
+        date,
+        note: createFuelRemarks.trim() || null,
+        transaction_number: generateTxnNumber(),
+        source: "manual",
+        product_type: createFuelProduct,
+        price_per_liter: createFuelPriceComputed > 0 ? createFuelPriceComputed : null,
+        liters: createFuelLitersNum > 0 ? createFuelLitersNum : null,
+      });
+    }
+
     setCreating(false);
-    if (error) { setCreateError(error.message); return; }
-    setName(""); setRelation("Other"); setPhones([""]); setDate(new Date().toISOString().slice(0, 10));
-    setTotalDebt(""); setCreditLimit(""); setPaymentDueDate("");
     setShowCreate(false);
+    resetCreate();
     fetchProfiles();
   }
 
   function resetCreate() {
     setName(""); setRelation("Other"); setPhones([""]); setDate(new Date().toISOString().slice(0, 10));
     setTotalDebt(""); setCreditLimit(""); setPaymentDueDate(""); setCreateError("");
+    setCreateFuelProduct("92 RON"); setCreateFuelLiters(""); setCreateFuelRemarks("");
   }
 
   function addCreatePhone() {
@@ -458,22 +492,84 @@ export default function DebtTracker() {
                 <p className="text-xs text-slate-600 mt-1">Triggers an alert when today is past this date and debt remains.</p>
               </div>
 
-              {/* Total Debt */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Total Debt (optional)</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium select-none">K</span>
-                  <input
-                    type="number"
-                    value={totalDebt}
-                    onChange={e => setTotalDebt(e.target.value)}
-                    placeholder="Leave blank if unknown"
-                    min="0"
-                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600"
-                  />
+              {/* Starting Debt / Fuel Fields */}
+              {isSimpleRelation ? (
+                /* Family / Own — simple amount only */
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Starting Amount <span className="text-slate-600 normal-case font-normal">(optional)</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium select-none">K</span>
+                    <input type="number" value={totalDebt} onChange={e => setTotalDebt(e.target.value)}
+                      placeholder="Leave blank if unknown" min="0"
+                      className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1">Can be updated later via transactions.</p>
                 </div>
-                <p className="text-xs text-slate-600 mt-1">Can be added or updated later via transactions.</p>
-              </div>
+              ) : (
+                /* Standard customers — full fuel details */
+                <div className="space-y-3">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Initial Debt (Fuel Details)</p>
+
+                  {/* Product type */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Product Type</label>
+                    <select value={createFuelProduct} onChange={e => setCreateFuelProduct(e.target.value as typeof createFuelProduct)}
+                      className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                      <option value="92 RON">92 RON</option>
+                      <option value="PD">PD (Premium Diesel)</option>
+                      <option value="95">95 RON</option>
+                      <option value="HSD">HSD (Diesel)</option>
+                    </select>
+                  </div>
+
+                  {/* Total Amount */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                      Total Amount <span className="text-slate-600 normal-case font-normal">(optional)</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium select-none">K</span>
+                      <input type="number" value={totalDebt} onChange={e => setTotalDebt(e.target.value)}
+                        placeholder="0" min="0"
+                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                    </div>
+                  </div>
+
+                  {/* Liters */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Liters (L)</label>
+                    <input type="number" value={createFuelLiters} onChange={e => setCreateFuelLiters(e.target.value)}
+                      placeholder="0.000" min="0" step="0.001"
+                      className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                  </div>
+
+                  {/* Price Per Liter — read-only, auto-calculated */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                      Price Per Liter <span className="text-slate-600 normal-case font-normal">(auto-calculated)</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 text-sm font-medium select-none">K</span>
+                      <input type="text" readOnly
+                        value={createFuelPriceComputed > 0 ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(createFuelPriceComputed) : ""}
+                        placeholder="Fills when Amount ÷ Liters are set"
+                        className="w-full bg-slate-900 border border-slate-700/50 text-slate-300 text-sm rounded-xl pl-8 pr-4 py-2.5 cursor-not-allowed placeholder:text-slate-700 select-none" />
+                    </div>
+                  </div>
+
+                  {/* Remarks */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                      Remarks <span className="text-slate-600 normal-case font-normal">(optional)</span>
+                    </label>
+                    <input type="text" value={createFuelRemarks} onChange={e => setCreateFuelRemarks(e.target.value)}
+                      placeholder="e.g. Plate no., vehicle type…"
+                      className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                  </div>
+                </div>
+              )}
 
               {createError && (
                 <div className="flex items-start gap-2 bg-red-900/30 border border-red-700/40 rounded-xl px-4 py-3 text-xs text-red-300">
