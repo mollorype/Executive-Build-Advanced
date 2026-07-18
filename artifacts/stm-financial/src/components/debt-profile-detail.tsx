@@ -117,7 +117,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
       .from(DEBT_TABLES.TRANSACTIONS)
       .select("*")
       .eq("profile_id", profile.id)
-      .order("created_at", { ascending: false });
+      .order("date", { ascending: false });
     if (data) setTransactions(data as DebtTransaction[]);
   }
 
@@ -164,7 +164,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     if (txnErr) { setTxnError(txnErr.message); setSubmitting(false); return; }
 
     const allTxns = [...transactions, {
-      id: "", profile_id: profile.id, amount: finalAmount, date: txnDate,
+      id: "", profile_id: profile.id, amount: finalAmount, date: combineDateWithCurrentTime(txnDate),
       note: txnNote, transaction_number: txnNum, source: "manual" as const,
       product_type: showFuelFields ? fuelProduct : null,
       price_per_liter: showFuelFields && fuelPriceComputed > 0 ? fuelPriceComputed : null,
@@ -598,7 +598,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                           </span>
                           <span className="text-slate-600 text-[10px] font-mono shrink-0">{txn.transaction_number}</span>
                         </div>
-                        <p className="text-slate-500 text-xs mt-0.5">{fmtDateTime(txn.created_at)}</p>
+                        <p className="text-slate-500 text-xs mt-0.5">{fmtDateTime(txn.date)}</p>
                         {/* Fuel details — only rendered when the transaction has product data */}
                         {hasFuel && (
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
