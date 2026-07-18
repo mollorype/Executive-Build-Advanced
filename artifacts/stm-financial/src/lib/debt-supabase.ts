@@ -33,8 +33,17 @@ export { supabase };
     note               text,
     transaction_number text NOT NULL,
     source             text NOT NULL DEFAULT 'manual',
+    product_type       text,
+    price_per_liter    numeric,
+    liters             numeric,
     created_at         timestamptz NOT NULL DEFAULT now()
   );
+
+  -- MIGRATION (if debt_transactions already exists, add fuel columns):
+  ALTER TABLE debt_transactions
+    ADD COLUMN IF NOT EXISTS product_type    text,
+    ADD COLUMN IF NOT EXISTS price_per_liter numeric,
+    ADD COLUMN IF NOT EXISTS liters          numeric;
 
   -- Enable RLS + permissive policies (adjust for production):
   ALTER TABLE debt_profiles ENABLE ROW LEVEL SECURITY;
@@ -88,6 +97,9 @@ export type DebtTransaction = {
   note: string | null;
   transaction_number: string;
   source: "manual" | "daily_app";
+  product_type: string | null;
+  price_per_liter: number | null;
+  liters: number | null;
   created_at: string;
 };
 

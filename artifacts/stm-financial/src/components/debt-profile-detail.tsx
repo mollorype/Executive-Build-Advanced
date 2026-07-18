@@ -76,6 +76,22 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   const [txnError, setTxnError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Fuel fields — only shown for non-Family/Own relations on debt entries
+  const [fuelProduct, setFuelProduct] = useState<"92 RON" | "PD" | "95" | "HSD">("92 RON");
+  const [fuelPrice, setFuelPrice] = useState("1200");
+  const [fuelCalcMode, setFuelCalcMode] = useState<"liters" | "amount">("liters");
+  const [fuelLitersInput, setFuelLitersInput] = useState("");
+  const [fuelAmountInput, setFuelAmountInput] = useState("");
+
+  const showFuelFields = !NO_SCORE_RELATIONS.has(profile.relation) && txnType === "debt";
+  const fuelPriceNum = parseFloat(fuelPrice) || 0;
+  const fuelLiters = fuelCalcMode === "liters"
+    ? (parseFloat(fuelLitersInput) || 0)
+    : (fuelPriceNum > 0 ? (parseFloat(fuelAmountInput) || 0) / fuelPriceNum : 0);
+  const fuelAmount = fuelCalcMode === "amount"
+    ? (parseFloat(fuelAmountInput) || 0)
+    : fuelLiters * fuelPriceNum;
+
   const [showEdit, setShowEdit] = useState(false);
   const [editName, setEditName] = useState("");
   const [editAge, setEditAge] = useState("");
@@ -102,10 +118,21 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
 
   async function handleAddTransaction(e: React.FormEvent) {
     e.preventDefault();
-    const amt = parseFloat(txnAmount);
-    if (!amt || isNaN(amt) || amt <= 0) { setTxnError("Enter a valid amount."); return; }
-    setSubmitting(true);
     setTxnError("");
+
+    let amt: number;
+    if (showFuelFields) {
+      amt = fuelCalcMode === "liters" ? fuelAmount : (parseFloat(fuelAmountInput) || 0);
+      if (amt <= 0 || fuelPriceNum <= 0 || fuelLiters <= 0) {
+        setTxnError("Enter valid fuel details (price and quantity must be > 0).");
+        return;
+      }
+    } else {
+      amt = parseFloat(txnAmount);
+      if (!amt || isNaN(amt) || amt <= 0) { setTxnError("Enter a valid amount."); return; }
+    }
+
+    setSubmitting(true);
 
     const finalAmount = txnType === "payment" ? -amt : amt;
     const newBalance = profile.current_balance + finalAmount;
@@ -118,6 +145,9 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
       note: txnNote.trim() || null,
       transaction_number: txnNum,
       source: "manual",
+      product_type: showFuelFields ? fuelProduct : null,
+      price_per_liter: showFuelFields ? fuelPriceNum : null,
+      liters: showFuelFields ? fuelLiters : null,
     });
 
     if (txnErr) { setTxnError(txnErr.message); setSubmitting(false); return; }
@@ -125,6 +155,9 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     const allTxns = [...transactions, {
       id: "", profile_id: profile.id, amount: finalAmount, date: txnDate,
       note: txnNote, transaction_number: txnNum, source: "manual" as const,
+      product_type: showFuelFields ? fuelProduct : null,
+      price_per_liter: showFuelFields ? fuelPriceNum : null,
+      liters: showFuelFields ? fuelLiters : null,
       created_at: new Date().toISOString(),
     }];
     const newScore = calculateScore(allTxns, newBalance);
@@ -136,7 +169,11 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
       last_payment_at: lastPayAt,
     }).eq("id", profile.id);
 
-    setTxnAmount(""); setTxnNote(""); setTxnType("payment");
+    setTxnAmount("");
+    setTxnNote("");
+    setTxnType("payment");
+    setFuelLitersInput("");
+    setFuelAmountInput("");
     setSubmitting(false);
 
     const updated: DebtProfile = { ...profile, current_balance: newBalance, score: newScore, last_payment_at: lastPayAt ?? profile.last_payment_at };
@@ -398,6 +435,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
           <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Record Transaction</p>
             <form onSubmit={handleAddTransaction} className="space-y-3">
+              {/* Type toggle */}
               <div className="flex gap-2">
                 <button type="button" onClick={() => setTxnType("payment")}
                   className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${txnType === "payment" ? "bg-emerald-600/30 border-emerald-500/50 text-emerald-300" : "bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300"}`}>
@@ -408,29 +446,113 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                   ↑ New Debt (adds to balance)
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Amount</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">K</span>
-                    <input type="number" value={txnAmount} onChange={e => setTxnAmount(e.target.value)}
-                      placeholder="0" min="0"
-                      className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-7 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600"
-                      required />
+
+              {/* ── Fuel fields: only for non-Family/Own debt entries ── */}
+              {showFuelFields ? (
+                <>
+                  {/* Product type */}
+                  <div>
+                    <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Product Type</label>
+                    <select value={fuelProduct} onChange={e => setFuelProduct(e.target.value as typeof fuelProduct)}
+                      className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                      <option value="92 RON">92 RON</option>
+                      <option value="PD">PD (Premium Diesel)</option>
+                      <option value="95">95 RON</option>
+                      <option value="HSD">HSD (Diesel)</option>
+                    </select>
+                  </div>
+
+                  {/* Price per liter */}
+                  <div>
+                    <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Price Per Liter (MMK)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">K</span>
+                      <input type="number" value={fuelPrice} onChange={e => setFuelPrice(e.target.value)}
+                        placeholder="1200" min="0"
+                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-7 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                    </div>
+                  </div>
+
+                  {/* Calc mode toggle */}
+                  <div className="flex gap-2">
+                    {(["liters", "amount"] as const).map(m => (
+                      <button key={m} type="button" onClick={() => setFuelCalcMode(m)}
+                        className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${fuelCalcMode === m ? "bg-blue-600 text-white border-blue-600" : "bg-slate-800 text-slate-500 border-slate-700 hover:text-slate-300"}`}>
+                        {m === "liters" ? "Enter Liters" : "Enter Amount"}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Liters or amount input */}
+                  {fuelCalcMode === "liters" ? (
+                    <div>
+                      <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Total Liters (L)</label>
+                      <input type="number" value={fuelLitersInput} onChange={e => setFuelLitersInput(e.target.value)}
+                        placeholder="0.000" min="0" step="0.001"
+                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                      {fuelLiters > 0 && fuelPriceNum > 0 && (
+                        <p className="text-xs text-emerald-400 font-bold mt-1.5">
+                          → Total: {new Intl.NumberFormat("en-US").format(Math.round(fuelAmount))} MMK
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Total Amount (MMK)</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">K</span>
+                        <input type="number" value={fuelAmountInput} onChange={e => setFuelAmountInput(e.target.value)}
+                          placeholder="0" min="0"
+                          className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-7 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                      </div>
+                      {fuelAmount > 0 && fuelPriceNum > 0 && (
+                        <p className="text-xs text-emerald-400 font-bold mt-1.5">
+                          → Liters: {fuelLiters.toLocaleString("en-US", { maximumFractionDigits: 3 })} L
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* ── Simple amount field: payments OR Family/Own debts ── */
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Amount</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">K</span>
+                      <input type="number" value={txnAmount} onChange={e => setTxnAmount(e.target.value)}
+                        placeholder="0" min="0"
+                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-7 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600"
+                        required />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Date</label>
+                    <input type="date" value={txnDate} onChange={e => setTxnDate(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
                   </div>
                 </div>
+              )}
+
+              {/* Date — shown below fuel fields */}
+              {showFuelFields && (
                 <div>
                   <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Date</label>
                   <input type="date" value={txnDate} onChange={e => setTxnDate(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
                 </div>
-              </div>
+              )}
+
+              {/* Remarks / note */}
               <div>
-                <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Note (optional)</label>
+                <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">
+                  {showFuelFields ? "Remarks (optional)" : "Note (optional)"}
+                </label>
                 <input type="text" value={txnNote} onChange={e => setTxnNote(e.target.value)}
-                  placeholder="e.g. Partial payment, Invoice #2…"
+                  placeholder={showFuelFields ? "e.g. Plate no., vehicle type…" : "e.g. Partial payment, Invoice #2…"}
                   className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
               </div>
+
               {txnError && (
                 <p className="text-xs text-red-400 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {txnError}</p>
               )}
@@ -457,6 +579,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
               <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl overflow-hidden">
                 {transactions.map((txn, i) => {
                   const isPayment = txn.amount < 0;
+                  const hasFuel = !isPayment && txn.product_type && txn.liters != null;
                   return (
                     <div key={txn.id} className={["flex items-start gap-3 px-4 py-3 text-sm group", i > 0 ? "border-t border-slate-700/30" : ""].join(" ")}>
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isPayment ? "bg-emerald-500/20" : "bg-red-500/20"}`}>
@@ -470,6 +593,22 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                           <span className="text-slate-600 text-[10px] font-mono shrink-0">{txn.transaction_number}</span>
                         </div>
                         <p className="text-slate-500 text-xs mt-0.5">{fmtDateTime(txn.created_at)}</p>
+                        {/* Fuel details — only rendered when the transaction has product data */}
+                        {hasFuel && (
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            <span className="text-[10px] font-bold text-blue-400 bg-blue-900/20 border border-blue-700/30 px-1.5 py-0.5 rounded">
+                              {txn.product_type}
+                            </span>
+                            {txn.liters != null && (
+                              <span className="text-[10px] text-slate-400">
+                                {txn.liters.toLocaleString("en-US", { maximumFractionDigits: 3 })} L
+                                {txn.price_per_liter != null && (
+                                  <> @ {new Intl.NumberFormat("en-US").format(txn.price_per_liter)}/L</>
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         {txn.note && <p className="text-slate-400 text-xs mt-0.5 italic">"{txn.note}"</p>}
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className={`text-[10px] px-1.5 py-0.5 rounded border ${txn.source === "daily_app" ? "text-amber-400 border-amber-700/40 bg-amber-900/20" : "text-slate-500 border-slate-700/40"}`}>
