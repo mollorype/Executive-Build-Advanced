@@ -36,6 +36,7 @@ export { supabase };
     product_type       text,
     price_per_liter    numeric,
     liters             numeric,
+    gallons            numeric,
     created_at         timestamptz NOT NULL DEFAULT now()
   );
 
@@ -43,7 +44,8 @@ export { supabase };
   ALTER TABLE debt_transactions
     ADD COLUMN IF NOT EXISTS product_type    text,
     ADD COLUMN IF NOT EXISTS price_per_liter numeric,
-    ADD COLUMN IF NOT EXISTS liters          numeric;
+    ADD COLUMN IF NOT EXISTS liters          numeric,
+    ADD COLUMN IF NOT EXISTS gallons         numeric;
 
   -- Enable RLS + permissive policies (adjust for production):
   ALTER TABLE debt_profiles ENABLE ROW LEVEL SECURITY;
@@ -100,6 +102,7 @@ export type DebtTransaction = {
   product_type: string | null;
   price_per_liter: number | null;
   liters: number | null;
+  gallons: number | null;
   created_at: string;
 };
 

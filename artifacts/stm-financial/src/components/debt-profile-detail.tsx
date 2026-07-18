@@ -12,6 +12,7 @@ import {
 
 const NO_SCORE_RELATIONS = new Set(["Own", "Family"]);
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+const LITERS_PER_GALLON = 4.54609;
 
 async function triggerAlertCheck(profileId: string) {
   try {
@@ -79,13 +80,25 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   // Fuel fields — only shown for non-Family/Own relations on debt entries
   const [fuelProduct, setFuelProduct] = useState<"92 RON" | "PD" | "95" | "HSD">("92 RON");
   const [fuelLitersInput, setFuelLitersInput] = useState("");
+  const [fuelGallonsInput, setFuelGallonsInput] = useState("");
   const [fuelAmountInput, setFuelAmountInput] = useState("");
 
   const showFuelFields = !NO_SCORE_RELATIONS.has(profile.relation) && txnType === "debt";
   const fuelAmountNum = parseFloat(fuelAmountInput) || 0;
   const fuelLitersNum = parseFloat(fuelLitersInput) || 0;
-  // Price Per Liter is always auto-calculated: Amount ÷ Liters
+  // Price Per Liter is always auto-calculated: Amount ÷ Liters (optional if volumes blank)
   const fuelPriceComputed = fuelAmountNum > 0 && fuelLitersNum > 0 ? fuelAmountNum / fuelLitersNum : 0;
+
+  function handleFuelLitersChange(val: string) {
+    setFuelLitersInput(val);
+    const n = parseFloat(val) || 0;
+    setFuelGallonsInput(n > 0 ? (n / LITERS_PER_GALLON).toFixed(4) : "");
+  }
+  function handleFuelGallonsChange(val: string) {
+    setFuelGallonsInput(val);
+    const n = parseFloat(val) || 0;
+    setFuelLitersInput(n > 0 ? (n * LITERS_PER_GALLON).toFixed(4) : "");
+  }
 
   const [showEdit, setShowEdit] = useState(false);
   const [editName, setEditName] = useState("");
@@ -118,8 +131,8 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     let amt: number;
     if (showFuelFields) {
       amt = fuelAmountNum;
-      if (amt <= 0 || fuelLitersNum <= 0) {
-        setTxnError("Enter both Total Amount and Liters.");
+      if (amt <= 0) {
+        setTxnError("Enter a Total Amount.");
         return;
       }
     } else {
@@ -141,8 +154,9 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
       transaction_number: txnNum,
       source: "manual",
       product_type: showFuelFields ? fuelProduct : null,
-      price_per_liter: showFuelFields ? fuelPriceComputed : null,
-      liters: showFuelFields ? fuelLitersNum : null,
+      price_per_liter: showFuelFields && fuelPriceComputed > 0 ? fuelPriceComputed : null,
+      liters: showFuelFields && fuelLitersNum > 0 ? fuelLitersNum : null,
+      gallons: showFuelFields && fuelLitersNum > 0 ? fuelLitersNum / LITERS_PER_GALLON : null,
     });
 
     if (txnErr) { setTxnError(txnErr.message); setSubmitting(false); return; }
@@ -151,8 +165,9 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
       id: "", profile_id: profile.id, amount: finalAmount, date: txnDate,
       note: txnNote, transaction_number: txnNum, source: "manual" as const,
       product_type: showFuelFields ? fuelProduct : null,
-      price_per_liter: showFuelFields ? fuelPriceComputed : null,
-      liters: showFuelFields ? fuelLitersNum : null,
+      price_per_liter: showFuelFields && fuelPriceComputed > 0 ? fuelPriceComputed : null,
+      liters: showFuelFields && fuelLitersNum > 0 ? fuelLitersNum : null,
+      gallons: showFuelFields && fuelLitersNum > 0 ? fuelLitersNum / LITERS_PER_GALLON : null,
       created_at: new Date().toISOString(),
     }];
     const newScore = calculateScore(allTxns, newBalance);
@@ -168,6 +183,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     setTxnNote("");
     setTxnType("payment");
     setFuelLitersInput("");
+    setFuelGallonsInput("");
     setFuelAmountInput("");
     setSubmitting(false);
 
@@ -468,12 +484,22 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                     </div>
                   </div>
 
-                  {/* Liters */}
-                  <div>
-                    <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Liters (L)</label>
-                    <input type="number" value={fuelLitersInput} onChange={e => setFuelLitersInput(e.target.value)}
-                      placeholder="0.000" min="0" step="0.001"
-                      className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                  {/* Liters & Gallons — cross-calculating */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Liters (L)</label>
+                      <input type="number" value={fuelLitersInput}
+                        onChange={e => handleFuelLitersChange(e.target.value)}
+                        placeholder="0.000" min="0" step="0.001"
+                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Gallons (G)</label>
+                      <input type="number" value={fuelGallonsInput}
+                        onChange={e => handleFuelGallonsChange(e.target.value)}
+                        placeholder="0.0000" min="0" step="0.0001"
+                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                    </div>
                   </div>
 
                   {/* Price Per Liter — auto-calculated, read-only */}

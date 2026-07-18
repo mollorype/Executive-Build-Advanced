@@ -20,6 +20,7 @@ const RELATION_COLORS: Record<DebtRelation, string> = {
 };
 
 const NO_SCORE_RELATIONS = new Set<DebtRelation>(["Own", "Family"]);
+const LITERS_PER_GALLON = 4.54609;
 
 type SortKey = "newest" | "oldest" | "highest" | "lowest";
 
@@ -44,13 +45,26 @@ export default function DebtTracker() {
   // Fuel fields for the initial debt entry — non-Family/Own only
   const [createFuelProduct, setCreateFuelProduct] = useState<"92 RON" | "PD" | "95" | "HSD">("92 RON");
   const [createFuelLiters, setCreateFuelLiters] = useState("");
+  const [createFuelGallons, setCreateFuelGallons] = useState("");
   const [createFuelRemarks, setCreateFuelRemarks] = useState("");
 
   const isSimpleRelation = NO_SCORE_RELATIONS.has(relation);
   const createFuelAmountNum = parseFloat(totalDebt) || 0;
   const createFuelLitersNum = parseFloat(createFuelLiters) || 0;
+  const createFuelGallonsNum = parseFloat(createFuelGallons) || 0;
   const createFuelPriceComputed = createFuelAmountNum > 0 && createFuelLitersNum > 0
     ? createFuelAmountNum / createFuelLitersNum : 0;
+
+  function handleCreateLitersChange(val: string) {
+    setCreateFuelLiters(val);
+    const n = parseFloat(val) || 0;
+    setCreateFuelGallons(n > 0 ? (n / LITERS_PER_GALLON).toFixed(4) : "");
+  }
+  function handleCreateGallonsChange(val: string) {
+    setCreateFuelGallons(val);
+    const n = parseFloat(val) || 0;
+    setCreateFuelLiters(n > 0 ? (n * LITERS_PER_GALLON).toFixed(4) : "");
+  }
 
   const fetchProfiles = useCallback(async () => {
     const { data } = await supabase
@@ -111,6 +125,7 @@ export default function DebtTracker() {
         product_type: createFuelProduct,
         price_per_liter: createFuelPriceComputed > 0 ? createFuelPriceComputed : null,
         liters: createFuelLitersNum > 0 ? createFuelLitersNum : null,
+        gallons: createFuelLitersNum > 0 ? createFuelLitersNum / LITERS_PER_GALLON : null,
       });
     }
 
@@ -123,7 +138,7 @@ export default function DebtTracker() {
   function resetCreate() {
     setName(""); setRelation("Other"); setPhones([""]); setDate(new Date().toISOString().slice(0, 10));
     setTotalDebt(""); setCreditLimit(""); setPaymentDueDate(""); setCreateError("");
-    setCreateFuelProduct("92 RON"); setCreateFuelLiters(""); setCreateFuelRemarks("");
+    setCreateFuelProduct("92 RON"); setCreateFuelLiters(""); setCreateFuelGallons(""); setCreateFuelRemarks("");
   }
 
   function addCreatePhone() {
@@ -537,12 +552,22 @@ export default function DebtTracker() {
                     </div>
                   </div>
 
-                  {/* Liters */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Liters (L)</label>
-                    <input type="number" value={createFuelLiters} onChange={e => setCreateFuelLiters(e.target.value)}
-                      placeholder="0.000" min="0" step="0.001"
-                      className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                  {/* Liters & Gallons — cross-calculating */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Liters (L)</label>
+                      <input type="number" value={createFuelLiters}
+                        onChange={e => handleCreateLitersChange(e.target.value)}
+                        placeholder="0.000" min="0" step="0.001"
+                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Gallons (G)</label>
+                      <input type="number" value={createFuelGallons}
+                        onChange={e => handleCreateGallonsChange(e.target.value)}
+                        placeholder="0.0000" min="0" step="0.0001"
+                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                    </div>
                   </div>
 
                   {/* Price Per Liter — read-only, auto-calculated */}

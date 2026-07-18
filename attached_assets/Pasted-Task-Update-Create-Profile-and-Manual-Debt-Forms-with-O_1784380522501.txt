@@ -1,0 +1,27 @@
+Task: Update Create Profile and Manual Debt Forms with Optional Dual-Volume (Gallons & Liters) Auto-Calculation
+
+Please update the fuel calculation engine and UI layouts for BOTH the "Create Profile" and "Manual Debt Add" forms to support optional, cross-calculating Gallons and Liters fields.
+
+1. DUAL-VOLUME AUTO-CALCULATION LOGIC
+For all standard customer profiles (where Relation is NOT Family or Own):
+* Provide four tracking fields: [Total Amount], [Liters (L)], [Gallons (G)], and [Price Per Liter].
+* Volume Cross-Calculation (L ↔ G):
+  - If the user types a value into the [Liters] field, automatically calculate and populate the [Gallons] field (Gallons = Liters / 4.54609).
+  - If the user types a value into the [Gallons] field, automatically calculate and populate the [Litres] field (Liters = Gallons * 4.54609).
+  - Define this conversion multiplier (4.54609) as a global constant variable at the top of the file so it can be easily adjusted if needed.
+
+2. PRICE PER LITER REVERSE CALCULATION
+* Trigger: If the [Total Amount] has a value AND either volume field is filled (which populates both L and G via step 1), dynamically calculate the [Price Per Liter].
+* Formula: Price Per Liter = Total Amount / Liters.
+
+3. OPTIONAL VOLUME HANDLING ("If don't enter, it's okay")
+* Do NOT make the volume fields mandatory. 
+* If the user enters a [Total Amount] but leaves both [Liters] and [Gallons] completely blank:
+  - The app must accept the form submission without errors.
+  - The transaction should be logged as a flat financial debt value, saving 'liters', 'gallons', and 'pricePerLiter' as null or empty values in the database.
+
+4. MAINTAIN PRIVACY FILTER FOR "FAMILY" AND "OWN"
+* If the profile's Relation is set to "Family" or "Own" (case-insensitive):
+  - Completely HIDE the [Liters], [Gallons], and [Price Per Liter] fields from the UI.
+  - Only show and require the [Total Amount] and [Remarks] fields.
+  - Always save all volume metrics as null/blank for these two specific relations.
