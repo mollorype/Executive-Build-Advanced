@@ -1,0 +1,31 @@
+Task: Display Product Type for Volume-less Transactions & Implement Transaction Editing
+
+Please apply the following updates to the Transaction History / Ledger system within the individual Debt Profile view:
+
+1. UPDATE TRANSACTION HISTORY DISPLAY LOGIC
+* Modify the rendering engine for the transaction history list.
+* Condition: Even if 'liters' and 'gallons' are null, blank, or 0, if a 'productType' is selected (e.g., "92 RON", "PD (Premium Diesel)"), the ledger row MUST still display the product name.
+* Format Example (When volume is blank): 
+  "Bought 92 RON - (Flat Amount Purchase)" instead of hiding the product type or showing blank strings.
+* Format Example (When volume exists): Keep the existing breakdown: "Bought 92 RON - 20.00 Liters @ 2,500 MMK".
+
+2. ADD "EDIT TRANSACTION" INTERFACE
+* Add an "Edit" button or pencil icon next to each transaction row in the ledger history list.
+* Clicking "Edit" must open an "Edit Transaction" modal or form pre-populated with that specific transaction's current data:
+  - Product Type Dropdown
+  - Total Amount (MMK)
+  - Liters (L)
+  - Gallons (G)
+  - Manual Date Picker (pre-filled with the original transaction date)
+  - Remarks
+
+3. RETAIN DUAL-CALCULATION & PRIVACY FILTERS DURING EDITING
+* The edit form must use the exact same logic we built for creation:
+  - Cross-calculate Gallons and Liters dynamically if one is modified.
+  - Automatically reverse-calculate the Price Per Liter if Total Amount and a volume metric are present.
+  - Keep Liters and Gallons completely optional during editing.
+  - If the profile Relation is "Family" or "Own", hide the fuel grid fields entirely in the edit modal, showing only Total Amount and Remarks.
+
+4. BACKEND UPDATE LOGIC & TIMESTAMPS
+* When the user clicks "Save Changes", execute an UPDATE query to the database for that specific transaction ID.
+* Timestamp Rule for Edits: Keep the original manual date selected in the edit modal, but refresh the time portion to the exact moment the "Save Changes" button is pressed, ensuring the local timezone split/offset fix is applied so it doesn't shift by an extra day.

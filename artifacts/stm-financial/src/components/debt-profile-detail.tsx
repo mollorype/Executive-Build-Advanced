@@ -107,6 +107,86 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     setFuelLitersInput(n > 0 ? (n * LITERS_PER_GALLON).toFixed(4) : "");
   }
 
+  // ── Edit Transaction state ──────────────────────────────────────────────
+  const [editingTxn, setEditingTxn] = useState<DebtTransaction | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [editProduct, setEditProduct] = useState<"92 RON" | "PD" | "95" | "HSD">("92 RON");
+  const [editLiters, setEditLiters] = useState("");
+  const [editGallons, setEditGallons] = useState("");
+  const [editTxnSaving, setEditTxnSaving] = useState(false);
+  const [editTxnError, setEditTxnError] = useState("");
+
+  const showEditFuelFields = editingTxn != null && !NO_SCORE_RELATIONS.has(profile.relation) && editingTxn.amount > 0;
+  const editAmountNum = parseFloat(editAmount) || 0;
+  const editLitersNum = parseFloat(editLiters) || 0;
+  const editPriceComputed = editAmountNum > 0 && editLitersNum > 0 ? editAmountNum / editLitersNum : 0;
+
+  function handleEditLitersChange(val: string) {
+    setEditLiters(val);
+    const n = parseFloat(val) || 0;
+    setEditGallons(n > 0 ? (n / LITERS_PER_GALLON).toFixed(4) : "");
+  }
+  function handleEditGallonsChange(val: string) {
+    setEditGallons(val);
+    const n = parseFloat(val) || 0;
+    setEditLiters(n > 0 ? (n * LITERS_PER_GALLON).toFixed(4) : "");
+  }
+
+  function openEditTxn(txn: DebtTransaction) {
+    setEditingTxn(txn);
+    setEditAmount(String(Math.abs(txn.amount)));
+    setEditDate(txn.date ? txn.date.slice(0, 10) : new Date().toISOString().slice(0, 10));
+    setEditNote(txn.note ?? "");
+    setEditProduct((txn.product_type as "92 RON" | "PD" | "95" | "HSD") ?? "92 RON");
+    setEditLiters(txn.liters != null ? String(txn.liters) : "");
+    setEditGallons(txn.liters != null ? (txn.liters / LITERS_PER_GALLON).toFixed(4) : "");
+    setEditTxnError("");
+  }
+
+  async function handleSaveEditTxn(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingTxn) return;
+    setEditTxnError("");
+    if (editAmountNum <= 0) { setEditTxnError("Enter a valid amount."); return; }
+
+    // Timezone-safe timestamp: user's chosen date + exact local time at save
+    const [yr, mo, dy] = editDate.split("-").map(Number);
+    const ts = new Date(yr, mo - 1, dy);
+    const now = new Date();
+    ts.setHours(now.getHours());
+    ts.setMinutes(now.getMinutes());
+    ts.setSeconds(now.getSeconds());
+    ts.setMilliseconds(0);
+    const newTimestamp = ts.toISOString();
+
+    const isDebt = editingTxn.amount > 0;
+    const finalAmount = isDebt ? editAmountNum : -editAmountNum;
+    const balanceDelta = finalAmount - editingTxn.amount;
+    const newBalance = profile.current_balance + balanceDelta;
+
+    setEditTxnSaving(true);
+    const { error: updateErr } = await supabase.from(DEBT_TABLES.TRANSACTIONS).update({
+      amount: finalAmount,
+      date: newTimestamp,
+      note: editNote.trim() || null,
+      product_type: showEditFuelFields ? editProduct : null,
+      price_per_liter: showEditFuelFields && editPriceComputed > 0 ? editPriceComputed : null,
+      liters: showEditFuelFields && editLitersNum > 0 ? editLitersNum : null,
+      gallons: showEditFuelFields && editLitersNum > 0 ? editLitersNum / LITERS_PER_GALLON : null,
+    }).eq("id", editingTxn.id);
+
+    if (updateErr) { setEditTxnError(updateErr.message); setEditTxnSaving(false); return; }
+
+    await supabase.from(DEBT_TABLES.PROFILES).update({ current_balance: newBalance }).eq("id", profile.id);
+
+    setEditTxnSaving(false);
+    setEditingTxn(null);
+    fetchTransactions();
+    onProfileChange({ ...profile, current_balance: newBalance });
+  }
+
   const [showEdit, setShowEdit] = useState(false);
   const [editName, setEditName] = useState("");
   const [editAge, setEditAge] = useState("");
@@ -601,7 +681,8 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
               <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl overflow-hidden">
                 {transactions.map((txn, i) => {
                   const isPayment = txn.amount < 0;
-                  const hasFuel = !isPayment && txn.product_type && txn.liters != null;
+                  const hasProductType = !isPayment && !!txn.product_type;
+                  const hasVolume = txn.liters != null && txn.liters > 0;
                   return (
                     <div key={txn.id} className={["flex items-start gap-3 px-4 py-3 text-sm group", i > 0 ? "border-t border-slate-700/30" : ""].join(" ")}>
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isPayment ? "bg-emerald-500/20" : "bg-red-500/20"}`}>
@@ -615,19 +696,21 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                           <span className="text-slate-600 text-[10px] font-mono shrink-0">{txn.transaction_number}</span>
                         </div>
                         <p className="text-slate-500 text-xs mt-0.5">{fmtDateTime(txn.date)}</p>
-                        {/* Fuel details — only rendered when the transaction has product data */}
-                        {hasFuel && (
+                        {/* Product type — shown even when volumes are null/blank */}
+                        {hasProductType && (
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                             <span className="text-[10px] font-bold text-blue-400 bg-blue-900/20 border border-blue-700/30 px-1.5 py-0.5 rounded">
                               {txn.product_type}
                             </span>
-                            {txn.liters != null && (
+                            {hasVolume ? (
                               <span className="text-[10px] text-slate-400">
-                                {txn.liters.toLocaleString("en-US", { maximumFractionDigits: 3 })} L
+                                {txn.liters!.toLocaleString("en-US", { maximumFractionDigits: 3 })} L
                                 {txn.price_per_liter != null && (
                                   <> @ {new Intl.NumberFormat("en-US").format(txn.price_per_liter)}/L</>
                                 )}
                               </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-500 italic">(Flat Amount Purchase)</span>
                             )}
                           </div>
                         )}
@@ -638,10 +721,16 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                           </span>
                         </div>
                       </div>
-                      <button onClick={() => handleDeleteTransaction(txn)} disabled={deletingId === txn.id}
-                        className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-lg transition-all shrink-0 mt-0.5">
-                        {deletingId === txn.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                      </button>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all shrink-0 mt-0.5">
+                        <button type="button" onClick={() => openEditTxn(txn)}
+                          className="text-slate-600 hover:text-blue-400 hover:bg-blue-900/20 p-1.5 rounded-lg transition-all">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => handleDeleteTransaction(txn)} disabled={deletingId === txn.id}
+                          className="text-slate-600 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-lg transition-all">
+                          {deletingId === txn.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -650,6 +739,113 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
           </div>
         </div>
       </div>
+
+      {/* Edit Transaction Modal */}
+      {editingTxn && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setEditingTxn(null)} />
+          <div className="relative bg-[#0f1623] border border-slate-700/50 rounded-2xl w-full max-w-md shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between shrink-0">
+              <div>
+                <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Transaction</p>
+                <h3 className="text-white font-bold text-base">Edit Entry</h3>
+              </div>
+              <button type="button" onClick={() => setEditingTxn(null)} className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditTxn} className="overflow-y-auto p-6 space-y-4">
+              {/* Total Amount */}
+              <div>
+                <label className={labelCls}>Total Amount (MMK) <span className="text-red-400">*</span></label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">K</span>
+                  <input type="number" value={editAmount} onChange={e => setEditAmount(e.target.value)}
+                    placeholder="0" min="0" className={inputCls.replace("px-4", "pl-7")} required />
+                </div>
+              </div>
+
+              {/* Date */}
+              <div>
+                <label className={labelCls}>Date</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                  <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)}
+                    className={inputCls.replace("px-4", "pl-9")} />
+                </div>
+              </div>
+
+              {/* Fuel fields — hidden for Family/Own or payment entries */}
+              {showEditFuelFields && (
+                <>
+                  <div>
+                    <label className={labelCls}>Product Type</label>
+                    <select value={editProduct} onChange={e => setEditProduct(e.target.value as typeof editProduct)}
+                      className={inputCls}>
+                      <option value="92 RON">92 RON</option>
+                      <option value="PD">PD (Premium Diesel)</option>
+                      <option value="95">95 RON</option>
+                      <option value="HSD">HSD (Diesel)</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>Liters (L)</label>
+                      <input type="number" value={editLiters} onChange={e => handleEditLitersChange(e.target.value)}
+                        placeholder="0.000" min="0" step="any" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Gallons (G)</label>
+                      <input type="number" value={editGallons} onChange={e => handleEditGallonsChange(e.target.value)}
+                        placeholder="0.0000" min="0" step="any" className={inputCls} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={labelCls}>
+                      Price Per Liter
+                      <span className="ml-1.5 normal-case font-normal text-slate-600">(auto-calculated)</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 text-sm">K</span>
+                      <input type="text" readOnly
+                        value={editPriceComputed > 0 ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(editPriceComputed) : ""}
+                        placeholder="Fills when Amount ÷ Liters are set"
+                        className={inputCls.replace("px-4", "pl-7") + " bg-slate-900 border-slate-700/50 text-slate-300 cursor-not-allowed placeholder:text-slate-700"} />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Remarks */}
+              <div>
+                <label className={labelCls}>Remarks <span className="text-slate-600 normal-case font-normal">(optional)</span></label>
+                <input type="text" value={editNote} onChange={e => setEditNote(e.target.value)}
+                  placeholder="e.g. Plate no., vehicle type…" className={inputCls} />
+              </div>
+
+              {editTxnError && (
+                <p className="text-xs text-red-400 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> {editTxnError}
+                </p>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setEditingTxn(null)}
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-semibold rounded-xl py-2.5 text-sm transition-all">
+                  Cancel
+                </button>
+                <button type="submit" disabled={editTxnSaving}
+                  className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold rounded-xl py-2.5 text-sm transition-all flex items-center justify-center gap-2">
+                  {editTxnSaving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Edit Profile Modal */}
       {showEdit && (
