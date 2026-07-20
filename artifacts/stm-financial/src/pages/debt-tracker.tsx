@@ -47,24 +47,61 @@ export default function DebtTracker() {
   const [createFuelProduct, setCreateFuelProduct] = useState<"92 RON" | "PD" | "95" | "HSD">("92 RON");
   const [createFuelLiters, setCreateFuelLiters] = useState("");
   const [createFuelGallons, setCreateFuelGallons] = useState("");
+  const [createFuelPrice, setCreateFuelPrice] = useState("");
   const [createFuelRemarks, setCreateFuelRemarks] = useState("");
 
   const isSimpleRelation = NO_SCORE_RELATIONS.has(relation);
   const createFuelAmountNum = parseFloat(totalDebt) || 0;
   const createFuelLitersNum = parseFloat(createFuelLiters) || 0;
-  const createFuelGallonsNum = parseFloat(createFuelGallons) || 0;
-  const createFuelPriceComputed = createFuelAmountNum > 0 && createFuelLitersNum > 0
-    ? createFuelAmountNum / createFuelLitersNum : 0;
+  const createFuelPriceNum  = parseFloat(createFuelPrice)  || 0;
 
   function handleCreateLitersChange(val: string) {
     setCreateFuelLiters(val);
-    const n = parseFloat(val) || 0;
-    setCreateFuelGallons(n > 0 ? (n / LITERS_PER_GALLON).toFixed(4) : "");
+    const liters = parseFloat(val);
+    if (liters > 0) {
+      setCreateFuelGallons((liters / LITERS_PER_GALLON).toFixed(4));
+      const price = parseFloat(createFuelPrice);
+      if (price > 0) setTotalDebt((liters * price).toFixed(0));
+    } else if (val === "") {
+      setCreateFuelGallons("");
+    }
   }
   function handleCreateGallonsChange(val: string) {
     setCreateFuelGallons(val);
-    const n = parseFloat(val) || 0;
-    setCreateFuelLiters(n > 0 ? (n * LITERS_PER_GALLON).toFixed(4) : "");
+    const gallons = parseFloat(val);
+    if (gallons > 0) {
+      const liters = gallons * LITERS_PER_GALLON;
+      setCreateFuelLiters(liters.toFixed(4));
+      const price = parseFloat(createFuelPrice);
+      if (price > 0) setTotalDebt((liters * price).toFixed(0));
+    } else if (val === "") {
+      setCreateFuelLiters("");
+    }
+  }
+  function handleCreateAmountChange(val: string) {
+    setTotalDebt(val);
+    const amount = parseFloat(val);
+    const price = parseFloat(createFuelPrice);
+    if (amount > 0 && price > 0) {
+      const liters = amount / price;
+      setCreateFuelLiters(liters.toFixed(3));
+      setCreateFuelGallons((liters / LITERS_PER_GALLON).toFixed(4));
+    }
+  }
+  function handleCreatePriceChange(val: string) {
+    setCreateFuelPrice(val);
+    const price = parseFloat(val);
+    const liters = parseFloat(createFuelLiters);
+    const amount = parseFloat(totalDebt);
+    if (price > 0) {
+      if (liters > 0) {
+        setTotalDebt((liters * price).toFixed(0));
+      } else if (amount > 0) {
+        const calcLiters = amount / price;
+        setCreateFuelLiters(calcLiters.toFixed(3));
+        setCreateFuelGallons((calcLiters / LITERS_PER_GALLON).toFixed(4));
+      }
+    }
   }
 
   const fetchProfiles = useCallback(async () => {
@@ -135,7 +172,7 @@ export default function DebtTracker() {
         transaction_number: generateTxnNumber(),
         source: "manual",
         product_type: createFuelProduct,
-        price_per_liter: createFuelPriceComputed > 0 ? createFuelPriceComputed : null,
+        price_per_liter: createFuelPriceNum > 0 ? createFuelPriceNum : null,
         liters: createFuelLitersNum > 0 ? createFuelLitersNum : null,
         gallons: createFuelLitersNum > 0 ? createFuelLitersNum / LITERS_PER_GALLON : null,
       });
@@ -150,7 +187,7 @@ export default function DebtTracker() {
   function resetCreate() {
     setName(""); setRelation("Other"); setPhones([""]); setDate(new Date().toISOString().slice(0, 10));
     setTotalDebt(""); setCreditLimit(""); setPaymentDueDate(""); setCreateError("");
-    setCreateFuelProduct("92 RON"); setCreateFuelLiters(""); setCreateFuelGallons(""); setCreateFuelRemarks("");
+    setCreateFuelProduct("92 RON"); setCreateFuelLiters(""); setCreateFuelGallons(""); setCreateFuelPrice(""); setCreateFuelRemarks("");
   }
 
   function addCreatePhone() {
@@ -558,8 +595,8 @@ export default function DebtTracker() {
                     </label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium select-none">K</span>
-                      <input type="number" value={totalDebt} onChange={e => setTotalDebt(e.target.value)}
-                        placeholder="0" min="0"
+                      <input type="text" inputMode="decimal" value={totalDebt} onChange={e => handleCreateAmountChange(e.target.value)}
+                        placeholder="0"
                         className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
                     </div>
                   </div>
@@ -582,17 +619,17 @@ export default function DebtTracker() {
                     </div>
                   </div>
 
-                  {/* Price Per Liter — read-only, auto-calculated */}
+                  {/* Price Per Liter — user-entered, optional */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Price Per Liter <span className="text-slate-600 normal-case font-normal">(auto-calculated)</span>
+                      Price Per Liter <span className="text-slate-600 normal-case font-normal">(optional)</span>
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 text-sm font-medium select-none">K</span>
-                      <input type="text" readOnly
-                        value={createFuelPriceComputed > 0 ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(createFuelPriceComputed) : ""}
-                        placeholder="Fills when Amount ÷ Liters are set"
-                        className="w-full bg-slate-900 border border-slate-700/50 text-slate-300 text-sm rounded-xl pl-8 pr-4 py-2.5 cursor-not-allowed placeholder:text-slate-700 select-none" />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium select-none">K</span>
+                      <input type="text" inputMode="decimal" value={createFuelPrice}
+                        onChange={e => handleCreatePriceChange(e.target.value)}
+                        placeholder="e.g. 1650"
+                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
                     </div>
                   </div>
 

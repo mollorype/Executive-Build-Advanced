@@ -89,22 +89,60 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   const [fuelLitersInput, setFuelLitersInput] = useState("");
   const [fuelGallonsInput, setFuelGallonsInput] = useState("");
   const [fuelAmountInput, setFuelAmountInput] = useState("");
+  const [fuelPriceInput, setFuelPriceInput] = useState("");
 
   const showFuelFields = !NO_SCORE_RELATIONS.has(profile.relation) && txnType === "debt";
   const fuelAmountNum = parseFloat(fuelAmountInput) || 0;
   const fuelLitersNum = parseFloat(fuelLitersInput) || 0;
-  // Price Per Liter is always auto-calculated: Amount ÷ Liters (optional if volumes blank)
-  const fuelPriceComputed = fuelAmountNum > 0 && fuelLitersNum > 0 ? fuelAmountNum / fuelLitersNum : 0;
+  const fuelPriceNum  = parseFloat(fuelPriceInput)  || 0;
 
   function handleFuelLitersChange(val: string) {
     setFuelLitersInput(val);
-    const n = parseFloat(val) || 0;
-    setFuelGallonsInput(n > 0 ? (n / LITERS_PER_GALLON).toFixed(4) : "");
+    const liters = parseFloat(val);
+    if (liters > 0) {
+      setFuelGallonsInput((liters / LITERS_PER_GALLON).toFixed(4));
+      const price = parseFloat(fuelPriceInput);
+      if (price > 0) setFuelAmountInput((liters * price).toFixed(0));
+    } else if (val === "") {
+      setFuelGallonsInput("");
+    }
   }
   function handleFuelGallonsChange(val: string) {
     setFuelGallonsInput(val);
-    const n = parseFloat(val) || 0;
-    setFuelLitersInput(n > 0 ? (n * LITERS_PER_GALLON).toFixed(4) : "");
+    const gallons = parseFloat(val);
+    if (gallons > 0) {
+      const liters = gallons * LITERS_PER_GALLON;
+      setFuelLitersInput(liters.toFixed(4));
+      const price = parseFloat(fuelPriceInput);
+      if (price > 0) setFuelAmountInput((liters * price).toFixed(0));
+    } else if (val === "") {
+      setFuelLitersInput("");
+    }
+  }
+  function handleFuelAmountChange(val: string) {
+    setFuelAmountInput(val);
+    const amount = parseFloat(val);
+    const price = parseFloat(fuelPriceInput);
+    if (amount > 0 && price > 0) {
+      const liters = amount / price;
+      setFuelLitersInput(liters.toFixed(3));
+      setFuelGallonsInput((liters / LITERS_PER_GALLON).toFixed(4));
+    }
+  }
+  function handleFuelPriceChange(val: string) {
+    setFuelPriceInput(val);
+    const price = parseFloat(val);
+    const liters = parseFloat(fuelLitersInput);
+    const amount = parseFloat(fuelAmountInput);
+    if (price > 0) {
+      if (liters > 0) {
+        setFuelAmountInput((liters * price).toFixed(0));
+      } else if (amount > 0) {
+        const calcLiters = amount / price;
+        setFuelLitersInput(calcLiters.toFixed(3));
+        setFuelGallonsInput((calcLiters / LITERS_PER_GALLON).toFixed(4));
+      }
+    }
   }
 
   // ── Edit Transaction state ──────────────────────────────────────────────
@@ -115,23 +153,62 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   const [editProduct, setEditProduct] = useState<"92 RON" | "PD" | "95" | "HSD">("92 RON");
   const [editLiters, setEditLiters] = useState("");
   const [editGallons, setEditGallons] = useState("");
+  const [editPriceInput, setEditPriceInput] = useState("");
   const [editTxnSaving, setEditTxnSaving] = useState(false);
   const [editTxnError, setEditTxnError] = useState("");
 
   const showEditFuelFields = editingTxn != null && !NO_SCORE_RELATIONS.has(profile.relation) && editingTxn.amount > 0;
   const editAmountNum = parseFloat(editAmount) || 0;
   const editLitersNum = parseFloat(editLiters) || 0;
-  const editPriceComputed = editAmountNum > 0 && editLitersNum > 0 ? editAmountNum / editLitersNum : 0;
+  const editPriceNum  = parseFloat(editPriceInput) || 0;
 
   function handleEditLitersChange(val: string) {
     setEditLiters(val);
-    const n = parseFloat(val) || 0;
-    setEditGallons(n > 0 ? (n / LITERS_PER_GALLON).toFixed(4) : "");
+    const liters = parseFloat(val);
+    if (liters > 0) {
+      setEditGallons((liters / LITERS_PER_GALLON).toFixed(4));
+      const price = parseFloat(editPriceInput);
+      if (price > 0) setEditAmount((liters * price).toFixed(0));
+    } else if (val === "") {
+      setEditGallons("");
+    }
   }
   function handleEditGallonsChange(val: string) {
     setEditGallons(val);
-    const n = parseFloat(val) || 0;
-    setEditLiters(n > 0 ? (n * LITERS_PER_GALLON).toFixed(4) : "");
+    const gallons = parseFloat(val);
+    if (gallons > 0) {
+      const liters = gallons * LITERS_PER_GALLON;
+      setEditLiters(liters.toFixed(4));
+      const price = parseFloat(editPriceInput);
+      if (price > 0) setEditAmount((liters * price).toFixed(0));
+    } else if (val === "") {
+      setEditLiters("");
+    }
+  }
+  function handleEditAmountChange(val: string) {
+    setEditAmount(val);
+    const amount = parseFloat(val);
+    const price = parseFloat(editPriceInput);
+    if (amount > 0 && price > 0) {
+      const liters = amount / price;
+      setEditLiters(liters.toFixed(3));
+      setEditGallons((liters / LITERS_PER_GALLON).toFixed(4));
+    }
+  }
+  function handleEditPriceChange(val: string) {
+    setEditPriceInput(val);
+    const price = parseFloat(val);
+    const liters = parseFloat(editLiters);
+    const amount = parseFloat(editAmount);
+    if (price > 0) {
+      if (liters > 0) {
+        setEditAmount((liters * price).toFixed(0));
+      } else if (amount > 0) {
+        const calcLiters = amount / price;
+        setEditLiters(calcLiters.toFixed(3));
+        setEditGallons((calcLiters / LITERS_PER_GALLON).toFixed(4));
+      }
+    }
   }
 
   function openEditTxn(txn: DebtTransaction) {
@@ -142,6 +219,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     setEditProduct((txn.product_type as "92 RON" | "PD" | "95" | "HSD") ?? "92 RON");
     setEditLiters(txn.liters != null ? String(txn.liters) : "");
     setEditGallons(txn.liters != null ? (txn.liters / LITERS_PER_GALLON).toFixed(4) : "");
+    setEditPriceInput(txn.price_per_liter != null ? String(txn.price_per_liter) : "");
     setEditTxnError("");
   }
 
@@ -172,7 +250,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
       date: newTimestamp,
       note: editNote.trim() || null,
       product_type: showEditFuelFields ? editProduct : null,
-      price_per_liter: showEditFuelFields && editPriceComputed > 0 ? editPriceComputed : null,
+      price_per_liter: showEditFuelFields && editPriceNum > 0 ? editPriceNum : null,
       liters: showEditFuelFields && editLitersNum > 0 ? editLitersNum : null,
       gallons: showEditFuelFields && editLitersNum > 0 ? editLitersNum / LITERS_PER_GALLON : null,
     }).eq("id", editingTxn.id);
@@ -252,7 +330,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
       transaction_number: txnNum,
       source: "manual",
       product_type: showFuelFields ? fuelProduct : null,
-      price_per_liter: showFuelFields && fuelPriceComputed > 0 ? fuelPriceComputed : null,
+      price_per_liter: showFuelFields && fuelPriceNum > 0 ? fuelPriceNum : null,
       liters: showFuelFields && fuelLitersNum > 0 ? fuelLitersNum : null,
       gallons: showFuelFields && fuelLitersNum > 0 ? fuelLitersNum / LITERS_PER_GALLON : null,
     });
@@ -263,7 +341,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
       id: "", profile_id: profile.id, amount: finalAmount, date: txnTimestamp,
       note: txnNote, transaction_number: txnNum, source: "manual" as const,
       product_type: showFuelFields ? fuelProduct : null,
-      price_per_liter: showFuelFields && fuelPriceComputed > 0 ? fuelPriceComputed : null,
+      price_per_liter: showFuelFields && fuelPriceNum > 0 ? fuelPriceNum : null,
       liters: showFuelFields && fuelLitersNum > 0 ? fuelLitersNum : null,
       gallons: showFuelFields && fuelLitersNum > 0 ? fuelLitersNum / LITERS_PER_GALLON : null,
       created_at: new Date().toISOString(),
@@ -283,6 +361,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     setFuelLitersInput("");
     setFuelGallonsInput("");
     setFuelAmountInput("");
+    setFuelPriceInput("");
     setSubmitting(false);
 
     const updated: DebtProfile = { ...profile, current_balance: newBalance, score: newScore, last_payment_at: lastPayAt ?? profile.last_payment_at };
@@ -576,8 +655,8 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                     <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Total Amount (MMK)</label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">K</span>
-                      <input type="number" value={fuelAmountInput} onChange={e => setFuelAmountInput(e.target.value)}
-                        placeholder="0" min="0"
+                      <input type="text" inputMode="decimal" value={fuelAmountInput} onChange={e => handleFuelAmountChange(e.target.value)}
+                        placeholder="0"
                         className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-7 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
                     </div>
                   </div>
@@ -600,18 +679,18 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                     </div>
                   </div>
 
-                  {/* Price Per Liter — auto-calculated, read-only */}
+                  {/* Price Per Liter — user-entered, optional */}
                   <div>
                     <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">
                       Price Per Liter
-                      <span className="ml-1.5 normal-case font-normal text-slate-600">(auto-calculated)</span>
+                      <span className="ml-1.5 normal-case font-normal text-slate-600">(optional)</span>
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 text-sm">K</span>
-                      <input type="text" readOnly
-                        value={fuelPriceComputed > 0 ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(fuelPriceComputed) : ""}
-                        placeholder="Fills when Amount ÷ Liters are set"
-                        className="w-full bg-slate-900 border border-slate-700/50 text-slate-300 text-sm rounded-xl pl-7 pr-3 py-2 cursor-not-allowed placeholder:text-slate-700 select-none" />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">K</span>
+                      <input type="text" inputMode="decimal" value={fuelPriceInput}
+                        onChange={e => handleFuelPriceChange(e.target.value)}
+                        placeholder="e.g. 1650"
+                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-7 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
                     </div>
                   </div>
                 </>
@@ -761,8 +840,8 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                 <label className={labelCls}>Total Amount (MMK) <span className="text-red-400">*</span></label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">K</span>
-                  <input type="number" value={editAmount} onChange={e => setEditAmount(e.target.value)}
-                    placeholder="0" min="0" className={inputCls.replace("px-4", "pl-7")} required />
+                  <input type="text" inputMode="decimal" value={editAmount} onChange={e => handleEditAmountChange(e.target.value)}
+                    placeholder="0" className={inputCls.replace("px-4", "pl-7")} required />
                 </div>
               </div>
 
@@ -806,14 +885,14 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                   <div>
                     <label className={labelCls}>
                       Price Per Liter
-                      <span className="ml-1.5 normal-case font-normal text-slate-600">(auto-calculated)</span>
+                      <span className="ml-1.5 normal-case font-normal text-slate-600">(optional)</span>
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 text-sm">K</span>
-                      <input type="text" readOnly
-                        value={editPriceComputed > 0 ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(editPriceComputed) : ""}
-                        placeholder="Fills when Amount ÷ Liters are set"
-                        className={inputCls.replace("px-4", "pl-7") + " bg-slate-900 border-slate-700/50 text-slate-300 cursor-not-allowed placeholder:text-slate-700"} />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">K</span>
+                      <input type="text" inputMode="decimal" value={editPriceInput}
+                        onChange={e => handleEditPriceChange(e.target.value)}
+                        placeholder="e.g. 1650"
+                        className={inputCls.replace("px-4", "pl-7")} />
                     </div>
                   </div>
                 </>
