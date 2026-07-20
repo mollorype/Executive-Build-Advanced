@@ -36,6 +36,7 @@ interface FormData {
   diesel: DieselRow;
   expenses: ExpenseItem[];
   actualCash: string;
+  shiftDate: string;
 }
 
 const PIPA_PRODUCT_LABELS: Record<PipaProduct, string> = {
@@ -56,7 +57,7 @@ const STRINGS = {
   addPipaEntry:         { en: "Add Pipa Entry",            my: "ပီပါထည့်ရန်" },
   cashAmount:           { en: "Cash Amount",               my: "ငွေပမာဏ" },
   grandTotalLabel:      { en: "Grand Total (All Products)", my: "စုစုပေါင်းငွေပမာဏ" },
-  operationalExpenses:  { en: "Operational Expenses",      my: "ထွက်ငွေ" },
+  operationalExpenses:  { en: "Other Costs and Income",    my: "အခြားကုန်ကျစရိတ်/ဝင်ငွေ" },
   expenseName:          { en: "Expense Name",              my: "အကြောင်းအရာ" },
   amount:               { en: "Amount",                    my: "ပမာဏ" },
   actualCash:           { en: "Actual Cash Collected",     my: "ငွေသားပမာဏ" },
@@ -105,6 +106,7 @@ const EMPTY: FormData = {
   diesel:         { cash: "", price: "" },
   expenses:       [],
   actualCash:     "",
+  shiftDate:      "",
 };
 
 // ─── Input component ─────────────────────────────────────────────────────────
@@ -415,7 +417,7 @@ function ExpensesPanel({ items, onChange, lang }: {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [profileId, setProfileId] = useState<string | undefined>(undefined);
-  const [txnType, setTxnType] = useState<"payment" | "debt">("payment");
+  const [txnType, setTxnType] = useState<"payment" | "debt">("debt");
   const [hits, setHits] = useState<ProfileHit[]>([]);
   const [showDrop, setShowDrop] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -459,12 +461,13 @@ function ExpensesPanel({ items, onChange, lang }: {
   function addItem() {
     if (!name.trim() || !amount.trim()) return;
     onChange([...items, { name: name.trim(), amount: amount.trim(), profileId, txnType: profileId ? txnType : undefined }]);
-    setName(""); setAmount(""); setProfileId(undefined); setTxnType("payment"); setHits([]); setShowDrop(false);
+    setName(""); setAmount(""); setProfileId(undefined); setTxnType("debt"); setHits([]); setShowDrop(false);
   }
 
   function removeItem(idx: number) { onChange(items.filter((_, i) => i !== idx)); }
 
-  const total = items.reduce((s, i) => s + n(i.amount), 0);
+  const totalCosts  = items.reduce((s, i) => s + (i.txnType !== "payment" ? n(i.amount) : 0), 0);
+  const totalIncome = items.reduce((s, i) => s + (i.txnType === "payment" ? n(i.amount) : 0), 0);
 
   return (
     <div className="flex flex-col gap-3">
@@ -551,17 +554,6 @@ function ExpensesPanel({ items, onChange, lang }: {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => setTxnType("payment")}
-              className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold border transition-all ${
-                txnType === "payment"
-                  ? "bg-emerald-500 text-white border-emerald-500"
-                  : "bg-transparent text-gray-500 border-[#30363d] hover:text-gray-300"
-              }`}
-            >
-              ↓ Payment (reduce debt)
-            </button>
-            <button
-              type="button"
               onClick={() => setTxnType("debt")}
               className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold border transition-all ${
                 txnType === "debt"
@@ -570,6 +562,17 @@ function ExpensesPanel({ items, onChange, lang }: {
               }`}
             >
               ↑ Add Debt (increase balance)
+            </button>
+            <button
+              type="button"
+              onClick={() => setTxnType("payment")}
+              className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold border transition-all ${
+                txnType === "payment"
+                  ? "bg-emerald-500 text-white border-emerald-500"
+                  : "bg-transparent text-gray-500 border-[#30363d] hover:text-gray-300"
+              }`}
+            >
+              ↓ Payment (reduce debt)
             </button>
           </div>
         </div>
@@ -591,7 +594,9 @@ function ExpensesPanel({ items, onChange, lang }: {
                 )}
               </div>
               <div className="flex items-center gap-3 shrink-0">
-                <span className="font-semibold text-amber-400 tabular-nums">{fmt(n(item.amount))} MMK</span>
+                <span className={`font-semibold tabular-nums ${item.txnType === "payment" ? "text-emerald-400" : "text-red-400"}`}>
+                  {item.txnType === "payment" ? "+" : "−"}{fmt(n(item.amount))} MMK
+                </span>
                 <button
                   type="button"
                   onClick={() => removeItem(idx)}
@@ -602,9 +607,19 @@ function ExpensesPanel({ items, onChange, lang }: {
               </div>
             </div>
           ))}
-          <div className="flex justify-between items-center px-4 py-2.5 bg-[#1c2433] border-t border-[#30363d]">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t(lang, "totalExpenses")}</span>
-            <span className="text-sm font-bold text-amber-400 tabular-nums">{fmt(total)} MMK</span>
+          <div className="bg-[#1c2433] border-t border-[#30363d] px-4 py-2.5 space-y-1">
+            {totalIncome > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">+ Income</span>
+                <span className="text-sm font-bold text-emerald-400 tabular-nums">+{fmt(totalIncome)} MMK</span>
+              </div>
+            )}
+            {totalCosts > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">− Costs</span>
+                <span className="text-sm font-bold text-red-400 tabular-nums">−{fmt(totalCosts)} MMK</span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -715,7 +730,10 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang }: 
   onBack: () => void;
   lang: Lang; setLang: (l: Lang) => void;
 }) {
-  const [form, setForm] = useState<FormData>(EMPTY);
+  const [form, setForm] = useState<FormData>(() => ({
+    ...EMPTY,
+    shiftDate: new Date().toISOString().slice(0, 16),
+  }));
 
   // Helper to format auto-calculated numbers nicely (no trailing zeros)
   function autoNum(v: number): string {
@@ -755,14 +773,16 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang }: 
   const l95   = n(form.fuel95.liters);
   const lPD   = n(form.premiumDiesel.liters);
 
-  const tPipa       = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
-  const tJelly      = form.jellyCan.reduce((s, item) => s + n(item.pieces) * n(item.price), 0);
-  const tD          = n(form.diesel.cash);
-  const grandTotal  = t92 + t95 + tPD + tPipa + tJelly + tD;
-  const actualCash  = n(form.actualCash);
-  const totalExp    = form.expenses.reduce((s, i) => s + n(i.amount), 0);
-  const netExpected = grandTotal - totalExp;
-  const difference  = actualCash - netExpected;
+  const tPipa           = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
+  const tJelly          = form.jellyCan.reduce((s, item) => s + n(item.pieces) * n(item.price), 0);
+  const tD              = n(form.diesel.cash);
+  const grandTotal      = t92 + t95 + tPD + tPipa + tJelly + tD;
+  const actualCash      = n(form.actualCash);
+  const totalDeductions = form.expenses.reduce((s, i) => s + (i.txnType !== "payment" ? n(i.amount) : 0), 0);
+  const totalIncome     = form.expenses.reduce((s, i) => s + (i.txnType === "payment"  ? n(i.amount) : 0), 0);
+  const totalExp        = totalDeductions;
+  const netExpected     = grandTotal - totalDeductions + totalIncome;
+  const difference      = actualCash - netExpected;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -782,7 +802,12 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang }: 
           <p className="text-sm font-bold text-white capitalize">{employeeName}'s Shift Report</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <p className="text-xs text-gray-600">{new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
+          <input
+            type="datetime-local"
+            value={form.shiftDate}
+            onChange={e => setForm(f => ({ ...f, shiftDate: e.target.value }))}
+            className="text-xs text-gray-400 bg-[#161b22] border border-[#30363d] hover:border-gray-500 focus:border-blue-500 focus:outline-none rounded-lg px-2 py-1 cursor-pointer"
+          />
           <LangToggle lang={lang} setLang={setLang} />
           <button
             type="button"
@@ -836,8 +861,8 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang }: 
                 {tD > 0 && <span className="text-base font-bold tabular-nums text-orange-400">{fmt(tD)} <span className="text-gray-600 text-xs font-normal">MMK</span></span>}
               </div>
               <div className="px-5 pb-5 grid grid-cols-2 gap-4">
-                <GoldInput label={t(lang, "cashAmount")} value={form.diesel.cash} onChange={v => setFuel("diesel", "cash", v)} prefix="K" />
-                <GoldInput label="Price / L" value={form.diesel.price} onChange={v => setFuel("diesel", "price", v)} prefix="K" />
+                <GoldInput label={t(lang, "cashAmount")} value={form.diesel.cash} onChange={v => setForm(f => ({ ...f, diesel: { ...f.diesel, cash: v } }))} prefix="K" />
+                <GoldInput label="Price / L" value={form.diesel.price} onChange={v => setForm(f => ({ ...f, diesel: { ...f.diesel, price: v } }))} prefix="K" />
               </div>
             </div>
           </div>
@@ -893,14 +918,16 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
   const t92   = n(form.fuel92.totalAmount);
   const t95   = n(form.fuel95.totalAmount);
   const tPD   = n(form.premiumDiesel.totalAmount);
-  const l92   = n(form.fuel92.price)   > 0 ? t92 / n(form.fuel92.price)   : 0;
-  const l95   = n(form.fuel95.price)   > 0 ? t95 / n(form.fuel95.price)   : 0;
-  const lPD   = n(form.premiumDiesel.price) > 0 ? tPD / n(form.premiumDiesel.price) : 0;
-  const tPipa       = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
-  const tJelly      = form.jellyCan.reduce((s, item) => s + n(item.pieces) * n(item.price), 0);
-  const tD          = n(form.diesel.cash);
-  const totalExp    = form.expenses.reduce((s, i) => s + n(i.amount), 0);
-  const actualCash  = n(form.actualCash);
+  const l92   = n(form.fuel92.liters)        || (n(form.fuel92.price)        > 0 ? t92 / n(form.fuel92.price)        : 0);
+  const l95   = n(form.fuel95.liters)        || (n(form.fuel95.price)        > 0 ? t95 / n(form.fuel95.price)        : 0);
+  const lPD   = n(form.premiumDiesel.liters) || (n(form.premiumDiesel.price) > 0 ? tPD / n(form.premiumDiesel.price) : 0);
+  const tPipa           = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
+  const tJelly          = form.jellyCan.reduce((s, item) => s + n(item.pieces) * n(item.price), 0);
+  const tD              = n(form.diesel.cash);
+  const totalDeductions = form.expenses.reduce((s, i) => s + (i.txnType !== "payment" ? n(i.amount) : 0), 0);
+  const totalIncome     = form.expenses.reduce((s, i) => s + (i.txnType === "payment"  ? n(i.amount) : 0), 0);
+  const totalExp        = totalDeductions;
+  const actualCash      = n(form.actualCash);
 
   const rows = [
     { label: "Fuel 92",        liters: l92,  price: form.fuel92.price,         total: t92,   color: "text-blue-400" },
@@ -922,7 +949,7 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
           </div>
           <div>
             <p className="font-bold text-white capitalize">{employeeName}</p>
-            <p className="text-xs text-gray-500">{email} · {new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+            <p className="text-xs text-gray-500">{email} · {(form.shiftDate ? new Date(form.shiftDate) : new Date()).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
           </div>
         </div>
 
@@ -998,7 +1025,9 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
               {form.expenses.map((exp, idx) => (
                 <div key={idx} className="px-4 py-3 flex justify-between text-sm">
                   <span className="text-gray-400">{exp.name}</span>
-                  <span className="font-semibold text-red-400">−{fmt(n(exp.amount))} MMK</span>
+                  <span className={`font-semibold ${exp.txnType === "payment" ? "text-emerald-400" : "text-red-400"}`}>
+                    {exp.txnType === "payment" ? "+" : "−"}{fmt(n(exp.amount))} MMK
+                  </span>
                 </div>
               ))}
             </div>
@@ -1009,8 +1038,13 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
           <div className="px-4 py-3 border-b border-[#30363d]"><h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Cash Summary</h3></div>
           <div className="divide-y divide-[#30363d]">
             <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "grandTotalShort")}</span><span className="font-bold text-white tabular-nums">{fmt(grandTotal)} MMK</span></div>
-            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "totalExpenses")}</span><span className="font-semibold text-red-400 tabular-nums">−{fmt(totalExp)} MMK</span></div>
-            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "netExpected")}</span><span className="font-bold text-white tabular-nums">{fmt(grandTotal - totalExp)} MMK</span></div>
+            {totalIncome > 0 && (
+              <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">+ Payment Income</span><span className="font-semibold text-emerald-400 tabular-nums">+{fmt(totalIncome)} MMK</span></div>
+            )}
+            {totalDeductions > 0 && (
+              <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">− Other Costs</span><span className="font-semibold text-red-400 tabular-nums">−{fmt(totalDeductions)} MMK</span></div>
+            )}
+            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "netExpected")}</span><span className="font-bold text-white tabular-nums">{fmt(grandTotal - totalDeductions + totalIncome)} MMK</span></div>
             <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "actualCollected")}</span><span className="font-bold text-white tabular-nums">{fmt(actualCash)} MMK</span></div>
             <div className={["px-4 py-3 flex justify-between text-sm font-bold", difference === 0 ? "bg-[#1c2433]" : difference > 0 ? "bg-emerald-500/10" : "bg-red-500/10"].join(" ")}>
               <span className={difference >= 0 ? "text-emerald-400" : "text-red-400"}>{t(lang, "difference")}</span>
@@ -1689,13 +1723,15 @@ export default function App() {
       total: n(item.pieces) * n(item.price),
     })).filter(item => item.pieces > 0 || item.price > 0);
 
-    const totalExp   = formData.expenses.reduce((s, i) => s + n(i.amount), 0);
-    const actualCash = n(formData.actualCash);
+    const totalDeductions = formData.expenses.reduce((s, i) => s + (i.txnType !== "payment" ? n(i.amount) : 0), 0);
+    const totalIncome     = formData.expenses.reduce((s, i) => s + (i.txnType === "payment"  ? n(i.amount) : 0), 0);
+    const totalExp        = totalDeductions - totalIncome; // net effect on expected cash
+    const actualCash      = n(formData.actualCash);
 
     const payload: ShiftPayload = {
       employee_name: employeeName,
       employee_id: email,
-      timestamp: new Date().toISOString(),
+      timestamp: formData.shiftDate ? new Date(formData.shiftDate).toISOString() : new Date().toISOString(),
       fuel_data: {
         fuel_92_liters:        l92,
         fuel_92_price:         n(formData.fuel92.price),
