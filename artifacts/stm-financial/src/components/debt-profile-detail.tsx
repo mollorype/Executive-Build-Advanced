@@ -90,6 +90,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   const [fuelGallonsInput, setFuelGallonsInput] = useState("");
   const [fuelAmountInput, setFuelAmountInput] = useState("");
   const [fuelPriceInput, setFuelPriceInput] = useState("");
+  const [fuelLastSource, setFuelLastSource] = useState<'total' | 'liters' | null>(null);
 
   const showFuelFields = !NO_SCORE_RELATIONS.has(profile.relation) && txnType === "debt";
   const fuelAmountNum = parseFloat(fuelAmountInput) || 0;
@@ -98,6 +99,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
 
   function handleFuelLitersChange(val: string) {
     setFuelLitersInput(val);
+    setFuelLastSource('liters');
     const liters = parseFloat(val);
     if (liters > 0) {
       setFuelGallonsInput((liters / LITERS_PER_GALLON).toFixed(4));
@@ -109,6 +111,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   }
   function handleFuelGallonsChange(val: string) {
     setFuelGallonsInput(val);
+    setFuelLastSource('liters');
     const gallons = parseFloat(val);
     if (gallons > 0) {
       const liters = gallons * LITERS_PER_GALLON;
@@ -121,6 +124,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   }
   function handleFuelAmountChange(val: string) {
     setFuelAmountInput(val);
+    setFuelLastSource('total');
     const amount = parseFloat(val);
     const price = parseFloat(fuelPriceInput);
     if (amount > 0 && price > 0) {
@@ -132,15 +136,29 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   function handleFuelPriceChange(val: string) {
     setFuelPriceInput(val);
     const price = parseFloat(val);
-    const liters = parseFloat(fuelLitersInput);
-    const amount = parseFloat(fuelAmountInput);
     if (price > 0) {
-      if (liters > 0) {
-        setFuelAmountInput((liters * price).toFixed(0));
-      } else if (amount > 0) {
-        const calcLiters = amount / price;
-        setFuelLitersInput(calcLiters.toFixed(3));
-        setFuelGallonsInput((calcLiters / LITERS_PER_GALLON).toFixed(4));
+      if (fuelLastSource === 'total') {
+        // User typed total first — preserve total, recalculate liters
+        const amount = parseFloat(fuelAmountInput);
+        if (amount > 0) {
+          const calcLiters = amount / price;
+          setFuelLitersInput(calcLiters.toFixed(3));
+          setFuelGallonsInput((calcLiters / LITERS_PER_GALLON).toFixed(4));
+        }
+      } else {
+        // User typed liters first (or no source yet) — preserve liters, recalculate total
+        const liters = parseFloat(fuelLitersInput);
+        if (liters > 0) {
+          setFuelAmountInput((liters * price).toFixed(0));
+        } else {
+          // Fallback: no liters entered yet, derive from total if present
+          const amount = parseFloat(fuelAmountInput);
+          if (amount > 0) {
+            const calcLiters = amount / price;
+            setFuelLitersInput(calcLiters.toFixed(3));
+            setFuelGallonsInput((calcLiters / LITERS_PER_GALLON).toFixed(4));
+          }
+        }
       }
     }
   }
@@ -154,6 +172,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   const [editLiters, setEditLiters] = useState("");
   const [editGallons, setEditGallons] = useState("");
   const [editPriceInput, setEditPriceInput] = useState("");
+  const [editLastSource, setEditLastSource] = useState<'total' | 'liters' | null>(null);
   const [editTxnSaving, setEditTxnSaving] = useState(false);
   const [editTxnError, setEditTxnError] = useState("");
 
@@ -164,6 +183,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
 
   function handleEditLitersChange(val: string) {
     setEditLiters(val);
+    setEditLastSource('liters');
     const liters = parseFloat(val);
     if (liters > 0) {
       setEditGallons((liters / LITERS_PER_GALLON).toFixed(4));
@@ -175,6 +195,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   }
   function handleEditGallonsChange(val: string) {
     setEditGallons(val);
+    setEditLastSource('liters');
     const gallons = parseFloat(val);
     if (gallons > 0) {
       const liters = gallons * LITERS_PER_GALLON;
@@ -187,6 +208,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   }
   function handleEditAmountChange(val: string) {
     setEditAmount(val);
+    setEditLastSource('total');
     const amount = parseFloat(val);
     const price = parseFloat(editPriceInput);
     if (amount > 0 && price > 0) {
@@ -198,15 +220,29 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   function handleEditPriceChange(val: string) {
     setEditPriceInput(val);
     const price = parseFloat(val);
-    const liters = parseFloat(editLiters);
-    const amount = parseFloat(editAmount);
     if (price > 0) {
-      if (liters > 0) {
-        setEditAmount((liters * price).toFixed(0));
-      } else if (amount > 0) {
-        const calcLiters = amount / price;
-        setEditLiters(calcLiters.toFixed(3));
-        setEditGallons((calcLiters / LITERS_PER_GALLON).toFixed(4));
+      if (editLastSource === 'total') {
+        // User typed total first — preserve total, recalculate liters
+        const amount = parseFloat(editAmount);
+        if (amount > 0) {
+          const calcLiters = amount / price;
+          setEditLiters(calcLiters.toFixed(3));
+          setEditGallons((calcLiters / LITERS_PER_GALLON).toFixed(4));
+        }
+      } else {
+        // User typed liters first (or no source yet) — preserve liters, recalculate total
+        const liters = parseFloat(editLiters);
+        if (liters > 0) {
+          setEditAmount((liters * price).toFixed(0));
+        } else {
+          // Fallback: no liters entered yet, derive from total if present
+          const amount = parseFloat(editAmount);
+          if (amount > 0) {
+            const calcLiters = amount / price;
+            setEditLiters(calcLiters.toFixed(3));
+            setEditGallons((calcLiters / LITERS_PER_GALLON).toFixed(4));
+          }
+        }
       }
     }
   }
@@ -220,6 +256,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     setEditLiters(txn.liters != null ? String(txn.liters) : "");
     setEditGallons(txn.liters != null ? (txn.liters / LITERS_PER_GALLON).toFixed(4) : "");
     setEditPriceInput(txn.price_per_liter != null ? String(txn.price_per_liter) : "");
+    setEditLastSource(null);
     setEditTxnError("");
   }
 
@@ -362,6 +399,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     setFuelGallonsInput("");
     setFuelAmountInput("");
     setFuelPriceInput("");
+    setFuelLastSource(null);
     setSubmitting(false);
 
     const updated: DebtProfile = { ...profile, current_balance: newBalance, score: newScore, last_payment_at: lastPayAt ?? profile.last_payment_at };

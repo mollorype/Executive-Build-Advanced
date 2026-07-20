@@ -49,6 +49,7 @@ export default function DebtTracker() {
   const [createFuelGallons, setCreateFuelGallons] = useState("");
   const [createFuelPrice, setCreateFuelPrice] = useState("");
   const [createFuelRemarks, setCreateFuelRemarks] = useState("");
+  const [createLastSource, setCreateLastSource] = useState<'total' | 'liters' | null>(null);
 
   const isSimpleRelation = NO_SCORE_RELATIONS.has(relation);
   const createFuelAmountNum = parseFloat(totalDebt) || 0;
@@ -57,6 +58,7 @@ export default function DebtTracker() {
 
   function handleCreateLitersChange(val: string) {
     setCreateFuelLiters(val);
+    setCreateLastSource('liters');
     const liters = parseFloat(val);
     if (liters > 0) {
       setCreateFuelGallons((liters / LITERS_PER_GALLON).toFixed(4));
@@ -68,6 +70,7 @@ export default function DebtTracker() {
   }
   function handleCreateGallonsChange(val: string) {
     setCreateFuelGallons(val);
+    setCreateLastSource('liters');
     const gallons = parseFloat(val);
     if (gallons > 0) {
       const liters = gallons * LITERS_PER_GALLON;
@@ -80,6 +83,7 @@ export default function DebtTracker() {
   }
   function handleCreateAmountChange(val: string) {
     setTotalDebt(val);
+    setCreateLastSource('total');
     const amount = parseFloat(val);
     const price = parseFloat(createFuelPrice);
     if (amount > 0 && price > 0) {
@@ -91,15 +95,29 @@ export default function DebtTracker() {
   function handleCreatePriceChange(val: string) {
     setCreateFuelPrice(val);
     const price = parseFloat(val);
-    const liters = parseFloat(createFuelLiters);
-    const amount = parseFloat(totalDebt);
     if (price > 0) {
-      if (liters > 0) {
-        setTotalDebt((liters * price).toFixed(0));
-      } else if (amount > 0) {
-        const calcLiters = amount / price;
-        setCreateFuelLiters(calcLiters.toFixed(3));
-        setCreateFuelGallons((calcLiters / LITERS_PER_GALLON).toFixed(4));
+      if (createLastSource === 'total') {
+        // User typed total first — preserve total, recalculate liters
+        const amount = parseFloat(totalDebt);
+        if (amount > 0) {
+          const calcLiters = amount / price;
+          setCreateFuelLiters(calcLiters.toFixed(3));
+          setCreateFuelGallons((calcLiters / LITERS_PER_GALLON).toFixed(4));
+        }
+      } else {
+        // User typed liters first (or no source yet) — preserve liters, recalculate total
+        const liters = parseFloat(createFuelLiters);
+        if (liters > 0) {
+          setTotalDebt((liters * price).toFixed(0));
+        } else {
+          // Fallback: no liters entered yet, derive from total if present
+          const amount = parseFloat(totalDebt);
+          if (amount > 0) {
+            const calcLiters = amount / price;
+            setCreateFuelLiters(calcLiters.toFixed(3));
+            setCreateFuelGallons((calcLiters / LITERS_PER_GALLON).toFixed(4));
+          }
+        }
       }
     }
   }
@@ -187,7 +205,7 @@ export default function DebtTracker() {
   function resetCreate() {
     setName(""); setRelation("Other"); setPhones([""]); setDate(new Date().toISOString().slice(0, 10));
     setTotalDebt(""); setCreditLimit(""); setPaymentDueDate(""); setCreateError("");
-    setCreateFuelProduct("92 RON"); setCreateFuelLiters(""); setCreateFuelGallons(""); setCreateFuelPrice(""); setCreateFuelRemarks("");
+    setCreateFuelProduct("92 RON"); setCreateFuelLiters(""); setCreateFuelGallons(""); setCreateFuelPrice(""); setCreateFuelRemarks(""); setCreateLastSource(null);
   }
 
   function addCreatePhone() {
