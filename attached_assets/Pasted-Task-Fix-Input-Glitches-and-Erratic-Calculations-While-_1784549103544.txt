@@ -1,0 +1,32 @@
+Task: Fix Input Glitches and Erratic Calculations While Typing Liters / Total Amount
+
+The form calculations in "Create Profile" and "Manual Debt Add" are flickering, resetting values, or interrupting user input while typing inside the Liters and Total Amount fields. Please refactor the state handlers using these strict rules:
+
+1. REMOVE CYCLIC useEffect HOOKS
+* Search the form component for any `useEffect` that listens to `[liters, totalAmount, pricePerLiter, gallons]` and triggers auto-calculations. REMOVE or disable this reactive loop. 
+* Cyclic state updates across multiple interdependent fields cause infinite render triggers on every single keystroke.
+
+2. USE EXPLICIT, ONE-WAY `onChange` HANDLERS
+Move all calculation logic directly into the specific input `onChange` event handlers:
+
+* When the user types in `LITERS (L)`:
+  - Update the `liters` input string state directly (do NOT reformat or overwrite what the user is typing).
+  - Sync `gallons` = `Number(litersInput) / 4.54609`.
+  - IF `totalAmount` contains a valid number > 0, calculate `pricePerLiter` = `totalAmount / litersInput`.
+  - NEVER mutate or recalculate `totalAmount` while typing in `liters`.
+
+* When the user types in `TOTAL AMOUNT`:
+  - Update the `totalAmount` input string state directly.
+  - IF `liters` contains a valid number > 0, calculate `pricePerLiter` = `totalAmountInput / liters`.
+  - NEVER mutate or recalculate `liters` or `gallons` while typing in `totalAmount`.
+
+* When the user types in `GALLONS (G)`:
+  - Update the `gallons` input string state directly.
+  - Sync `liters` = `Number(gallonsInput) * 4.54609`.
+  - IF `totalAmount` contains a valid number > 0, calculate `pricePerLiter` = `totalAmount / calculatedLiters`.
+
+3. SAFE NUMERIC HANDLING & PARTIAL TYPING
+* Ensure string values like "10." or empty strings `""` do not throw `NaN` or `Infinity` into adjacent fields.
+* Add guard clauses before performing division:
+  `if (parsedLiters > 0 && parsedTotal > 0) { ... }`
+* Keep raw input values stored as plain text strings in local state so the user can freely type decimal points without the field formatting prematurely.

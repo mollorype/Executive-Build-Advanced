@@ -586,16 +586,16 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Liters (L)</label>
-                      <input type="number" value={fuelLitersInput}
+                      <input type="text" inputMode="decimal" value={fuelLitersInput}
                         onChange={e => handleFuelLitersChange(e.target.value)}
-                        placeholder="0.000" min="0" step="any"
+                        placeholder="0.000"
                         className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
                     </div>
                     <div>
                       <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Gallons (G)</label>
-                      <input type="number" value={fuelGallonsInput}
+                      <input type="text" inputMode="decimal" value={fuelGallonsInput}
                         onChange={e => handleFuelGallonsChange(e.target.value)}
-                        placeholder="0.0000" min="0" step="any"
+                        placeholder="0.0000"
                         className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
                     </div>
                   </div>
@@ -793,13 +793,13 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className={labelCls}>Liters (L)</label>
-                      <input type="number" value={editLiters} onChange={e => handleEditLitersChange(e.target.value)}
-                        placeholder="0.000" min="0" step="any" className={inputCls} />
+                      <input type="text" inputMode="decimal" value={editLiters} onChange={e => handleEditLitersChange(e.target.value)}
+                        placeholder="0.000" className={inputCls} />
                     </div>
                     <div>
                       <label className={labelCls}>Gallons (G)</label>
-                      <input type="number" value={editGallons} onChange={e => handleEditGallonsChange(e.target.value)}
-                        placeholder="0.0000" min="0" step="any" className={inputCls} />
+                      <input type="text" inputMode="decimal" value={editGallons} onChange={e => handleEditGallonsChange(e.target.value)}
+                        placeholder="0.0000" className={inputCls} />
                     </div>
                   </div>
 
