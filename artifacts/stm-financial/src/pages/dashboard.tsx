@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase, Shift, TABLES, COLS, mapRowToShift } from "@/lib/supabase";
 import ShiftDetailPanel from "@/components/shift-detail-panel";
+import ShiftEditDialog from "@/components/shift-edit-dialog";
 import {
   BarChart3, DollarSign, AlertTriangle, Users,
   ChevronRight, TrendingUp, RefreshCw,
   ChevronLeft, ChevronRight as ChevronRightIcon,
-  Calendar, Trash2, X,
+  Calendar, Trash2, X, Pencil,
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
@@ -72,6 +73,7 @@ export default function Dashboard() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [editingShift, setEditingShift] = useState<Shift | null>(null);
 
   const fetchShifts = useCallback(async (currentPage: number) => {
     const from = currentPage * PAGE_SIZE;
@@ -449,6 +451,13 @@ export default function Dashboard() {
                     {/* Actions */}
                     <div className="flex items-center gap-1 shrink-0">
                       <button
+                        onClick={e => { e.stopPropagation(); setEditingShift(shift); }}
+                        className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-blue-400 hover:bg-blue-900/20 p-1.5 rounded-lg transition-all"
+                        title="Edit shift"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
                         onClick={e => { e.stopPropagation(); handleDeleteShift(shift); }}
                         className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-lg transition-all"
                       >
@@ -495,6 +504,14 @@ export default function Dashboard() {
 
       {selectedShift && (
         <ShiftDetailPanel shift={selectedShift} onClose={() => setSelectedShift(null)} />
+      )}
+
+      {editingShift && (
+        <ShiftEditDialog
+          shift={editingShift}
+          onClose={() => setEditingShift(null)}
+          onSaved={() => fetchShifts(page)}
+        />
       )}
     </div>
   );

@@ -100,6 +100,28 @@ export type FuelPurchaseOrder = {
   total_volume_sold: number | null;
 };
 
+export async function updateShift(id: string, data: {
+  fuel_data: Record<string, unknown>;
+  total_expenses: number;
+  expenses_breakdown: ExpenseItem[];
+  expected_total: number;
+  actual_cash: number;
+  variance: number;
+}): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from(TABLES.SHIFTS)
+    .update({
+      [COLS.FUEL_DATA]: data.fuel_data,
+      [COLS.TOTAL_EXPENSES]: data.total_expenses,
+      [COLS.EXPENSES_BREAKDOWN]: data.expenses_breakdown,
+      [COLS.EXPECTED_TOTAL]: data.expected_total,
+      [COLS.ACTUAL_CASH]: data.actual_cash,
+      [COLS.VARIANCE]: data.variance,
+    })
+    .eq("id", id);
+  return { error: error ? error.message : null };
+}
+
 export type Shift = {
   id: string;
   created_at: string;

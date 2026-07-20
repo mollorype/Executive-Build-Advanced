@@ -21,7 +21,7 @@ function fmtSigned(v: number): string {
 // ─── types ───────────────────────────────────────────────────────────────────
 type Screen = "login" | "checking" | "denied" | "mode-select" | "form" | "confirm" | "success" | "receipt" | "settings";
 
-interface FuelRow { totalAmount: string; price: string; }
+interface FuelRow { totalAmount: string; price: string; liters: string; }
 interface DieselRow { cash: string; price: string; }
 interface ExpenseItem { name: string; amount: string; profileId?: string; txnType?: "payment" | "debt"; }
 type PipaProduct = "92" | "95" | "PD" | "D";
@@ -97,9 +97,9 @@ function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void 
 }
 
 const EMPTY: FormData = {
-  fuel92:         { totalAmount: "", price: "" },
-  fuel95:         { totalAmount: "", price: "" },
-  premiumDiesel:  { totalAmount: "", price: "" },
+  fuel92:         { totalAmount: "", price: "", liters: "" },
+  fuel95:         { totalAmount: "", price: "", liters: "" },
+  premiumDiesel:  { totalAmount: "", price: "", liters: "" },
   pipa:           [],
   jellyCan:       [],
   diesel:         { cash: "", price: "" },
@@ -374,10 +374,10 @@ function JellyCanPanel({ items, onChange }: {
 }
 
 // ─── Product card — full-width horizontal row, dark themed ────────────────────
-function ProductCard({ label, badge, accentText, accentBorder, totalAmount, price, total, liters, onTotalAmount, onPrice, lang }: {
+function ProductCard({ label, badge, accentText, accentBorder, totalAmount, price, liters, total, onTotalAmount, onPrice, onLiters, lang }: {
   label: string; badge: string; accentText: string; accentBorder: string;
-  totalAmount: string; price: string; total: number; liters: number;
-  onTotalAmount: (v: string) => void; onPrice: (v: string) => void;
+  totalAmount: string; price: string; liters: string; total: number;
+  onTotalAmount: (v: string) => void; onPrice: (v: string) => void; onLiters: (v: string) => void;
   lang: Lang;
 }) {
   return (
@@ -393,17 +393,13 @@ function ProductCard({ label, badge, accentText, accentBorder, totalAmount, pric
           </span>
         )}
       </div>
-      <div className="px-5 pb-5 grid grid-cols-2 gap-4">
+      <div className="px-5 pb-3 grid grid-cols-2 gap-4">
         <GoldInput label={t(lang, "totalAmount")} value={totalAmount} onChange={onTotalAmount} prefix="K" />
         <GoldInput label={t(lang, "literPrice")} value={price} onChange={onPrice} prefix="K" />
       </div>
-      {liters > 0 && (
-        <div className="px-5 pb-4 -mt-2">
-          <p className={`text-xs font-semibold tabular-nums ${accentText}`}>
-            → {liters.toLocaleString("en-US", { maximumFractionDigits: 2 })} L sold
-          </p>
-        </div>
-      )}
+      <div className="px-5 pb-5">
+        <GoldInput label={t(lang, "literSold")} value={liters} onChange={onLiters} />
+      </div>
     </div>
   );
 }
@@ -721,18 +717,43 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang }: 
 }) {
   const [form, setForm] = useState<FormData>(EMPTY);
 
-  const setFuel = useCallback((key: keyof Omit<FormData, "expenses" | "actualCash" | "pipa" | "jellyCan">, field: string, val: string) => {
-    setForm(f => ({ ...f, [key]: { ...(f[key] as object), [field]: val } }));
+  // Helper to format auto-calculated numbers nicely (no trailing zeros)
+  function autoNum(v: number): string {
+    if (v === 0) return "";
+    return parseFloat(v.toFixed(6)).toString();
+  }
+
+  const setFuelField = useCallback((
+    key: "fuel92" | "fuel95" | "premiumDiesel",
+    field: "totalAmount" | "price" | "liters",
+    val: string,
+  ) => {
+    setForm(f => {
+      const row = { ...(f[key] as FuelRow), [field]: val };
+      const p = n(row.price);
+      if (field === "totalAmount" && p > 0) {
+        row.liters = n(val) > 0 ? autoNum(n(val) / p) : row.liters;
+      } else if (field === "liters" && p > 0) {
+        row.totalAmount = n(val) > 0 ? autoNum(n(val) * p) : row.totalAmount;
+      } else if (field === "price" && n(val) > 0) {
+        if (n(row.liters) > 0) {
+          row.totalAmount = autoNum(n(row.liters) * n(val));
+        } else if (n(row.totalAmount) > 0) {
+          row.liters = autoNum(n(row.totalAmount) / n(val));
+        }
+      }
+      return { ...f, [key]: row };
+    });
   }, []);
 
   // Totals are the entered totalAmount directly
   const t92   = n(form.fuel92.totalAmount);
   const t95   = n(form.fuel95.totalAmount);
   const tPD   = n(form.premiumDiesel.totalAmount);
-  // Liters are calculated: totalAmount / price
-  const l92   = n(form.fuel92.price)   > 0 ? t92 / n(form.fuel92.price)   : 0;
-  const l95   = n(form.fuel95.price)   > 0 ? t95 / n(form.fuel95.price)   : 0;
-  const lPD   = n(form.premiumDiesel.price) > 0 ? tPD / n(form.premiumDiesel.price) : 0;
+  // Liters: use the stored (entered or auto-calculated) value
+  const l92   = n(form.fuel92.liters);
+  const l95   = n(form.fuel95.liters);
+  const lPD   = n(form.premiumDiesel.liters);
 
   const tPipa       = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
   const tJelly      = form.jellyCan.reduce((s, item) => s + n(item.pieces) * n(item.price), 0);
@@ -788,14 +809,14 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang }: 
           {/* Fuel rows — full-width vertical stack */}
           <div className="space-y-3">
             <ProductCard label="Fuel 92" badge="92" accentText="text-blue-400" accentBorder="border-l-blue-500"
-              totalAmount={form.fuel92.totalAmount} price={form.fuel92.price} total={t92} liters={l92}
-              onTotalAmount={v => setFuel("fuel92", "totalAmount", v)} onPrice={v => setFuel("fuel92", "price", v)} lang={lang} />
+              totalAmount={form.fuel92.totalAmount} price={form.fuel92.price} liters={form.fuel92.liters} total={t92}
+              onTotalAmount={v => setFuelField("fuel92", "totalAmount", v)} onPrice={v => setFuelField("fuel92", "price", v)} onLiters={v => setFuelField("fuel92", "liters", v)} lang={lang} />
             <ProductCard label="Fuel 95" badge="95" accentText="text-emerald-400" accentBorder="border-l-emerald-500"
-              totalAmount={form.fuel95.totalAmount} price={form.fuel95.price} total={t95} liters={l95}
-              onTotalAmount={v => setFuel("fuel95", "totalAmount", v)} onPrice={v => setFuel("fuel95", "price", v)} lang={lang} />
+              totalAmount={form.fuel95.totalAmount} price={form.fuel95.price} liters={form.fuel95.liters} total={t95}
+              onTotalAmount={v => setFuelField("fuel95", "totalAmount", v)} onPrice={v => setFuelField("fuel95", "price", v)} onLiters={v => setFuelField("fuel95", "liters", v)} lang={lang} />
             <ProductCard label="Premium Diesel" badge="PD" accentText="text-purple-400" accentBorder="border-l-purple-500"
-              totalAmount={form.premiumDiesel.totalAmount} price={form.premiumDiesel.price} total={tPD} liters={lPD}
-              onTotalAmount={v => setFuel("premiumDiesel", "totalAmount", v)} onPrice={v => setFuel("premiumDiesel", "price", v)} lang={lang} />
+              totalAmount={form.premiumDiesel.totalAmount} price={form.premiumDiesel.price} liters={form.premiumDiesel.liters} total={tPD}
+              onTotalAmount={v => setFuelField("premiumDiesel", "totalAmount", v)} onPrice={v => setFuelField("premiumDiesel", "price", v)} onLiters={v => setFuelField("premiumDiesel", "liters", v)} lang={lang} />
           </div>
           <div className="space-y-3 mt-3">
             <PipaPanel
@@ -1647,9 +1668,9 @@ export default function App() {
     const t92   = n(formData.fuel92.totalAmount);
     const t95   = n(formData.fuel95.totalAmount);
     const tPD   = n(formData.premiumDiesel.totalAmount);
-    const l92   = n(formData.fuel92.price)   > 0 ? t92 / n(formData.fuel92.price)   : 0;
-    const l95   = n(formData.fuel95.price)   > 0 ? t95 / n(formData.fuel95.price)   : 0;
-    const lPD   = n(formData.premiumDiesel.price) > 0 ? tPD / n(formData.premiumDiesel.price) : 0;
+    const l92   = n(formData.fuel92.liters)   > 0 ? n(formData.fuel92.liters)   : (n(formData.fuel92.price)   > 0 ? t92 / n(formData.fuel92.price)   : 0);
+    const l95   = n(formData.fuel95.liters)   > 0 ? n(formData.fuel95.liters)   : (n(formData.fuel95.price)   > 0 ? t95 / n(formData.fuel95.price)   : 0);
+    const lPD   = n(formData.premiumDiesel.liters) > 0 ? n(formData.premiumDiesel.liters) : (n(formData.premiumDiesel.price) > 0 ? tPD / n(formData.premiumDiesel.price) : 0);
     const pipaItems = formData.pipa.map(item => ({
       product: item.product,
       containers: n(item.containers),
