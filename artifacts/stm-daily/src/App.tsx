@@ -730,10 +730,12 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang }: 
   onBack: () => void;
   lang: Lang; setLang: (l: Lang) => void;
 }) {
-  const [form, setForm] = useState<FormData>(() => ({
-    ...EMPTY,
-    shiftDate: new Date().toISOString().slice(0, 16),
-  }));
+  const [form, setForm] = useState<FormData>(() => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const localDt = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    return { ...EMPTY, shiftDate: localDt };
+  });
 
   // Helper to format auto-calculated numbers nicely (no trailing zeros)
   function autoNum(v: number): string {
