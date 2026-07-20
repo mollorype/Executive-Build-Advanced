@@ -1,4 +1,4 @@
-modules = ["nodejs-24", "python-3.11"]
+modules = ["nodejs-20", "web", "bash"]
 
 [deployment]
 router = "application"
@@ -41,3 +41,6 @@ externalPort = 3002
 TELEGRAM_CHAT_ID = "-5553308311"
 SUPABASE_URL = "https://ryubjollofribrvrwqtz.supabase.co"
 SUPABASE_ANON_KEY = "sb_publishable_gzut68hKDAV9cirHdk8bpw_O_yTUXZS"
+
+[nix]
+channel = "stable-25_05"
