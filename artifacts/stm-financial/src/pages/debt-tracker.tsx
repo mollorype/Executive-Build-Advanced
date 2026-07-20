@@ -62,8 +62,6 @@ export default function DebtTracker() {
     const liters = parseFloat(val);
     if (liters > 0) {
       setCreateFuelGallons((liters / LITERS_PER_GALLON).toFixed(4));
-      const price = parseFloat(createFuelPrice);
-      if (price > 0) setTotalDebt((liters * price).toFixed(0));
     } else if (val === "") {
       setCreateFuelGallons("");
     }
@@ -73,10 +71,7 @@ export default function DebtTracker() {
     setCreateLastSource('liters');
     const gallons = parseFloat(val);
     if (gallons > 0) {
-      const liters = gallons * LITERS_PER_GALLON;
-      setCreateFuelLiters(liters.toFixed(4));
-      const price = parseFloat(createFuelPrice);
-      if (price > 0) setTotalDebt((liters * price).toFixed(0));
+      setCreateFuelLiters((gallons * LITERS_PER_GALLON).toFixed(4));
     } else if (val === "") {
       setCreateFuelLiters("");
     }
@@ -84,13 +79,6 @@ export default function DebtTracker() {
   function handleCreateAmountChange(val: string) {
     setTotalDebt(val);
     setCreateLastSource('total');
-    const amount = parseFloat(val);
-    const price = parseFloat(createFuelPrice);
-    if (amount > 0 && price > 0) {
-      const liters = amount / price;
-      setCreateFuelLiters(liters.toFixed(3));
-      setCreateFuelGallons((liters / LITERS_PER_GALLON).toFixed(4));
-    }
   }
   function handleCreatePriceChange(val: string) {
     setCreateFuelPrice(val);

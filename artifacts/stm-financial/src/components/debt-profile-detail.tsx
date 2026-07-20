@@ -103,8 +103,6 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     const liters = parseFloat(val);
     if (liters > 0) {
       setFuelGallonsInput((liters / LITERS_PER_GALLON).toFixed(4));
-      const price = parseFloat(fuelPriceInput);
-      if (price > 0) setFuelAmountInput((liters * price).toFixed(0));
     } else if (val === "") {
       setFuelGallonsInput("");
     }
@@ -114,10 +112,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     setFuelLastSource('liters');
     const gallons = parseFloat(val);
     if (gallons > 0) {
-      const liters = gallons * LITERS_PER_GALLON;
-      setFuelLitersInput(liters.toFixed(4));
-      const price = parseFloat(fuelPriceInput);
-      if (price > 0) setFuelAmountInput((liters * price).toFixed(0));
+      setFuelLitersInput((gallons * LITERS_PER_GALLON).toFixed(4));
     } else if (val === "") {
       setFuelLitersInput("");
     }
@@ -125,13 +120,6 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   function handleFuelAmountChange(val: string) {
     setFuelAmountInput(val);
     setFuelLastSource('total');
-    const amount = parseFloat(val);
-    const price = parseFloat(fuelPriceInput);
-    if (amount > 0 && price > 0) {
-      const liters = amount / price;
-      setFuelLitersInput(liters.toFixed(3));
-      setFuelGallonsInput((liters / LITERS_PER_GALLON).toFixed(4));
-    }
   }
   function handleFuelPriceChange(val: string) {
     setFuelPriceInput(val);
@@ -187,8 +175,6 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     const liters = parseFloat(val);
     if (liters > 0) {
       setEditGallons((liters / LITERS_PER_GALLON).toFixed(4));
-      const price = parseFloat(editPriceInput);
-      if (price > 0) setEditAmount((liters * price).toFixed(0));
     } else if (val === "") {
       setEditGallons("");
     }
@@ -198,10 +184,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     setEditLastSource('liters');
     const gallons = parseFloat(val);
     if (gallons > 0) {
-      const liters = gallons * LITERS_PER_GALLON;
-      setEditLiters(liters.toFixed(4));
-      const price = parseFloat(editPriceInput);
-      if (price > 0) setEditAmount((liters * price).toFixed(0));
+      setEditLiters((gallons * LITERS_PER_GALLON).toFixed(4));
     } else if (val === "") {
       setEditLiters("");
     }
@@ -209,13 +192,6 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   function handleEditAmountChange(val: string) {
     setEditAmount(val);
     setEditLastSource('total');
-    const amount = parseFloat(val);
-    const price = parseFloat(editPriceInput);
-    if (amount > 0 && price > 0) {
-      const liters = amount / price;
-      setEditLiters(liters.toFixed(3));
-      setEditGallons((liters / LITERS_PER_GALLON).toFixed(4));
-    }
   }
   function handleEditPriceChange(val: string) {
     setEditPriceInput(val);
