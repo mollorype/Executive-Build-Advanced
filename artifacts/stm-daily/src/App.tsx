@@ -756,10 +756,10 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang }: 
       } else if (field === "liters" && p > 0) {
         row.totalAmount = n(val) > 0 ? autoNum(n(val) * p) : row.totalAmount;
       } else if (field === "price" && n(val) > 0) {
-        if (n(row.liters) > 0) {
-          row.totalAmount = autoNum(n(row.liters) * n(val));
-        } else if (n(row.totalAmount) > 0) {
+        if (n(row.totalAmount) > 0) {
           row.liters = autoNum(n(row.totalAmount) / n(val));
+        } else if (n(row.liters) > 0) {
+          row.totalAmount = autoNum(n(row.liters) * n(val));
         }
       }
       return { ...f, [key]: row };
