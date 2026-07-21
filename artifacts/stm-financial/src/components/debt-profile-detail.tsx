@@ -361,6 +361,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
       price_per_liter: showFuelFields && fuelPriceNum > 0 ? fuelPriceNum : null,
       liters: showFuelFields && fuelLitersNum > 0 ? fuelLitersNum : null,
       gallons: showFuelFields && fuelLitersNum > 0 ? fuelLitersNum / LITERS_PER_GALLON : null,
+      highlighted: false,
       created_at: new Date().toISOString(),
     }];
     const newScore = calculateScore(allTxns, newBalance);

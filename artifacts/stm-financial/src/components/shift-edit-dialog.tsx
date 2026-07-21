@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { X, Save, AlertTriangle, CalendarDays } from "lucide-react";
-import { Shift, ExpenseItem, updateShift } from "@/lib/supabase";
+import { Shift, ExpenseItem, updateShift, updateDebtTransactionDates } from "@/lib/supabase";
 
 type Props = {
   shift: Shift;
@@ -141,6 +141,9 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
     };
 
     const cleanedExpenses = expenses.filter(e => e.name.trim() || e.amount > 0);
+    const originalDateStr = toDateValue(shift.created_at); // "YYYY-MM-DD" before edit
+    const newTimestamp = shiftDate ? mergeDateIntoISO(shiftDate, shift.created_at) : undefined;
+
     const { error } = await updateShift(shift.id, {
       fuel_data,
       total_expenses: totalExp,
@@ -148,8 +151,13 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
       expected_total: netExpected,
       actual_cash: n(actualCash),
       variance: diff,
-      timestamp: shiftDate ? mergeDateIntoISO(shiftDate, shift.created_at) : undefined,
+      timestamp: newTimestamp,
     });
+
+    if (!error && shiftDate && originalDateStr !== shiftDate && shift.employee_username) {
+      // Cascade date change to any debt_transactions created by this shift
+      await updateDebtTransactionDates(originalDateStr, shiftDate, shift.employee_username);
+    }
 
     setSaving(false);
     if (error) {

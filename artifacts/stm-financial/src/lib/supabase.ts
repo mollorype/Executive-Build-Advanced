@@ -119,11 +119,39 @@ export async function updateShift(id: string, data: {
   };
   if (data.timestamp) payload[COLS.TIMESTAMP] = data.timestamp;
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from(TABLES.SHIFTS)
     .update(payload)
-    .eq("id", id);
-  return { error: error ? error.message : null };
+    .eq("id", id)
+    .select("id");
+
+  if (error) return { error: error.message };
+  if (!updated || updated.length === 0) {
+    return { error: "Update was blocked by the database — check that your Supabase UPDATE policy allows changes to this table." };
+  }
+  return { error: null };
+}
+
+/** Update the date of all debt_transactions that were auto-created by a shift. */
+export async function updateDebtTransactionDates(
+  originalDateStr: string, // "YYYY-MM-DD"
+  newDateStr: string,       // "YYYY-MM-DD"
+  employeeName: string,
+): Promise<void> {
+  if (!originalDateStr || !newDateStr || originalDateStr === newDateStr) return;
+
+  // Build the end of the original day to handle both `date` and `timestamptz` columns
+  const nextDay = new Date(originalDateStr);
+  nextDay.setDate(nextDay.getDate() + 1);
+  const nextDayStr = nextDay.toISOString().slice(0, 10);
+
+  await supabase
+    .from("debt_transactions")
+    .update({ date: newDateStr })
+    .eq("source", "daily_app")
+    .gte("date", originalDateStr)
+    .lt("date", nextDayStr)
+    .ilike("note", `%${employeeName}%`);
 }
 
 export type Shift = {
