@@ -723,14 +723,16 @@ function DeniedScreen({ email, onBack }: { email: string; onBack: () => void }) 
 }
 
 // ─── Shift form ───────────────────────────────────────────────────────────────
-function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang }: {
+function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, initialData }: {
   employeeName: string;
   onSubmit: (data: FormData, grandTotal: number, difference: number) => void;
   onLogout: () => void;
   onBack: () => void;
   lang: Lang; setLang: (l: Lang) => void;
+  initialData?: FormData;
 }) {
   const [form, setForm] = useState<FormData>(() => {
+    if (initialData) return initialData;
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
     const localDt = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
@@ -1837,6 +1839,7 @@ export default function App() {
           onLogout={handleLogout}
           onBack={() => setScreen("mode-select")}
           lang={lang} setLang={setLang}
+          initialData={formData.shiftDate ? formData : undefined}
         />
       )}
       {screen === "confirm"  && (
