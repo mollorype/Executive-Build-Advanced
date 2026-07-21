@@ -1766,15 +1766,16 @@ export default function App() {
     if (!error) {
       // Push debt transactions for any linked expenses
       const linkedExpenses = formData.expenses.filter(e => e.profileId && n(e.amount) > 0);
+      const shiftDate = formData.shiftDate ? new Date(formData.shiftDate) : new Date();
       for (const expense of linkedExpenses) {
-        const d = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+        const d = shiftDate.toISOString().slice(0, 10).replace(/-/g, "");
         const txnNum = `TXN-${d}-${Math.floor(Math.random() * 90000) + 10000}`;
         const paymentAmt = expense.txnType === "debt" ? n(expense.amount) : -n(expense.amount);
 
         await supabase.from("debt_transactions").insert({
           profile_id: expense.profileId,
           amount: paymentAmt,
-          date: new Date().toISOString().slice(0, 10),
+          date: shiftDate.toISOString().slice(0, 10),
           note: `Payment via Daily Shift — ${employeeName}`,
           transaction_number: txnNum,
           source: "daily_app",
@@ -1792,7 +1793,7 @@ export default function App() {
           await supabase.from("debt_profiles").update({
             current_balance: newBalance,
             score: newScore,
-            last_payment_at: new Date().toISOString(),
+            last_payment_at: shiftDate.toISOString(),
           }).eq("id", expense.profileId);
         }
       }
