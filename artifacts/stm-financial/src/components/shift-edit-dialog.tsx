@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Save, AlertTriangle } from "lucide-react";
+import { X, Save, AlertTriangle, CalendarDays } from "lucide-react";
 import { Shift, ExpenseItem, updateShift } from "@/lib/supabase";
 
 type Props = {
@@ -61,7 +61,25 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Convert ISO timestamp → "YYYY-MM-DD" for a date input
+function toDateValue(iso: string): string {
+  if (!iso) return "";
+  return iso.slice(0, 10);
+}
+
+// Convert "YYYY-MM-DD" back to an ISO string, preserving the original time
+function mergeDateIntoISO(dateValue: string, originalISO: string): string {
+  if (!dateValue) return originalISO;
+  const orig = new Date(originalISO);
+  const [y, m, d] = dateValue.split("-").map(Number);
+  orig.setFullYear(y, m - 1, d);
+  return orig.toISOString();
+}
+
 export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
+  // Shift date
+  const [shiftDate, setShiftDate] = useState(toDateValue(shift.created_at));
+
   // Fuel 92
   const [f92l, setF92l] = useState(fmtInput(shift.fuel_92_liters));
   const [f92p, setF92p] = useState(fmtInput(shift.fuel_92_price));
@@ -130,6 +148,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
       expected_total: netExpected,
       actual_cash: n(actualCash),
       variance: diff,
+      timestamp: shiftDate ? mergeDateIntoISO(shiftDate, shift.created_at) : undefined,
     });
 
     setSaving(false);
@@ -164,6 +183,20 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
               <span>{saveError}</span>
             </div>
           )}
+
+          {/* Shift Date */}
+          <div className="flex flex-col gap-1 mb-2">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+              <CalendarDays className="w-3.5 h-3.5" />
+              Shift Date
+            </label>
+            <input
+              type="date"
+              value={shiftDate}
+              onChange={e => setShiftDate(e.target.value)}
+              className="w-full rounded-lg border bg-slate-900 border-slate-600 text-white text-sm font-semibold px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30"
+            />
+          </div>
 
           <SectionTitle>Fuel 92</SectionTitle>
           <div className="grid grid-cols-2 gap-3">

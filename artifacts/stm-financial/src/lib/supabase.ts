@@ -107,17 +107,21 @@ export async function updateShift(id: string, data: {
   expected_total: number;
   actual_cash: number;
   variance: number;
+  timestamp?: string;
 }): Promise<{ error: string | null }> {
+  const payload: Record<string, unknown> = {
+    [COLS.FUEL_DATA]: data.fuel_data,
+    [COLS.TOTAL_EXPENSES]: data.total_expenses,
+    [COLS.EXPENSES_BREAKDOWN]: data.expenses_breakdown,
+    [COLS.EXPECTED_TOTAL]: data.expected_total,
+    [COLS.ACTUAL_CASH]: data.actual_cash,
+    [COLS.VARIANCE]: data.variance,
+  };
+  if (data.timestamp) payload[COLS.TIMESTAMP] = data.timestamp;
+
   const { error } = await supabase
     .from(TABLES.SHIFTS)
-    .update({
-      [COLS.FUEL_DATA]: data.fuel_data,
-      [COLS.TOTAL_EXPENSES]: data.total_expenses,
-      [COLS.EXPENSES_BREAKDOWN]: data.expenses_breakdown,
-      [COLS.EXPECTED_TOTAL]: data.expected_total,
-      [COLS.ACTUAL_CASH]: data.actual_cash,
-      [COLS.VARIANCE]: data.variance,
-    })
+    .update(payload)
     .eq("id", id);
   return { error: error ? error.message : null };
 }
