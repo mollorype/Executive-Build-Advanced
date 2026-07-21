@@ -8,6 +8,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import {
   X, Plus, Trash2, Clock, User, Phone, CreditCard,
   AlertTriangle, CheckCircle, Loader2, Calendar, Pencil, ShieldAlert, BadgeAlert,
+  Bookmark, MessageSquarePlus,
 } from "lucide-react";
 
 const NO_SCORE_RELATIONS = new Set(["Own", "Family"]);
@@ -83,6 +84,9 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   const [submitting, setSubmitting] = useState(false);
   const [txnError, setTxnError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingHighlight, setTogglingHighlight] = useState<string | null>(null);
+  const [remarkEditingId, setRemarkEditingId] = useState<string | null>(null);
+  const [remarkDraft, setRemarkDraft] = useState("");
 
   // Fuel fields — only shown for non-Family/Own relations on debt entries
   const [fuelProduct, setFuelProduct] = useState<"92 RON" | "PD" | "95" | "HSD">("92 RON");
@@ -402,6 +406,21 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     onProfileChange(updated);
     setDeletingId(null);
     await fetchTransactions();
+  }
+
+  async function handleToggleHighlight(txn: DebtTransaction) {
+    setTogglingHighlight(txn.id);
+    const newVal = !txn.highlighted;
+    await supabase.from(DEBT_TABLES.TRANSACTIONS).update({ highlighted: newVal }).eq("id", txn.id);
+    setTransactions(prev => prev.map(t => t.id === txn.id ? { ...t, highlighted: newVal } : t));
+    setTogglingHighlight(null);
+  }
+
+  async function handleSaveRemark(txn: DebtTransaction) {
+    const note = remarkDraft.trim() || null;
+    await supabase.from(DEBT_TABLES.TRANSACTIONS).update({ note }).eq("id", txn.id);
+    setTransactions(prev => prev.map(t => t.id === txn.id ? { ...t, note } : t));
+    setRemarkEditingId(null);
   }
 
   function openEdit() {
@@ -776,8 +795,14 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                   const isPayment = txn.amount < 0;
                   const hasProductType = !isPayment && !!txn.product_type;
                   const hasVolume = txn.liters != null && txn.liters > 0;
+                  const isHighlighted = !!txn.highlighted;
+                  const isEditingRemark = remarkEditingId === txn.id;
                   return (
-                    <div key={txn.id} className={["flex items-start gap-3 px-4 py-3 text-sm group", i > 0 ? "border-t border-slate-700/30" : ""].join(" ")}>
+                    <div key={txn.id} className={[
+                      "flex items-start gap-3 px-4 py-3 text-sm group transition-colors",
+                      i > 0 ? "border-t border-slate-700/30" : "",
+                      isHighlighted ? "border-l-[3px] border-amber-400 bg-amber-400/[0.04] pl-3" : "",
+                    ].join(" ")}>
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isPayment ? "bg-emerald-500/20" : "bg-red-500/20"}`}>
                         <span className={`text-[10px] font-bold ${isPayment ? "text-emerald-400" : "text-red-400"}`}>{isPayment ? "↓" : "↑"}</span>
                       </div>
@@ -807,20 +832,76 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                             )}
                           </div>
                         )}
-                        {txn.note && <p className="text-slate-400 text-xs mt-0.5 italic">"{txn.note}"</p>}
+                        {/* Remark — inline editable */}
+                        {isEditingRemark ? (
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <input
+                              autoFocus
+                              type="text"
+                              value={remarkDraft}
+                              onChange={e => setRemarkDraft(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") handleSaveRemark(txn);
+                                if (e.key === "Escape") setRemarkEditingId(null);
+                              }}
+                              placeholder="Add a remark…"
+                              className="flex-1 bg-slate-700 border border-slate-600 text-white text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/50 placeholder:text-slate-500"
+                            />
+                            <button
+                              onClick={() => handleSaveRemark(txn)}
+                              className="text-xs text-amber-400 hover:text-amber-300 font-semibold px-2 py-1 rounded-lg hover:bg-amber-900/20 transition-all">
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setRemarkEditingId(null)}
+                              className="text-xs text-slate-500 hover:text-slate-300 px-1.5 py-1 rounded-lg hover:bg-slate-700 transition-all">
+                              ✕
+                            </button>
+                          </div>
+                        ) : txn.note ? (
+                          <p
+                            title="Click to edit remark"
+                            onClick={() => { setRemarkEditingId(txn.id); setRemarkDraft(txn.note ?? ""); }}
+                            className="text-slate-400 text-xs mt-0.5 italic cursor-pointer hover:text-amber-300 transition-colors">
+                            "{txn.note}"
+                          </p>
+                        ) : null}
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className={`text-[10px] px-1.5 py-0.5 rounded border ${txn.source === "daily_app" ? "text-amber-400 border-amber-700/40 bg-amber-900/20" : "text-slate-500 border-slate-700/40"}`}>
                             {txn.source === "daily_app" ? "Daily App" : "Manual"}
                           </span>
+                          {/* Quick add remark when none exists */}
+                          {!txn.note && !isEditingRemark && (
+                            <button
+                              onClick={() => { setRemarkEditingId(txn.id); setRemarkDraft(""); }}
+                              className="flex items-center gap-0.5 text-[10px] text-slate-600 hover:text-slate-400 opacity-0 group-hover:opacity-100 transition-all">
+                              <MessageSquarePlus className="w-3 h-3" /> remark
+                            </button>
+                          )}
                         </div>
                       </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all shrink-0 mt-0.5">
+                      <div className="flex gap-1 shrink-0 mt-0.5">
+                        {/* Highlight toggle — always visible when highlighted, hover-only otherwise */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleHighlight(txn)}
+                          disabled={togglingHighlight === txn.id}
+                          title={isHighlighted ? "Remove highlight" : "Highlight transaction"}
+                          className={`p-1.5 rounded-lg transition-all ${
+                            isHighlighted
+                              ? "text-amber-400 bg-amber-900/20"
+                              : "text-slate-600 hover:text-amber-400 hover:bg-amber-900/20 opacity-0 group-hover:opacity-100"
+                          }`}>
+                          {togglingHighlight === txn.id
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <Bookmark className="w-3.5 h-3.5" fill={isHighlighted ? "currentColor" : "none"} />}
+                        </button>
                         <button type="button" onClick={() => openEditTxn(txn)}
-                          className="text-slate-600 hover:text-blue-400 hover:bg-blue-900/20 p-1.5 rounded-lg transition-all">
+                          className="text-slate-600 hover:text-blue-400 hover:bg-blue-900/20 p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button onClick={() => handleDeleteTransaction(txn)} disabled={deletingId === txn.id}
-                          className="text-slate-600 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-lg transition-all">
+                          className="text-slate-600 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100">
                           {deletingId === txn.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                         </button>
                       </div>

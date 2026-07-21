@@ -37,6 +37,7 @@ export { supabase };
     price_per_liter    numeric,
     liters             numeric,
     gallons            numeric,
+    highlighted        boolean NOT NULL DEFAULT false,
     created_at         timestamptz NOT NULL DEFAULT now()
   );
 
@@ -46,7 +47,8 @@ export { supabase };
     ADD COLUMN IF NOT EXISTS product_type    text,
     ADD COLUMN IF NOT EXISTS price_per_liter numeric,
     ADD COLUMN IF NOT EXISTS liters          numeric,
-    ADD COLUMN IF NOT EXISTS gallons         numeric;
+    ADD COLUMN IF NOT EXISTS gallons         numeric,
+    ADD COLUMN IF NOT EXISTS highlighted     boolean NOT NULL DEFAULT false;
 
   -- Run this separately to upgrade the date column to full timestamp:
   ALTER TABLE debt_transactions
@@ -108,6 +110,7 @@ export type DebtTransaction = {
   price_per_liter: number | null;
   liters: number | null;
   gallons: number | null;
+  highlighted: boolean;
   created_at: string;
 };
 
