@@ -785,7 +785,9 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
   const totalDeductions = form.expenses.reduce((s, i) => s + (i.txnType !== "payment" ? n(i.amount) : 0), 0);
   const totalIncome     = form.expenses.reduce((s, i) => s + (i.txnType === "payment"  ? n(i.amount) : 0), 0);
   const totalExp        = totalDeductions;
-  const netExpected     = grandTotal - totalDeductions + totalIncome;
+  // Pipa and JellyCan are pre-paid / billed separately — exclude from cash expected
+  const cashGrandTotal  = t92 + t95 + tPD + tD;   // only cash products
+  const netExpected     = cashGrandTotal - totalDeductions + totalIncome;
   const difference      = actualCash - netExpected;
 
   function handleSubmit(e: React.FormEvent) {
@@ -887,6 +889,17 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
             <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">{t(lang, "operationalExpenses")}</p>
             <ExpensesPanel items={form.expenses} onChange={items => setForm(f => ({ ...f, expenses: items }))} lang={lang} />
           </div>
+
+          {/* Pipa / JellyCan pre-paid notice */}
+          {(tPipa > 0 || tJelly > 0) && (
+            <div className="flex items-center justify-between bg-violet-500/10 border border-violet-500/20 rounded-xl px-4 py-2.5">
+              <div>
+                <p className="text-xs font-semibold text-violet-300">Pipa / Jelly Can</p>
+                <p className="text-[10px] text-violet-400/60 mt-0.5">Pre-paid — not included in cash</p>
+              </div>
+              <span className="text-sm font-bold text-violet-300 tabular-nums">− {fmt(tPipa + tJelly)} MMK</span>
+            </div>
+          )}
 
           <div className="flex items-center justify-between bg-[#1c2433] rounded-xl px-4 py-2.5 border border-[#30363d]">
             <span className="text-xs font-semibold text-gray-400">Net Expected Cash</span>
@@ -1048,7 +1061,7 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
             {totalDeductions > 0 && (
               <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">− Other Costs</span><span className="font-semibold text-red-400 tabular-nums">−{fmt(totalDeductions)} MMK</span></div>
             )}
-            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "netExpected")}</span><span className="font-bold text-white tabular-nums">{fmt(grandTotal - totalDeductions + totalIncome)} MMK</span></div>
+            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "netExpected")}</span><span className="font-bold text-white tabular-nums">{fmt(grandTotal - tPipa - tJelly - totalDeductions + totalIncome)} MMK</span></div>
             <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "actualCollected")}</span><span className="font-bold text-white tabular-nums">{fmt(actualCash)} MMK</span></div>
             <div className={["px-4 py-3 flex justify-between text-sm font-bold", difference === 0 ? "bg-[#1c2433]" : difference > 0 ? "bg-emerald-500/10" : "bg-red-500/10"].join(" ")}>
               <span className={difference >= 0 ? "text-emerald-400" : "text-red-400"}>{t(lang, "difference")}</span>
@@ -1727,10 +1740,14 @@ export default function App() {
       total: n(item.pieces) * n(item.price),
     })).filter(item => item.pieces > 0 || item.price > 0);
 
+    const tJelly = jellyCanItems.reduce((s, item) => s + item.total, 0);
+
     const totalDeductions = formData.expenses.reduce((s, i) => s + (i.txnType !== "payment" ? n(i.amount) : 0), 0);
     const totalIncome     = formData.expenses.reduce((s, i) => s + (i.txnType === "payment"  ? n(i.amount) : 0), 0);
     const totalExp        = totalDeductions - totalIncome; // net effect on expected cash
     const actualCash      = n(formData.actualCash);
+    // Pipa and JellyCan are pre-paid — exclude from expected cash total
+    const cashGrandTotal  = t92 + t95 + tPD + n(formData.diesel.cash);
 
     const payload: ShiftPayload = {
       employee_name: employeeName,
@@ -1758,7 +1775,7 @@ export default function App() {
       expenses_breakdown: formData.expenses
         .map(e => ({ name: e.name.trim(), amount: n(e.amount) }))
         .filter(e => e.name.length > 0 || e.amount > 0),
-      expected_total:  grandTotal,
+      expected_total:  cashGrandTotal - totalExp,
       actual_cash:     actualCash,
       variance:        difference,
     };
