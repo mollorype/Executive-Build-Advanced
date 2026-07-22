@@ -8,6 +8,7 @@ import DebtProfileDetail from "@/components/debt-profile-detail";
 import {
   Plus, Search, SortAsc, User, Phone, X, Calendar, CreditCard,
   AlertTriangle, CheckCircle, TrendingDown, Loader2, Trash2, ShieldCheck,
+  Banknote, ArrowUpDown,
 } from "lucide-react";
 
 const RELATION_COLORS: Record<DebtRelation, string> = {
@@ -23,7 +24,7 @@ const RELATION_COLORS: Record<DebtRelation, string> = {
 const NO_SCORE_RELATIONS = new Set<DebtRelation>(["Own", "Family"]);
 const LITERS_PER_GALLON = 4.54609;
 
-type SortKey = "newest" | "oldest" | "highest" | "lowest";
+type SortKey = "newest" | "oldest" | "highest" | "lowest" | "az" | "za";
 
 export default function DebtTracker() {
   const [profiles, setProfiles] = useState<DebtProfile[]>([]);
@@ -212,8 +213,16 @@ export default function DebtTracker() {
       if (sortBy === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       if (sortBy === "oldest") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       if (sortBy === "highest") return b.current_balance - a.current_balance;
-      return a.current_balance - b.current_balance;
+      if (sortBy === "lowest") return a.current_balance - b.current_balance;
+      if (sortBy === "az") return a.name.localeCompare(b.name);
+      if (sortBy === "za") return b.name.localeCompare(a.name);
+      return 0;
     });
+
+  const EXCLUDED_RELATIONS = new Set<DebtRelation>(["Family", "Own"]);
+  const externalProfiles = profiles.filter(p => !EXCLUDED_RELATIONS.has(p.relation));
+  const externalOwed = externalProfiles.reduce((s, p) => s + Math.max(0, p.current_balance), 0);
+  const externalActiveCount = externalProfiles.filter(p => p.current_balance > 0).length;
 
   const totalOwed = profiles.reduce((s, p) => s + Math.max(0, p.current_balance), 0);
   const redFlags = profiles.filter(p => p.score < 40).length;
@@ -238,6 +247,55 @@ export default function DebtTracker() {
       </div>
 
       <div className="p-6 space-y-5">
+
+        {/* ── External Receivables Widget ── */}
+        <div className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-br from-[#1a1400] via-[#111827] to-[#0f1623] p-5 shadow-lg">
+          {/* Decorative glow */}
+          <div className="pointer-events-none absolute -top-10 -right-10 w-52 h-52 rounded-full bg-amber-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-10 -left-10 w-36 h-36 rounded-full bg-orange-500/8 blur-2xl" />
+
+          <div className="relative flex items-start justify-between gap-4 flex-wrap">
+            {/* Left: label + breakdown */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
+                  <Banknote className="w-4 h-4 text-amber-400" />
+                </div>
+                <p className="text-xs font-bold text-amber-400/80 uppercase tracking-widest">Total Receivables</p>
+              </div>
+              <p className="text-slate-400 text-[11px] mt-1 ml-10">
+                Friends · Contract · Vendor · Employee · Other
+              </p>
+              <p className="text-slate-600 text-[10px] ml-10 mt-0.5 italic">Excludes Family &amp; Own</p>
+            </div>
+
+            {/* Right: the big number */}
+            <div className="text-right shrink-0">
+              <p className="text-3xl font-black tabular-nums text-amber-300 tracking-tight">
+                {mmkFmt(externalOwed)}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                {externalActiveCount} {externalActiveCount === 1 ? "debtor" : "debtors"} with open balance
+              </p>
+            </div>
+          </div>
+
+          {/* Bottom mini-bar: % of total */}
+          {totalOwed > 0 && (
+            <div className="relative mt-4">
+              <div className="h-1.5 w-full rounded-full bg-slate-700/60 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-400 transition-all duration-700"
+                  style={{ width: `${Math.min(100, (externalOwed / totalOwed) * 100).toFixed(1)}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-slate-600 mt-1 text-right">
+                {((externalOwed / totalOwed) * 100).toFixed(0)}% of all outstanding debt
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* Stats row */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4">
@@ -285,7 +343,7 @@ export default function DebtTracker() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <SortAsc className="w-4 h-4 text-slate-500 shrink-0" />
+            <ArrowUpDown className="w-4 h-4 text-slate-500 shrink-0" />
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value as SortKey)}
@@ -295,6 +353,8 @@ export default function DebtTracker() {
               <option value="oldest">Oldest First</option>
               <option value="highest">Highest Balance</option>
               <option value="lowest">Lowest Balance</option>
+              <option value="az">A → Z (Name)</option>
+              <option value="za">Z → A (Name)</option>
             </select>
           </div>
         </div>

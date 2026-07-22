@@ -1766,18 +1766,41 @@ export default function App() {
     const { error } = await submitShift(payload);
 
     if (!error) {
-      // Push debt transactions for any linked expenses
+      // Push debt transactions for any linked expenses.
+      // IMPORTANT: use formData.shiftDate directly (a datetime-local string like
+      // "2024-01-15T14:30") so the local date/time is preserved.
+      // Never call .toISOString() here — it converts to UTC and shifts the date
+      // for users in UTC+ timezones (e.g. Myanmar +6:30).
       const linkedExpenses = formData.expenses.filter(e => e.profileId && n(e.amount) > 0);
-      const shiftDate = formData.shiftDate ? new Date(formData.shiftDate) : new Date();
+
+      // Local date string "YYYY-MM-DD" — sliced directly, no UTC conversion.
+      const localDateStr = formData.shiftDate
+        ? formData.shiftDate.slice(0, 10)
+        : new Date().toISOString().slice(0, 10);
+
+      // Full local datetime with browser timezone offset appended so Postgres
+      // stores the correct UTC instant for timestamptz columns.
+      function localISOWithTZ(dtLocal: string): string {
+        const off = -new Date().getTimezoneOffset(); // minutes ahead of UTC
+        const sign = off >= 0 ? "+" : "-";
+        const hh = String(Math.floor(Math.abs(off) / 60)).padStart(2, "0");
+        const mm = String(Math.abs(off) % 60).padStart(2, "0");
+        // dtLocal is "YYYY-MM-DDTHH:MM" — add seconds + offset
+        return `${dtLocal}:00${sign}${hh}:${mm}`;
+      }
+      const localDateTimeStr = formData.shiftDate
+        ? localISOWithTZ(formData.shiftDate)
+        : new Date().toISOString();
+
       for (const expense of linkedExpenses) {
-        const d = shiftDate.toISOString().slice(0, 10).replace(/-/g, "");
+        const d = localDateStr.replace(/-/g, "");
         const txnNum = `TXN-${d}-${Math.floor(Math.random() * 90000) + 10000}`;
         const paymentAmt = expense.txnType === "debt" ? n(expense.amount) : -n(expense.amount);
 
         await supabase.from("debt_transactions").insert({
           profile_id: expense.profileId,
           amount: paymentAmt,
-          date: shiftDate.toISOString().slice(0, 10),
+          date: localDateTimeStr,   // full local datetime — correct for both date and timestamptz columns
           note: `Payment via Daily Shift — ${employeeName}`,
           transaction_number: txnNum,
           source: "daily_app",
@@ -1795,7 +1818,7 @@ export default function App() {
           await supabase.from("debt_profiles").update({
             current_balance: newBalance,
             score: newScore,
-            last_payment_at: shiftDate.toISOString(),
+            last_payment_at: localDateTimeStr,
           }).eq("id", expense.profileId);
         }
       }
