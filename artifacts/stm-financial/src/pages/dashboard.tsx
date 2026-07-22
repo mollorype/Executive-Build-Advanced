@@ -367,9 +367,10 @@ export default function Dashboard() {
               <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-slate-800/50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 <div className="w-4 shrink-0" />
                 <div className="flex-1">Date & Time</div>
-                <div className="w-36 shrink-0">Employee</div>
-                <div className="w-36 shrink-0 text-right">Actual Cash</div>
-                <div className="w-36 shrink-0 text-right">Expected</div>
+                <div className="w-28 shrink-0">Employee</div>
+                <div className="w-36 shrink-0 text-right text-amber-500/80">Total Sales</div>
+                <div className="w-32 shrink-0 text-right">Actual Cash</div>
+                <div className="w-32 shrink-0 text-right">Exp. Cash</div>
                 <div className="w-28 shrink-0 text-right">Difference</div>
                 <div className="w-14 shrink-0" />
               </div>
@@ -378,6 +379,13 @@ export default function Dashboard() {
                 const diff = shift.difference ?? 0;
                 const isRedFlag = Math.abs(diff) >= RED_FLAG_THRESHOLD;
                 const isSelected = selectedIds.has(shift.id);
+
+                // Full grand total including pipa & jelly can (for display/reporting)
+                const jellyTotal = (shift.jelly_can_items ?? []).reduce((s, i) => s + i.total, 0);
+                const totalSales = (shift.fuel_92_total ?? 0) + (shift.fuel_95_total ?? 0)
+                  + (shift.premium_diesel_total ?? 0) + (shift.pipa_total ?? 0)
+                  + jellyTotal + (shift.diesel_cash ?? 0);
+
                 return (
                   <div
                     key={shift.id}
@@ -399,7 +407,7 @@ export default function Dashboard() {
                       className="w-4 h-4 rounded accent-red-500 cursor-pointer shrink-0"
                     />
 
-                    {/* Left info column (date always visible; mobile shows stacked cash row too) */}
+                    {/* Left info column */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         {isRedFlag && <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />}
@@ -410,12 +418,12 @@ export default function Dashboard() {
                           <span className="text-slate-600 text-xs shrink-0 md:hidden">· {shift.employee_username}</span>
                         )}
                       </div>
-                      {/* Mobile-only: cash + diff stacked row */}
-                      <div className="flex items-baseline justify-between gap-2 mt-1.5 md:hidden">
+                      {/* Mobile-only: sales total + actual cash + diff */}
+                      <div className="flex items-baseline justify-between gap-2 mt-1 md:hidden">
                         <div>
-                          <span className="text-slate-500 text-[11px]">Actual: </span>
-                          <span className="text-white font-bold text-sm tabular-nums">
-                            {mmk(shift.actual_cash_collected)}
+                          <span className="text-amber-500/70 text-[11px]">Sales: </span>
+                          <span className="text-amber-300 font-bold text-sm tabular-nums">
+                            {mmk(totalSales)}
                           </span>
                         </div>
                         <span className={`font-bold text-sm tabular-nums shrink-0 ${
@@ -424,18 +432,30 @@ export default function Dashboard() {
                           {diff >= 0 ? "+" : ""}{mmk(diff)}
                         </span>
                       </div>
+                      <div className="flex items-baseline gap-2 mt-0.5 md:hidden">
+                        <span className="text-slate-500 text-[11px]">Cash: </span>
+                        <span className="text-white font-semibold text-xs tabular-nums">
+                          {mmk(shift.actual_cash_collected)}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Desktop-only columns */}
-                    <div className="hidden md:block w-36 shrink-0 text-xs text-slate-400 truncate">
+                    <div className="hidden md:block w-28 shrink-0 text-xs text-slate-400 truncate">
                       {shift.employee_username || "—"}
                     </div>
+                    {/* Total Sales — amber to distinguish from cash figures */}
                     <div className="hidden md:block w-36 shrink-0 text-right">
+                      <span className="text-amber-300 font-bold text-sm tabular-nums">
+                        {mmk(totalSales)}
+                      </span>
+                    </div>
+                    <div className="hidden md:block w-32 shrink-0 text-right">
                       <span className="text-white font-bold text-sm tabular-nums">
                         {mmk(shift.actual_cash_collected)}
                       </span>
                     </div>
-                    <div className="hidden md:block w-36 shrink-0 text-right">
+                    <div className="hidden md:block w-32 shrink-0 text-right">
                       <span className="text-slate-400 text-sm tabular-nums">
                         {mmk(shift.expected_cash_total)}
                       </span>
