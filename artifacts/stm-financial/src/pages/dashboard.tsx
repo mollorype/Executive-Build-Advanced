@@ -1,12 +1,16 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase, Shift, TABLES, COLS, mapRowToShift } from "@/lib/supabase";
+import {
+  DebtProfile, DEBT_TABLES, RELATIONS, RECEIVABLES_EXCLUDED_RELATIONS, computeReceivables, mmkFmt,
+} from "@/lib/debt-supabase";
 import ShiftDetailPanel from "@/components/shift-detail-panel";
 import ShiftEditDialog from "@/components/shift-edit-dialog";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import {
   BarChart3, DollarSign, AlertTriangle, Users,
   ChevronRight, TrendingUp, RefreshCw,
   ChevronLeft, ChevronRight as ChevronRightIcon,
-  Calendar, Trash2, X, Pencil,
+  Calendar, Trash2, X, Pencil, Banknote,
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
@@ -75,6 +79,24 @@ export default function Dashboard() {
   const [deleteError, setDeleteError] = useState("");
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
 
+  const [debtProfiles, setDebtProfiles] = useState<DebtProfile[]>([]);
+
+  const fetchDebtProfiles = useCallback(async () => {
+    const { data } = await supabase.from(DEBT_TABLES.PROFILES).select("id, relation, current_balance");
+    if (data) setDebtProfiles(data as DebtProfile[]);
+  }, []);
+
+  useEffect(() => {
+    fetchDebtProfiles();
+    const channel = supabase
+      .channel("debt-profiles-dashboard")
+      .on("postgres_changes", { event: "*", schema: "public", table: DEBT_TABLES.PROFILES }, () => {
+        fetchDebtProfiles();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchDebtProfiles]);
+
   const fetchShifts = useCallback(async (currentPage: number) => {
     const from = currentPage * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
@@ -108,20 +130,53 @@ export default function Dashboard() {
     }
   }, [preset, customFrom, customTo]);
 
+  const [priceHistory, setPriceHistory] = useState<Shift[]>([]);
+
+  const fetchPriceHistory = useCallback(async () => {
+    let query = supabase
+      .from(TABLES.SHIFTS)
+      .select("*")
+      .order(COLS.TIMESTAMP, { ascending: true })
+      .limit(300);
+
+    let range: { from: string; to: string } | null = null;
+    if (preset === "custom" && customFrom && customTo) {
+      const fromDt = new Date(customFrom);
+      fromDt.setHours(0, 0, 0, 0);
+      const toDt = new Date(customTo);
+      toDt.setHours(23, 59, 59, 999);
+      range = { from: fromDt.toISOString(), to: toDt.toISOString() };
+    } else if (preset !== "all") {
+      range = getPresetRange(preset);
+    }
+
+    if (range) {
+      query = query.gte(COLS.TIMESTAMP, range.from).lte(COLS.TIMESTAMP, range.to);
+    }
+
+    const { data, error } = await query;
+
+    if (!error && data) {
+      setPriceHistory((data as Record<string, unknown>[]).map(mapRowToShift));
+    }
+  }, [preset, customFrom, customTo]);
+
   useEffect(() => {
     setPage(0);
     setLoading(true);
     fetchShifts(0).finally(() => setLoading(false));
+    fetchPriceHistory();
 
     const channel = supabase
       .channel("shifts-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: TABLES.SHIFTS }, () => {
         fetchShifts(0);
+        fetchPriceHistory();
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [fetchShifts]);
+  }, [fetchShifts, fetchPriceHistory]);
 
   useEffect(() => {
     if (!loading) fetchShifts(page);
@@ -232,6 +287,37 @@ export default function Dashboard() {
       </div>
 
       <div className="p-6 space-y-5">
+        {/* Total Debt Owned */}
+        {(() => {
+          const { owed, activeCount } = computeReceivables(debtProfiles);
+          return (
+            <div className="relative overflow-hidden rounded-xl border border-amber-500/20 bg-card shadow-sm p-5">
+              <div className="relative flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
+                      <Banknote className="w-4 h-4 text-amber-400" />
+                    </div>
+                    <p className="text-xs font-bold text-amber-400/80 uppercase tracking-widest">Total Debt Owned</p>
+                  </div>
+                  <p className="text-slate-400 text-[11px] mt-1 ml-10">
+                    {RELATIONS.filter(r => !RECEIVABLES_EXCLUDED_RELATIONS.has(r)).join(" · ")}
+                  </p>
+                  <p className="text-slate-600 text-[10px] ml-10 mt-0.5 italic">
+                    Excludes {Array.from(RECEIVABLES_EXCLUDED_RELATIONS).join(", ")}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-3xl font-black tabular-nums text-amber-300 tracking-tight">{mmkFmt(owed)}</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {activeCount} {activeCount === 1 ? "debtor" : "debtors"} with open balance
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Date Filter */}
         <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -315,6 +401,51 @@ export default function Dashboard() {
             <p className="text-lg font-bold text-white">{totalCount}</p>
             <p className="text-slate-500 text-xs mt-1">{uniqueWorkers} workers this page</p>
           </div>
+        </div>
+
+        {/* Fuel Price History */}
+        <div className="bg-[#111827] border border-slate-700/50 rounded-xl overflow-hidden p-4">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp className="w-4 h-4 text-blue-400" />
+            <h2 className="text-white font-semibold text-sm">Fuel Price History</h2>
+          </div>
+          {(() => {
+            const priceChartData = priceHistory
+              .filter(s => s.fuel_92_price != null || s.fuel_95_price != null || s.premium_diesel_price != null || s.diesel_price != null)
+              .map(s => ({
+                date: new Date(s.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+                "92": s.fuel_92_price,
+                "95": s.fuel_95_price,
+                "PD": s.premium_diesel_price,
+                "Diesel": s.diesel_price,
+              }));
+
+            if (priceChartData.length === 0) {
+              return <div className="py-12 text-center text-slate-500 text-sm">No price data in this time window</div>;
+            }
+
+            const PRICE_SERIES = [
+              { key: "92", label: "92 RON", color: "hsl(var(--chart-1))" },
+              { key: "95", label: "95 RON", color: "hsl(var(--chart-2))" },
+              { key: "PD", label: "Premium Diesel", color: "hsl(var(--chart-3))" },
+              { key: "Diesel", label: "Diesel", color: "hsl(var(--chart-5))" },
+            ] as const;
+
+            return (
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={priceChartData} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                  <XAxis dataKey="date" stroke="#475569" tick={{ fontSize: 11, fill: "#64748b" }} tickLine={false} axisLine={{ stroke: "#334155" }} />
+                  <YAxis stroke="#475569" tick={{ fontSize: 11, fill: "#64748b" }} tickLine={false} axisLine={false} width={56} />
+                  <Tooltip contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", fontSize: "12px" }} labelStyle={{ color: "#94a3b8" }} />
+                  <Legend wrapperStyle={{ fontSize: "12px" }} />
+                  {PRICE_SERIES.map(s => (
+                    <Line key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={2} dot={false} connectNulls />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            );
+          })()}
         </div>
 
         {/* Ledger Table */}

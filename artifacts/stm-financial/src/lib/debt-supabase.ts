@@ -76,8 +76,11 @@ export const DEBT_TABLES = {
   TRANSACTIONS: "debt_transactions",
 } as const;
 
-export type DebtRelation = "Friends" | "Family" | "Own" | "Contract" | "Vendor" | "Employee" | "Other";
-export const RELATIONS: DebtRelation[] = ["Friends", "Family", "Own", "Contract", "Vendor", "Employee", "Other"];
+export type DebtRelation = "Friends" | "Family" | "Own" | "Contract" | "Vendor" | "Employee" | "On Paper" | "Other";
+export const RELATIONS: DebtRelation[] = ["Friends", "Family", "Own", "Contract", "Vendor", "Employee", "On Paper", "Other"];
+
+/** Simple-expense flow: no fuel/product fields, no credit score, no ScoreGauge. */
+export const NO_SCORE_RELATIONS = new Set<DebtRelation>(["Own", "Family", "On Paper"]);
 
 export type DebtProfile = {
   id: string;
@@ -97,6 +100,20 @@ export type DebtProfile = {
   overdue_alert_fired: boolean;
   created_at: string;
 };
+
+/** Excluded from the "external receivables" total (Debt Tracker widget + Dashboard widget). */
+export const RECEIVABLES_EXCLUDED_RELATIONS =
+  new Set<DebtRelation>(["Family", "Own", "Employee", "On Paper"]);
+
+export function computeReceivables(
+  profiles: Pick<DebtProfile, "relation" | "current_balance">[]
+): { owed: number; activeCount: number } {
+  const external = profiles.filter(p => !RECEIVABLES_EXCLUDED_RELATIONS.has(p.relation));
+  return {
+    owed: external.reduce((s, p) => s + Math.max(0, p.current_balance), 0),
+    activeCount: external.filter(p => p.current_balance > 0).length,
+  };
+}
 
 export type DebtTransaction = {
   id: string;

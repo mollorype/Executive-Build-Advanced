@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   supabase, DebtProfile, DEBT_TABLES, RELATIONS, DebtRelation,
+  NO_SCORE_RELATIONS, RECEIVABLES_EXCLUDED_RELATIONS, computeReceivables,
   calculateScore, scoreColor, scoreTier, mmkFmt, formatPhone, generateTxnNumber,
   combineDateWithCurrentTime,
 } from "@/lib/debt-supabase";
 import DebtProfileDetail from "@/components/debt-profile-detail";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Plus, Search, SortAsc, User, Phone, X, Calendar, CreditCard,
   AlertTriangle, CheckCircle, TrendingDown, Loader2, Trash2, ShieldCheck,
@@ -12,25 +14,42 @@ import {
 } from "lucide-react";
 
 const RELATION_COLORS: Record<DebtRelation, string> = {
-  Friends:  "bg-slate-500/20 text-slate-300 border-slate-500/30",
-  Family:   "bg-slate-500/20 text-slate-300 border-slate-500/30",
-  Own:      "bg-slate-500/20 text-slate-300 border-slate-500/30",
-  Contract: "bg-slate-500/20 text-slate-300 border-slate-500/30",
-  Vendor:   "bg-slate-500/20 text-slate-300 border-slate-500/30",
-  Employee: "bg-slate-500/20 text-slate-300 border-slate-500/30",
-  Other:    "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  Friends:    "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  Family:     "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  Own:        "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  Contract:   "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  Vendor:     "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  Employee:   "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  "On Paper": "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  Other:      "bg-slate-500/20 text-slate-300 border-slate-500/30",
 };
 
-const NO_SCORE_RELATIONS = new Set<DebtRelation>(["Own", "Family"]);
 const LITERS_PER_GALLON = 4.54609;
 
 type SortKey = "newest" | "oldest" | "highest" | "lowest" | "az" | "za";
+
+type TabId = "normal" | "own_family" | "on_paper" | "employees";
+
+const TAB_RELATIONS: Record<TabId, DebtRelation[]> = {
+  normal:     ["Friends", "Contract", "Vendor", "Other"],
+  own_family: ["Own", "Family"],
+  on_paper:   ["On Paper"],
+  employees:  ["Employee"],
+};
+
+const TAB_LABELS: Record<TabId, string> = {
+  normal:     "Normal / Other",
+  own_family: "Own & Family",
+  on_paper:   "On Paper",
+  employees:  "Employees",
+};
 
 export default function DebtTracker() {
   const [profiles, setProfiles] = useState<DebtProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("newest");
+  const [activeTab, setActiveTab] = useState<TabId>("normal");
   const [selectedProfile, setSelectedProfile] = useState<DebtProfile | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
@@ -208,6 +227,7 @@ export default function DebtTracker() {
   }
 
   const filtered = profiles
+    .filter(p => TAB_RELATIONS[activeTab].includes(p.relation))
     .filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
       if (sortBy === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -219,10 +239,7 @@ export default function DebtTracker() {
       return 0;
     });
 
-  const EXCLUDED_RELATIONS = new Set<DebtRelation>(["Family", "Own"]);
-  const externalProfiles = profiles.filter(p => !EXCLUDED_RELATIONS.has(p.relation));
-  const externalOwed = externalProfiles.reduce((s, p) => s + Math.max(0, p.current_balance), 0);
-  const externalActiveCount = externalProfiles.filter(p => p.current_balance > 0).length;
+  const { owed: externalOwed, activeCount: externalActiveCount } = computeReceivables(profiles);
 
   const totalOwed = profiles.reduce((s, p) => s + Math.max(0, p.current_balance), 0);
   const redFlags = profiles.filter(p => p.score < 40).length;
@@ -260,9 +277,11 @@ export default function DebtTracker() {
                 <p className="text-xs font-bold text-amber-400/80 uppercase tracking-widest">Total Receivables</p>
               </div>
               <p className="text-slate-400 text-[11px] mt-1 ml-10">
-                Friends · Contract · Vendor · Employee · Other
+                {RELATIONS.filter(r => !RECEIVABLES_EXCLUDED_RELATIONS.has(r)).join(" · ")}
               </p>
-              <p className="text-slate-600 text-[10px] ml-10 mt-0.5 italic">Excludes Family &amp; Own</p>
+              <p className="text-slate-600 text-[10px] ml-10 mt-0.5 italic">
+                Excludes {Array.from(RECEIVABLES_EXCLUDED_RELATIONS).join(", ")}
+              </p>
             </div>
 
             {/* Right: the big number */}
@@ -325,6 +344,25 @@ export default function DebtTracker() {
             <p className="text-slate-500 text-xs mt-1">Score below 40</p>
           </div>
         </div>
+
+        {/* Relation Tabs */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)}>
+        <TabsList className="bg-[#111827] border border-slate-700/50 p-1 h-auto flex-wrap gap-1">
+          {(Object.keys(TAB_LABELS) as TabId[]).map(id => (
+            <TabsTrigger
+              key={id}
+              value={id}
+              className="text-xs font-semibold px-3 py-1.5 data-[state=active]:bg-slate-700 data-[state=active]:text-white text-slate-400"
+            >
+              {TAB_LABELS[id]}
+              <span className="ml-1.5 text-[10px] text-slate-500">
+                {profiles.filter(p => TAB_RELATIONS[id].includes(p.relation)).length}
+              </span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value={activeTab} className="mt-3 space-y-5">
 
         {/* Search + Sort */}
         <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4 flex flex-col sm:flex-row gap-3">
@@ -482,6 +520,9 @@ export default function DebtTracker() {
             </>
           )}
         </div>
+
+        </TabsContent>
+        </Tabs>
       </div>
 
       {/* Create Profile Panel */}

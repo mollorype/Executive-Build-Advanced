@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   supabase, DebtProfile, DebtTransaction, DEBT_TABLES, RELATIONS, DebtRelation,
+  NO_SCORE_RELATIONS,
   generateTxnNumber, calculateScore, scoreColor, scoreTier, mmkFmt, formatPhone,
   getDisplayPhones, combineDateWithCurrentTime,
 } from "@/lib/debt-supabase";
@@ -11,7 +12,6 @@ import {
   Bookmark, MessageSquarePlus,
 } from "lucide-react";
 
-const NO_SCORE_RELATIONS = new Set(["Own", "Family"]);
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const LITERS_PER_GALLON = 4.54609;
 
