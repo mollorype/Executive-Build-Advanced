@@ -115,6 +115,23 @@ export function computeReceivables(
   };
 }
 
+/** Debt Tracker tab grouping — also used by the Dashboard's "Debt by Category" chart. */
+export type DebtCategoryId = "normal" | "own_family" | "on_paper" | "employees";
+
+export const DEBT_CATEGORY_RELATIONS: Record<DebtCategoryId, DebtRelation[]> = {
+  normal:     ["Friends", "Contract", "Vendor", "Other"],
+  own_family: ["Own", "Family"],
+  on_paper:   ["On Paper"],
+  employees:  ["Employee"],
+};
+
+export const DEBT_CATEGORY_LABELS: Record<DebtCategoryId, string> = {
+  normal:     "Normal / Other",
+  own_family: "Own & Family",
+  on_paper:   "On Paper",
+  employees:  "Employees",
+};
+
 export type DebtTransaction = {
   id: string;
   profile_id: string;

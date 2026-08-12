@@ -191,3 +191,13 @@ export type Shift = {
   additional_cash_items: { name: string; amount: number }[] | null;
   additional_cash_total: number | null;
 };
+
+export const RED_FLAG_THRESHOLD = 10_000;
+
+/** Grand total sales for a shift, including pipa & jelly can (for display/reporting). */
+export function shiftTotalSales(shift: Shift): number {
+  const jellyTotal = (shift.jelly_can_items ?? []).reduce((s, i) => s + i.total, 0);
+  return (shift.fuel_92_total ?? 0) + (shift.fuel_95_total ?? 0)
+    + (shift.premium_diesel_total ?? 0) + (shift.pipa_total ?? 0)
+    + jellyTotal + (shift.diesel_cash ?? 0);
+}

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   supabase, DebtProfile, DEBT_TABLES, RELATIONS, DebtRelation,
   NO_SCORE_RELATIONS, RECEIVABLES_EXCLUDED_RELATIONS, computeReceivables,
+  DebtCategoryId, DEBT_CATEGORY_RELATIONS, DEBT_CATEGORY_LABELS,
   calculateScore, scoreColor, scoreTier, mmkFmt, formatPhone, generateTxnNumber,
   combineDateWithCurrentTime,
 } from "@/lib/debt-supabase";
@@ -28,21 +29,9 @@ const LITERS_PER_GALLON = 4.54609;
 
 type SortKey = "newest" | "oldest" | "highest" | "lowest" | "az" | "za";
 
-type TabId = "normal" | "own_family" | "on_paper" | "employees";
-
-const TAB_RELATIONS: Record<TabId, DebtRelation[]> = {
-  normal:     ["Friends", "Contract", "Vendor", "Other"],
-  own_family: ["Own", "Family"],
-  on_paper:   ["On Paper"],
-  employees:  ["Employee"],
-};
-
-const TAB_LABELS: Record<TabId, string> = {
-  normal:     "Normal / Other",
-  own_family: "Own & Family",
-  on_paper:   "On Paper",
-  employees:  "Employees",
-};
+type TabId = DebtCategoryId;
+const TAB_RELATIONS = DEBT_CATEGORY_RELATIONS;
+const TAB_LABELS = DEBT_CATEGORY_LABELS;
 
 export default function DebtTracker() {
   const [profiles, setProfiles] = useState<DebtProfile[]>([]);

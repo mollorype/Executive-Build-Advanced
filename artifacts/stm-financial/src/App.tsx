@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "@/lib/auth-context";
 import AppShell from "@/components/app-shell";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
+import Shifts from "@/pages/shifts";
 import ManageAccess from "@/pages/manage-access";
 import AccessDenied from "@/pages/access-denied";
 import PORegistry from "@/pages/po-registry";
@@ -83,6 +84,12 @@ function Router() {
       <Route path="/dashboard">
         <ProtectedRoute>
           <Dashboard />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/shifts">
+        <ProtectedRoute>
+          <Shifts />
         </ProtectedRoute>
       </Route>
 
