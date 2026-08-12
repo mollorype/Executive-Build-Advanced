@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { submitShift, type ShiftPayload, supabase } from "./lib/supabase";
+import { type ShiftPayload, supabase, submitShift } from "./lib/supabase";
+import { enqueueShift, flushQueue, useOfflineSync, useQueueItemStatus, type LinkedExpensePayload } from "./lib/offlineQueue";
 import "./index.css";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -1084,7 +1085,8 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
 }
 
 // ─── Success screen ───────────────────────────────────────────────────────────
-function SuccessScreen({ employeeName, onNewShift }: { employeeName: string; onNewShift: () => void }) {
+function SuccessScreen({ employeeName, onNewShift, queuedItemId }: { employeeName: string; onNewShift: () => void; queuedItemId: string | null }) {
+  const status = useQueueItemStatus(queuedItemId);
   return (
     <div className="min-h-screen bg-[#0f111a] flex flex-col items-center justify-center px-4 text-center">
       <div className="relative mb-8">
@@ -1099,7 +1101,20 @@ function SuccessScreen({ employeeName, onNewShift }: { employeeName: string; onN
       </div>
       <h1 className="text-3xl font-bold text-white mb-2 float-up float-up-1">Shift <span className="text-blue-400">Submitted!</span></h1>
       <p className="text-gray-400 mb-1 float-up float-up-2 capitalize">Great work, <strong className="text-white">{employeeName}</strong>.</p>
-      <p className="text-sm text-gray-400 mb-8 float-up float-up-3">Your shift report has been recorded successfully.</p>
+      <p className="text-sm text-gray-400 mb-4 float-up float-up-3">Your shift report has been recorded successfully.</p>
+      {status && (
+        <div className="float-up float-up-3 mb-8">
+          {status === "synced" ? (
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold rounded-full px-3 py-1.5 bg-emerald-500/15 text-emerald-400">
+              ✓ Synced to server
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold rounded-full px-3 py-1.5 bg-amber-500/15 text-amber-400">
+              ⏳ Waiting to sync — saved on this device
+            </span>
+          )}
+        </div>
+      )}
       <div className="float-up float-up-4 space-y-3 w-full max-w-xs">
         <button onClick={onNewShift}
           className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl py-3.5 transition-all active:scale-[0.98]">
@@ -1628,6 +1643,34 @@ function CustomerReceiptScreen({ employeeName, onBack }: { employeeName: string;
   );
 }
 
+// ─── Sync status banner ─────────────────────────────────────────────────────
+function SyncStatusBanner({ isOnline, pendingCount, justSynced }: { isOnline: boolean; pendingCount: number; justSynced: boolean }) {
+  if (isOnline && pendingCount === 0 && !justSynced) return null;
+
+  let label: string;
+  let className: string;
+  if (!isOnline) {
+    label = pendingCount > 0
+      ? `📴 Offline — ${pendingCount} shift${pendingCount === 1 ? "" : "s"} saved, will sync automatically`
+      : "📴 Offline Mode";
+    className = "bg-amber-500/15 text-amber-400 border border-amber-500/30";
+  } else if (pendingCount > 0) {
+    label = `⏳ Syncing ${pendingCount} shift${pendingCount === 1 ? "" : "s"}…`;
+    className = "bg-blue-500/15 text-blue-400 border border-blue-500/30";
+  } else {
+    label = "✓ Synced";
+    className = "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30";
+  }
+
+  return (
+    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50">
+      <div className={`text-xs font-bold rounded-full px-3.5 py-1.5 shadow-lg ${className}`}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
 // ─── Session persistence ──────────────────────────────────────────────────────
 const SESSION_KEY = "stm_daily_session";
 const SESSION_DAYS = 30;
@@ -1661,6 +1704,9 @@ export default function App() {
   const [difference, setDifference] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [lastQueuedId, setLastQueuedId] = useState<string | null>(null);
+  const confirmingRef = useRef(false);
+  const { isOnline, pendingCount, justSynced } = useOfflineSync();
   const [lang, setLang] = useState<Lang>(() => {
     const saved = localStorage.getItem(LANG_KEY);
     return (saved === "my" ? "my" : "en") as Lang;
@@ -1713,6 +1759,8 @@ export default function App() {
   }
 
   async function handleConfirm() {
+    if (confirmingRef.current) return; // guard against double-tap before React re-renders the disabled button
+    confirmingRef.current = true;
     setSubmitting(true);
     setSubmitError("");
 
@@ -1780,80 +1828,73 @@ export default function App() {
       variance:        difference,
     };
 
-    const { error } = await submitShift(payload);
+    // Push debt transactions for any linked expenses.
+    // IMPORTANT: use formData.shiftDate directly (a datetime-local string like
+    // "2024-01-15T14:30") so the local date/time is preserved.
+    // Never call .toISOString() here — it converts to UTC and shifts the date
+    // for users in UTC+ timezones (e.g. Myanmar +6:30).
+    const linkedExpensesRaw = formData.expenses.filter(e => e.profileId && n(e.amount) > 0);
 
-    if (!error) {
-      // Push debt transactions for any linked expenses.
-      // IMPORTANT: use formData.shiftDate directly (a datetime-local string like
-      // "2024-01-15T14:30") so the local date/time is preserved.
-      // Never call .toISOString() here — it converts to UTC and shifts the date
-      // for users in UTC+ timezones (e.g. Myanmar +6:30).
-      const linkedExpenses = formData.expenses.filter(e => e.profileId && n(e.amount) > 0);
+    // Local date string "YYYY-MM-DD" — sliced directly, no UTC conversion.
+    const localDateStr = formData.shiftDate
+      ? formData.shiftDate.slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
 
-      // Local date string "YYYY-MM-DD" — sliced directly, no UTC conversion.
-      const localDateStr = formData.shiftDate
-        ? formData.shiftDate.slice(0, 10)
-        : new Date().toISOString().slice(0, 10);
-
-      // Full local datetime with browser timezone offset appended so Postgres
-      // stores the correct UTC instant for timestamptz columns.
-      function localISOWithTZ(dtLocal: string): string {
-        const off = -new Date().getTimezoneOffset(); // minutes ahead of UTC
-        const sign = off >= 0 ? "+" : "-";
-        const hh = String(Math.floor(Math.abs(off) / 60)).padStart(2, "0");
-        const mm = String(Math.abs(off) % 60).padStart(2, "0");
-        // dtLocal is "YYYY-MM-DDTHH:MM" — add seconds + offset
-        return `${dtLocal}:00${sign}${hh}:${mm}`;
-      }
-      const localDateTimeStr = formData.shiftDate
-        ? localISOWithTZ(formData.shiftDate)
-        : new Date().toISOString();
-
-      for (const expense of linkedExpenses) {
-        const d = localDateStr.replace(/-/g, "");
-        const txnNum = `TXN-${d}-${Math.floor(Math.random() * 90000) + 10000}`;
-        const paymentAmt = expense.txnType === "debt" ? n(expense.amount) : -n(expense.amount);
-
-        await supabase.from("debt_transactions").insert({
-          profile_id: expense.profileId,
-          amount: paymentAmt,
-          date: localDateTimeStr,   // full local datetime — correct for both date and timestamptz columns
-          note: `Payment via Daily Shift — ${employeeName}`,
-          transaction_number: txnNum,
-          source: "daily_app",
-        });
-
-        const { data: prof } = await supabase
-          .from("debt_profiles")
-          .select("current_balance, score")
-          .eq("id", expense.profileId)
-          .single();
-
-        if (prof) {
-          const newBalance = prof.current_balance + paymentAmt;
-          const newScore = Math.min(100, (prof.score ?? 50) + 5);
-          await supabase.from("debt_profiles").update({
-            current_balance: newBalance,
-            score: newScore,
-            last_payment_at: localDateTimeStr,
-          }).eq("id", expense.profileId);
-        }
-      }
+    // Full local datetime with browser timezone offset appended so Postgres
+    // stores the correct UTC instant for timestamptz columns.
+    function localISOWithTZ(dtLocal: string): string {
+      const off = -new Date().getTimezoneOffset(); // minutes ahead of UTC
+      const sign = off >= 0 ? "+" : "-";
+      const hh = String(Math.floor(Math.abs(off) / 60)).padStart(2, "0");
+      const mm = String(Math.abs(off) % 60).padStart(2, "0");
+      // dtLocal is "YYYY-MM-DDTHH:MM" — add seconds + offset
+      return `${dtLocal}:00${sign}${hh}:${mm}`;
     }
+    const localDateTimeStr = formData.shiftDate
+      ? localISOWithTZ(formData.shiftDate)
+      : new Date().toISOString();
 
-    setSubmitting(false);
+    const linkedExpenses: LinkedExpensePayload[] = linkedExpensesRaw.map(expense => {
+      const d = localDateStr.replace(/-/g, "");
+      return {
+        profileId: expense.profileId!,
+        amount: n(expense.amount),
+        txnType: expense.txnType === "payment" ? "payment" : "debt",
+        txnNumber: `TXN-${d}-${Math.floor(Math.random() * 90000) + 10000}`,
+        localDateTimeStr,
+        employeeName,
+      };
+    });
 
-    if (error) {
-      setSubmitError(error.message);
-    } else {
+    let queuedId: string;
+    try {
+      const item = enqueueShift(payload, linkedExpenses);
+      queuedId = item.id;
+    } catch {
+      // localStorage unavailable (quota exceeded / disabled) — fall back to a
+      // direct submit attempt so the shift isn't silently dropped.
+      const { error } = await submitShift(payload);
+      confirmingRef.current = false;
+      setSubmitting(false);
+      if (error) { setSubmitError(error.message); return; }
+      setLastQueuedId(null);
       setScreen("success");
+      return;
     }
+
+    // Data is safely saved locally — advance immediately and sync in the background.
+    flushQueue();
+    confirmingRef.current = false;
+    setSubmitting(false);
+    setLastQueuedId(queuedId);
+    setScreen("success");
   }
 
   function handleNewShift() {
     setFormData(EMPTY);
     setGrandTotal(0);
     setDifference(0);
+    setLastQueuedId(null);
     setScreen("mode-select");
   }
 
@@ -1896,9 +1937,11 @@ export default function App() {
           )}
         </>
       )}
-      {screen === "success"  && <SuccessScreen employeeName={employeeName} onNewShift={handleNewShift} />}
+      {screen === "success"  && <SuccessScreen employeeName={employeeName} onNewShift={handleNewShift} queuedItemId={lastQueuedId} />}
       {screen === "receipt"  && <CustomerReceiptScreen employeeName={employeeName} onBack={() => setScreen("mode-select")} />}
       {screen === "settings" && <AppSettingsScreen onBack={() => setScreen("mode-select")} />}
+
+      <SyncStatusBanner isOnline={isOnline} pendingCount={pendingCount} justSynced={justSynced} />
     </>
   );
 }

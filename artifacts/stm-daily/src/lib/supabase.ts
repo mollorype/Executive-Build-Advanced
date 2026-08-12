@@ -42,6 +42,7 @@ export interface ShiftPayload {
   expected_total: number;
   actual_cash: number;
   variance: number;
+  client_submission_id?: string;
 }
 
 export async function submitShift(payload: ShiftPayload) {
