@@ -136,9 +136,9 @@ export default function ManageAccess() {
           </div>
         )}
 
-        <div className="bg-[#111827] border border-slate-700/50 rounded-2xl overflow-hidden">
+        <div className="bg-[#111827] border border-slate-700/50 rounded-xl overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-700/50 flex items-center gap-2">
-            <UserPlus className="w-4 h-4 text-violet-400" />
+            <UserPlus className="w-4 h-4 text-blue-400" />
             <span className="text-white font-semibold text-sm">Add Employee Email</span>
           </div>
 
@@ -147,7 +147,7 @@ export default function ManageAccess() {
               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
                 Employee Email Address
               </label>
-              <div className="flex rounded-lg overflow-hidden border border-slate-600/50 focus-within:ring-2 focus-within:ring-violet-500/50 transition-all">
+              <div className="flex rounded-lg overflow-hidden border border-slate-600/50 focus-within:ring-2 focus-within:ring-blue-500/50 transition-all">
                 <div className="flex items-center px-3 bg-slate-800 border-r border-slate-700">
                   <Mail className="w-4 h-4 text-slate-500" />
                 </div>
@@ -182,7 +182,7 @@ export default function ManageAccess() {
             <button
               type="submit"
               disabled={loading || !email || tableError}
-              className="w-full bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+              className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
             >
               {loading ? (
                 <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Adding…</>
@@ -194,7 +194,7 @@ export default function ManageAccess() {
         </div>
 
         {!tableError && (
-          <div className="bg-[#111827] border border-slate-700/50 rounded-2xl overflow-hidden">
+          <div className="bg-[#111827] border border-slate-700/50 rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
               <span className="text-white font-semibold text-sm">
                 Allowed Employees
@@ -226,8 +226,8 @@ export default function ManageAccess() {
                 {employees.map(emp => (
                   <div key={emp.id} className="px-6 py-3.5 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-7 h-7 rounded-lg bg-violet-900/40 border border-violet-700/30 flex items-center justify-center shrink-0">
-                        <span className="text-xs font-bold text-violet-300 uppercase">
+                      <div className="w-7 h-7 rounded-lg bg-blue-900/40 border border-blue-700/30 flex items-center justify-center shrink-0">
+                        <span className="text-xs font-bold text-blue-300 uppercase">
                           {emp.email[0]}
                         </span>
                       </div>

@@ -67,8 +67,8 @@ function ForceCloseModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-[#111827] border border-red-700/40 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <div className="relative bg-[#111827] border border-red-700/40 rounded-xl p-6 w-full max-w-md shadow">
         <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white">
           <X className="w-5 h-5" />
         </button>
@@ -192,8 +192,8 @@ function VerifyModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-[#111827] border border-slate-700/50 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <div className="relative bg-[#111827] border border-slate-700/50 rounded-xl p-6 w-full max-w-md shadow">
         <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white">
           <X className="w-5 h-5" />
         </button>
@@ -668,7 +668,7 @@ export default function PORegistry() {
                 const fill = pct(po.remaining_volume, po.initial_volume);
                 const profit = calcNetProfit(po);
                 return (
-                  <div key={po.id} className="bg-[#111827] border border-emerald-600/25 rounded-2xl p-5 relative overflow-hidden">
+                  <div key={po.id} className="bg-[#111827] border border-emerald-600/25 rounded-xl p-5 relative overflow-hidden">
                     {/* Progress bar background */}
                     <div
                       className="absolute inset-0 bg-emerald-500/5 origin-left transition-all"

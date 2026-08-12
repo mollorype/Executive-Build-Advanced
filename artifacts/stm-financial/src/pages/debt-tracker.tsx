@@ -12,12 +12,12 @@ import {
 } from "lucide-react";
 
 const RELATION_COLORS: Record<DebtRelation, string> = {
-  Friends:  "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  Family:   "bg-purple-500/20 text-purple-300 border-purple-500/30",
-  Own:      "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  Contract: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-  Vendor:   "bg-orange-500/20 text-orange-300 border-orange-500/30",
-  Employee: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+  Friends:  "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  Family:   "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  Own:      "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  Contract: "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  Vendor:   "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  Employee: "bg-slate-500/20 text-slate-300 border-slate-500/30",
   Other:    "bg-slate-500/20 text-slate-300 border-slate-500/30",
 };
 
@@ -249,11 +249,7 @@ export default function DebtTracker() {
       <div className="p-6 space-y-5">
 
         {/* ── External Receivables Widget ── */}
-        <div className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-br from-[#1a1400] via-[#111827] to-[#0f1623] p-5 shadow-lg">
-          {/* Decorative glow */}
-          <div className="pointer-events-none absolute -top-10 -right-10 w-52 h-52 rounded-full bg-amber-500/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-10 -left-10 w-36 h-36 rounded-full bg-orange-500/8 blur-2xl" />
-
+        <div className="relative overflow-hidden rounded-xl border border-amber-500/20 bg-card shadow-sm p-5">
           <div className="relative flex items-start justify-between gap-4 flex-wrap">
             {/* Left: label + breakdown */}
             <div>
@@ -285,7 +281,7 @@ export default function DebtTracker() {
             <div className="relative mt-4">
               <div className="h-1.5 w-full rounded-full bg-slate-700/60 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-400 transition-all duration-700"
+                  className="h-full rounded-full bg-amber-500 transition-all duration-700"
                   style={{ width: `${Math.min(100, (externalOwed / totalOwed) * 100).toFixed(1)}%` }}
                 />
               </div>
@@ -491,9 +487,9 @@ export default function DebtTracker() {
       {/* Create Profile Panel */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowCreate(false)} />
-          <div className="relative w-full max-w-md bg-[#0f1623] border-l border-slate-700/50 h-full overflow-y-auto shadow-2xl">
-            <div className="sticky top-0 bg-[#0f1623]/95 backdrop-blur border-b border-slate-700/50 px-6 py-4 flex items-center justify-between z-10">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowCreate(false)} />
+          <div className="relative w-full max-w-md bg-[#0f1623] border-l border-slate-700/50 h-full overflow-y-auto shadow">
+            <div className="sticky top-0 bg-[#0f1623] border-b border-slate-700/50 px-6 py-4 flex items-center justify-between z-10">
               <div>
                 <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold">New Profile</p>
                 <h2 className="text-white font-bold text-base">Create Debt Profile</h2>

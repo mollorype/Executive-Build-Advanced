@@ -499,11 +499,11 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-      <div className="relative w-full max-w-[520px] bg-[#0f1623] border-l border-slate-700/50 h-full overflow-y-auto shadow-2xl">
+      <div className="relative w-full max-w-[520px] bg-[#0f1623] border-l border-slate-700/50 h-full overflow-y-auto shadow">
         {/* Header */}
-        <div className="sticky top-0 bg-[#0f1623]/95 backdrop-blur border-b border-slate-700/50 px-6 py-4 flex items-start justify-between z-10">
+        <div className="sticky top-0 bg-[#0f1623] border-b border-slate-700/50 px-6 py-4 flex items-start justify-between z-10">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-full bg-slate-700 flex items-center justify-center text-slate-200 font-bold text-lg">
               {profile.name[0].toUpperCase()}
@@ -543,11 +543,11 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
           {(isOverCreditLimit || isPastDueDate) && (
             <div className="space-y-2">
               {isOverCreditLimit && (
-                <div className="flex items-start gap-3 bg-orange-900/30 border border-orange-700/50 rounded-xl px-4 py-3">
-                  <BadgeAlert className="w-5 h-5 text-orange-400 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-3 bg-amber-900/30 border border-amber-700/50 rounded-xl px-4 py-3">
+                  <BadgeAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-orange-300 font-semibold text-sm">Credit Limit Exceeded</p>
-                    <p className="text-orange-400/70 text-xs mt-0.5">
+                    <p className="text-amber-300 font-semibold text-sm">Credit Limit Exceeded</p>
+                    <p className="text-amber-400/70 text-xs mt-0.5">
                       Balance {mmkFmt(profile.current_balance)} exceeds limit of {mmkFmt(profile.credit_limit)}
                     </p>
                   </div>
@@ -602,7 +602,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
             {profile.credit_limit != null && (
               <div className="flex justify-between text-sm">
                 <span className="text-slate-400">Credit Limit</span>
-                <span className={`font-semibold tabular-nums ${isOverCreditLimit ? "text-orange-400" : "text-slate-300"}`}>
+                <span className={`font-semibold tabular-nums ${isOverCreditLimit ? "text-amber-400" : "text-slate-300"}`}>
                   {mmkFmt(profile.credit_limit)}
                 </span>
               </div>
@@ -918,8 +918,8 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
       {/* Edit Transaction Modal */}
       {editingTxn && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setEditingTxn(null)} />
-          <div className="relative bg-[#0f1623] border border-slate-700/50 rounded-2xl w-full max-w-md shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setEditingTxn(null)} />
+          <div className="relative bg-[#0f1623] border border-slate-700/50 rounded-xl w-full max-w-md shadow max-h-[92vh] flex flex-col overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between shrink-0">
               <div>
                 <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Transaction</p>
@@ -1025,8 +1025,8 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
       {/* Edit Profile Modal */}
       {showEdit && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowEdit(false)} />
-          <div className="relative bg-[#0f1623] border border-slate-700/50 rounded-2xl w-full max-w-md shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setShowEdit(false)} />
+          <div className="relative bg-[#0f1623] border border-slate-700/50 rounded-xl w-full max-w-md shadow max-h-[92vh] flex flex-col overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between shrink-0">
               <div>
                 <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Profile</p>

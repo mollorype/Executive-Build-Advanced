@@ -170,11 +170,11 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-      <div className="relative w-full max-w-[520px] bg-[#0f1623] border-l border-slate-700/50 h-full overflow-y-auto shadow-2xl flex flex-col">
+      <div className="relative w-full max-w-[520px] bg-[#0f1623] border-l border-slate-700/50 h-full overflow-y-auto shadow flex flex-col">
         {/* Header */}
-        <div className="sticky top-0 bg-[#0f1623]/95 backdrop-blur border-b border-slate-700/50 px-6 py-4 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-[#0f1623] border-b border-slate-700/50 px-6 py-4 flex items-center justify-between z-10">
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-0.5">Edit Shift</p>
             <h2 className="text-white font-bold text-base font-mono">#{String(shift.id).slice(0, 8).toUpperCase()}</h2>
@@ -300,7 +300,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-[#0f1623]/95 backdrop-blur border-t border-slate-700/50 px-6 py-4 flex items-center gap-3">
+        <div className="sticky bottom-0 bg-[#0f1623] border-t border-slate-700/50 px-6 py-4 flex items-center gap-3">
           <button
             onClick={onClose}
             className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 hover:text-white font-semibold rounded-xl py-2.5 text-sm transition-all"

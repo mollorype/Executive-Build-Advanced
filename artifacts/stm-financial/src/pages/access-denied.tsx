@@ -13,13 +13,6 @@ export default function AccessDenied() {
 
   return (
     <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center p-4">
-      <div
-        className="fixed inset-0 opacity-10"
-        style={{
-          backgroundImage: `linear-gradient(rgba(239,68,68,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(239,68,68,0.3) 1px, transparent 1px)`,
-          backgroundSize: "40px 40px",
-        }}
-      />
       <div className="relative text-center max-w-md">
         <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-red-500/10 border-2 border-red-500/30 mb-6 mx-auto">
           <ShieldX className="w-12 h-12 text-red-400" />

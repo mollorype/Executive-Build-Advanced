@@ -307,8 +307,8 @@ export default function Dashboard() {
 
           <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
-                <Users className="w-4 h-4 text-violet-400" />
+              <div className="w-8 h-8 rounded-lg bg-slate-500/20 flex items-center justify-center">
+                <Users className="w-4 h-4 text-slate-400" />
               </div>
               <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Shifts</span>
             </div>

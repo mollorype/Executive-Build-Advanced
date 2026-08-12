@@ -33,17 +33,9 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center p-4">
-      <div
-        className="fixed inset-0 opacity-10"
-        style={{
-          backgroundImage: `linear-gradient(rgba(59,130,246,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.3) 1px, transparent 1px)`,
-          backgroundSize: "40px 40px",
-        }}
-      />
-
       <div className="relative w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600/20 border border-blue-500/30 mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-blue-600/20 border border-blue-500/30 mb-4">
             <Shield className="w-8 h-8 text-blue-400" />
           </div>
           <h1 className="text-3xl font-bold text-white tracking-tight">STM Financial</h1>
@@ -62,7 +54,7 @@ export default function Login() {
           </div>
         )}
 
-        <div className="bg-[#111827] border border-slate-700/50 rounded-2xl p-8 shadow-2xl shadow-black/50">
+        <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-8 shadow-sm">
           <div className="flex items-center gap-2 mb-6">
             <Lock className="w-4 h-4 text-blue-400" />
             <span className="text-xs text-slate-400 uppercase tracking-wider font-medium">

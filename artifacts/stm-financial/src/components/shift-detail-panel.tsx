@@ -77,11 +77,11 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-      <div className="relative w-full max-w-[490px] bg-[#0f1623] border-l border-slate-700/50 h-full overflow-y-auto shadow-2xl">
+      <div className="relative w-full max-w-[490px] bg-[#0f1623] border-l border-slate-700/50 h-full overflow-y-auto shadow">
         {/* Header */}
-        <div className="sticky top-0 bg-[#0f1623]/95 backdrop-blur border-b border-slate-700/50 px-6 py-4 flex items-start justify-between z-10">
+        <div className="sticky top-0 bg-[#0f1623] border-b border-slate-700/50 px-6 py-4 flex items-start justify-between z-10">
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-1">Shift Receipt</p>
             <h2 className="text-white font-bold text-base font-mono">#{String(shift.id).slice(0, 8).toUpperCase()}</h2>
@@ -166,12 +166,12 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
                   Jelly Can — Itemized
                   <span className="flex-1 h-px bg-slate-700/60 block" />
                 </p>
-                <div className="bg-slate-800/40 border border-teal-700/30 rounded-xl overflow-hidden">
+                <div className="bg-slate-800/40 border border-blue-700/30 rounded-xl overflow-hidden">
                   <div className="divide-y divide-slate-700/30">
                     {shift.jelly_can_items.map((item, i) => (
                       <div key={i} className="px-4 py-3 flex items-start justify-between gap-3 text-sm">
                         <div className="min-w-0">
-                          <span className="text-teal-300 font-semibold">
+                          <span className="text-blue-300 font-semibold">
                             {item.product === "92" ? "Fuel 92" : item.product === "95" ? "Fuel 95" : item.product === "PD" ? "Premium Diesel" : "Diesel"}
                           </span>
                           <p className="text-slate-500 text-xs mt-0.5 tabular-nums">
@@ -181,7 +181,7 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
                             {new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(item.price)} MMK/can
                           </p>
                         </div>
-                        <span className="text-teal-300 font-bold tabular-nums shrink-0">
+                        <span className="text-blue-300 font-bold tabular-nums shrink-0">
                           {new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(item.total)} MMK
                         </span>
                       </div>
@@ -189,7 +189,7 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
                   </div>
                   <div className="px-4 py-3 border-t border-slate-700/50 bg-slate-800/60 flex justify-between text-sm">
                     <span className="text-slate-400 font-semibold">Total Jelly Can</span>
-                    <span className="text-teal-400 font-bold tabular-nums">
+                    <span className="text-blue-400 font-bold tabular-nums">
                       {mmk(shift.jelly_can_items.reduce((s, i) => s + i.total, 0))}
                     </span>
                   </div>
