@@ -68,7 +68,11 @@ export default function Login() {
     setLoading(false);
 
     if (error) {
-      setError(error.message);
+      setError(
+        error.message.toLowerCase().includes("rate limit")
+          ? "Too many account-setup attempts right now. Please wait a while and try again."
+          : error.message,
+      );
       return;
     }
 
