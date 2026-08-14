@@ -16,11 +16,7 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-/** CEO is a fixed env-configured account; every other authorized email is an Accountant listed in accountant_access. */
-async function resolveRole(email: string): Promise<Role | null> {
-  const ceoEmail = import.meta.env.CEO_EMAIL as string | undefined;
-  if (ceoEmail && email.toLowerCase() === ceoEmail.toLowerCase()) return "ceo";
-
+async function resolveAccountantRole(email: string): Promise<Role | null> {
   const { data } = await supabase
     .from(ACCOUNTANT_TABLE)
     .select("id")
@@ -28,6 +24,25 @@ async function resolveRole(email: string): Promise<Role | null> {
     .maybeSingle();
 
   return data ? "accountant" : null;
+}
+
+/**
+ * Resolves the role for an already-authenticated Supabase user (sign-in / session hydration).
+ * Accountants are allow-listed explicitly in accountant_access. Everyone else is the CEO —
+ * this matches the app's original behavior, since the only way to obtain a Supabase Auth
+ * account at all (outside the accountant self-serve flow) is to be provisioned directly in
+ * the Supabase dashboard, i.e. by the CEO. If CEO_EMAIL is configured (VITE_CEO_EMAIL, to be
+ * exposed to the client build), it's enforced as an extra check.
+ */
+async function resolveRole(email: string): Promise<Role | null> {
+  const accountantRole = await resolveAccountantRole(email);
+  if (accountantRole) return accountantRole;
+
+  const ceoEmail = import.meta.env.VITE_CEO_EMAIL as string | undefined;
+  if (ceoEmail) {
+    return email.toLowerCase() === ceoEmail.toLowerCase() ? "ceo" : null;
+  }
+  return "ceo";
 }
 
 function buildProfile(user: User, role: Role): Profile {
@@ -101,7 +116,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signUp(email: string, password: string) {
-    const role = await resolveRole(email);
+    // Self-serve signup only ever grants the Accountant role — the CEO account is
+    // provisioned directly in Supabase, never through this flow.
+    const role = await resolveAccountantRole(email);
     if (!role) {
       return { error: new Error("This email hasn't been authorized yet. Ask your administrator to add it in Manage Access first.") };
     }
