@@ -200,11 +200,11 @@ export default function Shifts() {
   ];
 
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="px-6 py-5 border-b border-slate-700/50">
+    <div className="flex-1 overflow-auto bg-slate-50">
+      <div className="px-6 py-5 border-b border-slate-100 bg-white">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">Shifts</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Shifts</h1>
             <p className="text-slate-400 text-sm mt-0.5">Live shift ledger · STM Financial</p>
           </div>
           <div className="flex items-center gap-2">
@@ -221,7 +221,7 @@ export default function Shifts() {
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex items-center gap-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-600/50 rounded-lg px-4 py-2 text-sm font-medium transition-all"
+              className="flex items-center gap-2 text-slate-400 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg px-4 py-2 text-sm font-medium transition-all"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
               Refresh
@@ -232,7 +232,7 @@ export default function Shifts() {
 
       <div className="p-6 space-y-5">
         {/* Date Filter */}
-        <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4">
+        <div className="bg-white border border-slate-100 rounded-xl p-4">
           <div className="flex flex-wrap items-center gap-2">
             <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
             <span className="text-slate-400 text-xs font-semibold uppercase tracking-wider mr-1">Time Window:</span>
@@ -243,7 +243,7 @@ export default function Shifts() {
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                   preset === p.value
                     ? "bg-blue-600 text-white"
-                    : "bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 border border-slate-700"
+                    : "bg-white text-slate-400 hover:text-slate-900 hover:bg-slate-100 border border-slate-100"
                 }`}
               >
                 {p.label}
@@ -256,7 +256,7 @@ export default function Shifts() {
                   value={customFrom}
                   onChange={e => { setCustomFrom(e.target.value); setPage(0); }}
                   aria-label="From date"
-                  className="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="bg-white border border-slate-100 text-slate-900 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
                 <span className="text-slate-500 text-xs">→</span>
                 <input
@@ -264,7 +264,7 @@ export default function Shifts() {
                   value={customTo}
                   onChange={e => { setCustomTo(e.target.value); setPage(0); }}
                   aria-label="To date"
-                  className="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="bg-white border border-slate-100 text-slate-900 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
             )}
@@ -273,56 +273,56 @@ export default function Shifts() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4">
+          <div className="bg-white border border-slate-100 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                <DollarSign className="w-4 h-4 text-blue-400" />
+              <div className="w-8 h-8 rounded-lg bg-pale-blue flex items-center justify-center">
+                <DollarSign className="w-4 h-4 text-pale-blue-foreground" />
               </div>
               <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Actual Collected</span>
             </div>
-            <p className="text-lg font-bold text-white tabular-nums">{mmk(totalCollected)}</p>
+            <p className="text-lg font-bold text-slate-900 tabular-nums">{mmk(totalCollected)}</p>
             <p className="text-slate-500 text-xs mt-1">This page</p>
           </div>
 
-          <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4">
+          <div className="bg-white border border-slate-100 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-slate-500/20 flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-slate-400" />
+              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-slate-500" />
               </div>
               <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Expected Total</span>
             </div>
-            <p className="text-lg font-bold text-white tabular-nums">{mmk(totalExpected)}</p>
+            <p className="text-lg font-bold text-slate-900 tabular-nums">{mmk(totalExpected)}</p>
             <p className="text-slate-500 text-xs mt-1">This page</p>
           </div>
 
-          <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4">
+          <div className="bg-white border border-slate-100 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
-                <AlertTriangle className="w-4 h-4 text-red-400" />
+              <div className="w-8 h-8 rounded-lg bg-pale-red flex items-center justify-center">
+                <AlertTriangle className="w-4 h-4 text-pale-red-foreground" />
               </div>
               <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Red Flags</span>
             </div>
-            <p className="text-lg font-bold text-white">{redFlagCount}</p>
+            <p className="text-lg font-bold text-slate-900">{redFlagCount}</p>
             <p className="text-slate-500 text-xs mt-1">≥ 10,000 MMK diff</p>
           </div>
 
-          <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4">
+          <div className="bg-white border border-slate-100 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-slate-500/20 flex items-center justify-center">
-                <Users className="w-4 h-4 text-slate-400" />
+              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                <Users className="w-4 h-4 text-slate-500" />
               </div>
               <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Shifts</span>
             </div>
-            <p className="text-lg font-bold text-white">{totalCount}</p>
+            <p className="text-lg font-bold text-slate-900">{totalCount}</p>
             <p className="text-slate-500 text-xs mt-1">{uniqueWorkers} workers this page</p>
           </div>
         </div>
 
         {/* Ledger Table */}
-        <div className="bg-[#111827] border border-slate-700/50 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-700/50 flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-blue-400" />
-            <h2 className="text-white font-semibold text-sm">Shift Ledger</h2>
+        <div className="bg-white border border-slate-100 rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-pale-blue-foreground" />
+            <h2 className="text-slate-900 font-semibold text-sm">Shift Ledger</h2>
             <div className="ml-auto flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-slate-500 text-xs">Live</span>
@@ -330,16 +330,16 @@ export default function Shifts() {
           </div>
 
           {deleteError && (
-            <div className="mx-5 mt-4 flex items-start gap-2 bg-red-900/30 border border-red-700/40 rounded-xl px-4 py-3 text-xs text-red-300">
+            <div className="mx-5 mt-4 flex items-start gap-2 bg-pale-red border border-red-100 rounded-xl px-4 py-3 text-xs text-pale-red-foreground">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>{deleteError}</span>
-              <button onClick={() => setDeleteError("")} aria-label="Dismiss error" className="ml-auto text-red-400 hover:text-red-200"><X className="w-3.5 h-3.5" /></button>
+              <button onClick={() => setDeleteError("")} aria-label="Dismiss error" className="ml-auto text-pale-red-foreground hover:opacity-70"><X className="w-3.5 h-3.5" /></button>
             </div>
           )}
 
           {/* Select-all bar */}
           {shifts.length > 0 && !loading && (
-            <div className="px-4 py-2.5 border-b border-slate-700/30 flex items-center gap-3">
+            <div className="px-4 py-2.5 border-b border-slate-100 flex items-center gap-3">
               <input type="checkbox"
                 checked={selectedIds.size === shifts.length}
                 onChange={toggleSelectAll}
@@ -359,18 +359,18 @@ export default function Shifts() {
             </div>
           ) : shifts.length === 0 ? (
             <div className="p-16 text-center">
-              <BarChart3 className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+              <BarChart3 className="w-10 h-10 text-slate-200 mx-auto mb-3" />
               <p className="text-slate-400 text-sm font-medium">No shifts in this time window</p>
-              <p className="text-slate-600 text-xs mt-1">Try a different date range</p>
+              <p className="text-slate-400 text-xs mt-1">Try a different date range</p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-700/20">
+            <div className="divide-y divide-slate-100">
               {/* Desktop table header */}
-              <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-slate-800/50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 <div className="w-4 shrink-0" />
                 <div className="flex-1">Date & Time</div>
                 <div className="w-28 shrink-0">Employee</div>
-                <div className="w-36 shrink-0 text-right text-amber-500/80">Total Sales</div>
+                <div className="w-36 shrink-0 text-right text-pale-gold-foreground/80">Total Sales</div>
                 <div className="w-32 shrink-0 text-right">Actual Cash</div>
                 <div className="w-32 shrink-0 text-right">Exp. Cash</div>
                 <div className="w-28 shrink-0 text-right">Difference</div>
@@ -389,10 +389,10 @@ export default function Shifts() {
                     onClick={() => setSelectedShift(shift)}
                     className={`group flex items-center gap-3 px-4 py-3 md:py-2.5 cursor-pointer transition-colors ${
                       isRedFlag
-                        ? "bg-red-900/20 hover:bg-red-900/30"
+                        ? "bg-pale-red hover:bg-red-100"
                         : isSelected
-                        ? "bg-blue-900/10 hover:bg-blue-900/15"
-                        : "hover:bg-slate-700/20"
+                        ? "bg-pale-blue hover:bg-blue-100"
+                        : "hover:bg-slate-50"
                     }`}
                   >
                     {/* Checkbox */}
@@ -408,8 +408,8 @@ export default function Shifts() {
                     {/* Left info column */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        {isRedFlag && <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />}
-                        <span className="text-slate-300 text-xs font-medium truncate">
+                        {isRedFlag && <AlertTriangle className="w-3.5 h-3.5 text-pale-red-foreground shrink-0" />}
+                        <span className="text-slate-700 text-xs font-medium truncate">
                           {formatDateTime(shift.created_at)}
                         </span>
                         {shift.employee_username && (
@@ -419,20 +419,20 @@ export default function Shifts() {
                       {/* Mobile-only: sales total + actual cash + diff */}
                       <div className="flex items-baseline justify-between gap-2 mt-1 md:hidden">
                         <div>
-                          <span className="text-amber-500/70 text-[11px]">Sales: </span>
-                          <span className="text-amber-300 font-bold text-sm tabular-nums">
+                          <span className="text-pale-gold-foreground/70 text-[11px]">Sales: </span>
+                          <span className="text-pale-gold-foreground font-bold text-sm tabular-nums">
                             {mmk(totalSales)}
                           </span>
                         </div>
                         <span className={`font-bold text-sm tabular-nums shrink-0 ${
-                          isRedFlag ? "text-red-300" : diff >= 0 ? "text-emerald-400" : "text-amber-400"
+                          isRedFlag ? "text-pale-red-foreground" : diff >= 0 ? "text-pale-green-foreground" : "text-pale-gold-foreground"
                         }`}>
                           {diff >= 0 ? "+" : ""}{mmk(diff)}
                         </span>
                       </div>
                       <div className="flex items-baseline gap-2 mt-0.5 md:hidden">
                         <span className="text-slate-500 text-[11px]">Cash: </span>
-                        <span className="text-white font-semibold text-xs tabular-nums">
+                        <span className="text-slate-900 font-semibold text-xs tabular-nums">
                           {mmk(shift.actual_cash_collected)}
                         </span>
                       </div>
@@ -444,12 +444,12 @@ export default function Shifts() {
                     </div>
                     {/* Total Sales — amber to distinguish from cash figures */}
                     <div className="hidden md:block w-36 shrink-0 text-right">
-                      <span className="text-amber-300 font-bold text-sm tabular-nums">
+                      <span className="text-pale-gold-foreground font-bold text-sm tabular-nums">
                         {mmk(totalSales)}
                       </span>
                     </div>
                     <div className="hidden md:block w-32 shrink-0 text-right">
-                      <span className="text-white font-bold text-sm tabular-nums">
+                      <span className="text-slate-900 font-bold text-sm tabular-nums">
                         {mmk(shift.actual_cash_collected)}
                       </span>
                     </div>
@@ -460,7 +460,7 @@ export default function Shifts() {
                     </div>
                     <div className="hidden md:block w-28 shrink-0 text-right">
                       <span className={`font-bold text-sm tabular-nums ${
-                        isRedFlag ? "text-red-300" : diff >= 0 ? "text-emerald-400" : "text-amber-400"
+                        isRedFlag ? "text-pale-red-foreground" : diff >= 0 ? "text-pale-green-foreground" : "text-pale-gold-foreground"
                       }`}>
                         {diff >= 0 ? "+" : ""}{mmk(diff)}
                       </span>
@@ -470,18 +470,18 @@ export default function Shifts() {
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={e => { e.stopPropagation(); setEditingShift(shift); }}
-                        className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-blue-400 hover:bg-blue-900/20 p-1.5 rounded-lg transition-all"
+                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-pale-blue-foreground hover:bg-pale-blue p-1.5 rounded-lg transition-all"
                         title="Edit shift"
                       >
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={e => { e.stopPropagation(); handleDeleteShift(shift); }}
-                        className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-lg transition-all"
+                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-pale-red-foreground hover:bg-pale-red p-1.5 rounded-lg transition-all"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                      <ChevronRight className="w-4 h-4 text-slate-600" />
+                      <ChevronRight className="w-4 h-4 text-slate-300" />
                     </div>
                   </div>
                 );
@@ -490,7 +490,7 @@ export default function Shifts() {
           )}
 
           {totalPages > 1 && (
-            <div className="px-5 py-4 border-t border-slate-700/40 flex items-center justify-between">
+            <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between">
               <p className="text-slate-500 text-xs">
                 Page {page + 1} of {totalPages} &nbsp;·&nbsp; {totalCount} total shifts
               </p>
@@ -498,14 +498,14 @@ export default function Shifts() {
                 <button
                   onClick={() => setPage(p => Math.max(0, p - 1))}
                   disabled={page === 0}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-all"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" /> Previous Page
                 </button>
                 <button
                   onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-all"
                 >
                   Next Page <ChevronRightIcon className="w-3.5 h-3.5" />
                 </button>
@@ -514,8 +514,8 @@ export default function Shifts() {
           )}
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-slate-600">
-          <div className="w-3 h-3 rounded border border-red-700/60" style={{ backgroundColor: "rgba(185,28,28,0.3)" }} />
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <div className="w-3 h-3 rounded border border-red-200" style={{ backgroundColor: "rgba(220,38,38,0.12)" }} />
           <span>Red rows: cash difference ≥ 10,000 MMK (surplus or deficit)</span>
         </div>
       </div>

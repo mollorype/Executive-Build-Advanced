@@ -46,25 +46,25 @@ export default function DebtLedgerModal({ profile, onClose }: { profile: DebtPro
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="relative bg-[#111827] border border-slate-700/50 rounded-xl w-full max-w-3xl shadow max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="relative bg-white border border-slate-100 rounded-xl w-full max-w-3xl shadow max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-blue-900/40 border border-blue-700/30 flex items-center justify-center shrink-0">
-              <FileSpreadsheet className="w-4 h-4 text-blue-400" />
+            <div className="w-9 h-9 rounded-lg bg-pale-blue flex items-center justify-center shrink-0">
+              <FileSpreadsheet className="w-4 h-4 text-pale-blue-foreground" />
             </div>
             <div>
-              <p className="text-white font-bold text-sm">Debtors Ledger</p>
+              <p className="text-slate-900 font-bold text-sm">Debtors Ledger</p>
               <p className="text-slate-400 text-xs mt-0.5">{profile.name}{phones.length > 0 ? ` · ${phones.join(", ")}` : ""}</p>
             </div>
           </div>
-          <button onClick={onClose} aria-label="Close" className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors">
+          <button onClick={onClose} aria-label="Close" className="text-slate-500 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Date range */}
-        <div className="px-6 py-3 border-b border-slate-700/50 flex flex-wrap items-center gap-2 shrink-0">
+        <div className="px-6 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2 shrink-0">
           <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
           <span className="text-slate-400 text-xs font-semibold uppercase tracking-wider mr-1">Period:</span>
           <input
@@ -72,7 +72,7 @@ export default function DebtLedgerModal({ profile, onClose }: { profile: DebtPro
             value={from}
             onChange={e => setFrom(e.target.value)}
             aria-label="From date"
-            className="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="bg-white border border-slate-100 text-slate-900 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
           <span className="text-slate-500 text-xs">→</span>
           <input
@@ -80,7 +80,7 @@ export default function DebtLedgerModal({ profile, onClose }: { profile: DebtPro
             value={to}
             onChange={e => setTo(e.target.value)}
             aria-label="To date"
-            className="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="bg-white border border-slate-100 text-slate-900 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
           <button
             onClick={handleExport}
@@ -122,7 +122,7 @@ export default function DebtLedgerModal({ profile, onClose }: { profile: DebtPro
 
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="bg-slate-800 text-white">
+                  <tr className="bg-white text-slate-900">
                     <th className="px-3 py-2.5 text-left font-semibold">Date</th>
                     <th className="px-3 py-2.5 text-left font-semibold">Description</th>
                     <th className="px-3 py-2.5 text-right font-semibold">Debit (MMK)</th>

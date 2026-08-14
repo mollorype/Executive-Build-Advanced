@@ -111,20 +111,20 @@ function EmailAllowlistCard({
   return (
     <div className="space-y-5">
       {tableError && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-5">
+        <div className="bg-pale-gold border border-amber-100 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-3">
-            <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
-            <p className="text-amber-300 font-semibold text-sm">One-time setup required</p>
+            <AlertCircle className="w-5 h-5 text-pale-gold-foreground shrink-0" />
+            <p className="text-pale-gold-foreground font-semibold text-sm">One-time setup required</p>
           </div>
-          <p className="text-amber-400/80 text-xs mb-3">
+          <p className="text-pale-gold-foreground/80 text-xs mb-3">
             Run this SQL once in your Supabase SQL Editor to create the allowlist table:
           </p>
-          <pre className="bg-black/40 rounded-lg p-3 text-xs text-slate-300 font-mono overflow-x-auto whitespace-pre-wrap mb-3">
+          <pre className="bg-slate-900 rounded-lg p-3 text-xs text-slate-100 font-mono overflow-x-auto whitespace-pre-wrap mb-3">
             {setupSql}
           </pre>
           <button
             onClick={handleCopy}
-            className="flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-lg px-3 py-1.5 transition-colors"
+            className="flex items-center gap-1.5 text-xs bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-lg px-3 py-1.5 transition-colors"
           >
             <Copy className="w-3 h-3" />
             {copied ? "Copied!" : "Copy SQL"}
@@ -133,29 +133,29 @@ function EmailAllowlistCard({
       )}
 
       {!tableError && (
-        <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex items-start gap-3">
-          <Shield className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+        <div className="bg-pale-blue rounded-2xl p-4 flex items-start gap-3">
+          <Shield className="w-5 h-5 text-pale-blue-foreground shrink-0 mt-0.5" />
           <div>
-            <p className="text-blue-300 font-semibold text-sm">{infoTitle}</p>
-            <p className="text-blue-400/70 text-xs mt-0.5">{infoDescription}</p>
+            <p className="text-pale-blue-foreground font-semibold text-sm">{infoTitle}</p>
+            <p className="text-pale-blue-foreground/70 text-xs mt-0.5">{infoDescription}</p>
           </div>
         </div>
       )}
 
-      <div className="bg-[#111827] border border-slate-700/50 rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-700/50 flex items-center gap-2">
-          <CardIcon className="w-4 h-4 text-blue-400" />
-          <span className="text-white font-semibold text-sm">{addSectionTitle}</span>
+      <div className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
+          <CardIcon className="w-4 h-4 text-pale-blue-foreground" />
+          <span className="text-slate-900 font-semibold text-sm">{addSectionTitle}</span>
         </div>
 
         <form onSubmit={handleAdd} className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
               Email Address
             </label>
-            <div className="flex rounded-lg overflow-hidden border border-slate-600/50 focus-within:ring-2 focus-within:ring-blue-500/50 transition-all">
-              <div className="flex items-center px-3 bg-slate-800 border-r border-slate-700">
-                <Mail className="w-4 h-4 text-slate-500" />
+            <div className="flex rounded-xl overflow-hidden border border-slate-200 focus-within:ring-2 focus-within:ring-blue-300/50 transition-all">
+              <div className="flex items-center px-3 bg-slate-50 border-r border-slate-200">
+                <Mail className="w-4 h-4 text-slate-400" />
               </div>
               <input
                 type="text"
@@ -164,7 +164,7 @@ function EmailAllowlistCard({
                 onChange={e => setEmail(e.target.value)}
                 required
                 disabled={tableError}
-                className="flex-1 bg-[#0d1527] px-4 py-3 text-white placeholder-slate-500 focus:outline-none disabled:opacity-40"
+                className="flex-1 bg-white px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none disabled:opacity-40"
                 placeholder={placeholder}
                 autoComplete="off"
               />
@@ -172,15 +172,15 @@ function EmailAllowlistCard({
           </div>
 
           {result && (
-            <div className={`flex items-start gap-3 rounded-xl p-4 ${
+            <div className={`flex items-start gap-3 rounded-2xl p-4 ${
               result.success
-                ? "bg-emerald-500/10 border border-emerald-500/20"
-                : "bg-red-500/10 border border-red-500/20"
+                ? "bg-pale-green border border-emerald-100"
+                : "bg-pale-red border border-red-100"
             }`}>
               {result.success
-                ? <Check className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-                : <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />}
-              <p className={`text-sm ${result.success ? "text-emerald-300" : "text-red-300"}`}>
+                ? <Check className="w-5 h-5 text-pale-green-foreground shrink-0 mt-0.5" />
+                : <AlertCircle className="w-5 h-5 text-pale-red-foreground shrink-0 mt-0.5" />}
+              <p className={`text-sm ${result.success ? "text-pale-green-foreground" : "text-pale-red-foreground"}`}>
                 {result.message}
               </p>
             </div>
@@ -189,7 +189,7 @@ function EmailAllowlistCard({
           <button
             type="submit"
             disabled={loading || !email || tableError}
-            className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+            className="w-full bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed text-primary-foreground font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
           >
             {loading ? (
               <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Adding…</>
@@ -201,12 +201,12 @@ function EmailAllowlistCard({
       </div>
 
       {!tableError && (
-        <div className="bg-[#111827] border border-slate-700/50 rounded-xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
-            <span className="text-white font-semibold text-sm">
+        <div className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <span className="text-slate-900 font-semibold text-sm">
               {listTitle}
               {entries.length > 0 && (
-                <span className="ml-2 bg-slate-700 text-slate-300 text-xs font-bold rounded-full px-2 py-0.5">
+                <span className="ml-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-full px-2 py-0.5">
                   {entries.length}
                 </span>
               )}
@@ -215,33 +215,33 @@ function EmailAllowlistCard({
               onClick={fetchEntries}
               disabled={fetching}
               aria-label="Refresh list"
-              className="text-slate-500 hover:text-slate-300 transition-colors"
+              className="text-slate-400 hover:text-slate-600 transition-colors"
             >
               <RefreshCw className={`w-4 h-4 ${fetching ? "animate-spin" : ""}`} />
             </button>
           </div>
 
           {fetching ? (
-            <div className="px-6 py-8 text-center text-slate-500 text-sm">Loading…</div>
+            <div className="px-6 py-8 text-center text-slate-400 text-sm">Loading…</div>
           ) : entries.length === 0 ? (
             <div className="px-6 py-8 text-center">
-              <Mail className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-              <p className="text-slate-500 text-sm">No one added yet.</p>
-              <p className="text-slate-600 text-xs mt-1">{emptyHint}</p>
+              <Mail className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+              <p className="text-slate-400 text-sm">No one added yet.</p>
+              <p className="text-slate-400 text-xs mt-1">{emptyHint}</p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-700/30">
+            <div className="divide-y divide-slate-100">
               {entries.map(entry => (
                 <div key={entry.id} className="px-6 py-3.5 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-blue-900/40 border border-blue-700/30 flex items-center justify-center shrink-0">
-                      <span className="text-xs font-bold text-blue-300 uppercase">
+                    <div className="w-7 h-7 rounded-lg bg-pale-blue flex items-center justify-center shrink-0">
+                      <span className="text-xs font-bold text-pale-blue-foreground uppercase">
                         {entry.email[0]}
                       </span>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm text-white font-medium truncate">{entry.email}</p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-sm text-slate-900 font-medium truncate">{entry.email}</p>
+                      <p className="text-xs text-slate-400">
                         Added {new Date(entry.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       </p>
                     </div>
@@ -249,11 +249,11 @@ function EmailAllowlistCard({
                   <button
                     onClick={() => handleDelete(entry)}
                     disabled={deleting === entry.id}
-                    className="shrink-0 text-slate-600 hover:text-red-400 disabled:opacity-40 transition-colors p-1"
+                    className="shrink-0 text-slate-300 hover:text-red-500 disabled:opacity-40 transition-colors p-1"
                     title="Remove access"
                   >
                     {deleting === entry.id
-                      ? <div className="w-4 h-4 border-2 border-slate-500/30 border-t-slate-400 rounded-full animate-spin" />
+                      ? <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
                       : <Trash2 className="w-4 h-4" />}
                   </button>
                 </div>
@@ -288,17 +288,17 @@ CREATE POLICY "auth_manage" ON accountant_access FOR ALL TO authenticated USING 
 
 export default function ManageAccess() {
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="px-6 py-5 border-b border-slate-700/50">
-        <h1 className="text-2xl font-bold text-white">Staff Access</h1>
-        <p className="text-slate-400 text-sm mt-0.5">Control who can access STM Daily and STM Financial</p>
+    <div className="flex-1 overflow-auto bg-slate-50">
+      <div className="px-6 py-5 border-b border-slate-100 bg-white">
+        <h1 className="text-2xl font-bold text-slate-900">Staff Access</h1>
+        <p className="text-slate-500 text-sm mt-0.5">Control who can access STM Daily and STM Financial</p>
       </div>
 
       <div className="p-6 max-w-xl space-y-10">
         <section>
           <div className="flex items-center gap-2 mb-1">
-            <Mail className="w-4 h-4 text-blue-400" />
-            <h2 className="text-white font-bold text-sm">STM Daily Access</h2>
+            <Mail className="w-4 h-4 text-pale-blue-foreground" />
+            <h2 className="text-slate-900 font-bold text-sm">STM Daily Access</h2>
           </div>
           <p className="text-slate-500 text-xs mb-4">Employees who can submit daily shift reports.</p>
           <EmailAllowlistCard
@@ -319,8 +319,8 @@ export default function ManageAccess() {
 
         <section>
           <div className="flex items-center gap-2 mb-1">
-            <Calculator className="w-4 h-4 text-blue-400" />
-            <h2 className="text-white font-bold text-sm">Accountant Access</h2>
+            <Calculator className="w-4 h-4 text-pale-blue-foreground" />
+            <h2 className="text-slate-900 font-bold text-sm">Accountant Access</h2>
           </div>
           <p className="text-slate-500 text-xs mb-4">
             Accountants can sign in to STM Financial, restricted to the Debt Tracker page only.

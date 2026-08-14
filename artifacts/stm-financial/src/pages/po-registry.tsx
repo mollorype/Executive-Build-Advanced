@@ -18,9 +18,9 @@ const PRODUCT_LABELS: Record<string, string> = {
 };
 
 const STATUS_CONFIG = {
-  ACTIVE: { label: "ACTIVE", bg: "bg-emerald-900/40", border: "border-emerald-600/40", text: "text-emerald-300", dot: "bg-emerald-400" },
-  QUEUED: { label: "QUEUED", bg: "bg-amber-900/20", border: "border-amber-700/30", text: "text-amber-300", dot: "bg-amber-400" },
-  DONE:   { label: "DONE",   bg: "bg-slate-800/40",  border: "border-slate-700/30",  text: "text-slate-400",  dot: "bg-slate-500" },
+  ACTIVE: { label: "ACTIVE", bg: "bg-pale-green", border: "border-emerald-100", text: "text-pale-green-foreground", dot: "bg-emerald-400" },
+  QUEUED: { label: "QUEUED", bg: "bg-pale-gold", border: "border-amber-100", text: "text-pale-gold-foreground", dot: "bg-amber-400" },
+  DONE:   { label: "DONE",   bg: "bg-slate-50",  border: "border-slate-100",  text: "text-slate-400",  dot: "bg-slate-500" },
 };
 
 function mmk(v: number | null | undefined) {
@@ -68,28 +68,28 @@ function ForceCloseModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="relative bg-[#111827] border border-red-700/40 rounded-xl p-6 w-full max-w-md shadow">
-        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-slate-500 hover:text-white">
+      <div className="relative bg-white border border-red-100 rounded-xl p-6 w-full max-w-md shadow">
+        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-slate-500 hover:text-slate-900">
           <X className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-xl bg-red-900/40 border border-red-700/40 flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5 text-red-400" />
+          <div className="w-10 h-10 rounded-xl bg-pale-red border border-red-100 flex items-center justify-center">
+            <AlertTriangle className="w-5 h-5 text-pale-red-foreground" />
           </div>
           <div>
-            <p className="text-white font-bold">Force Close — Dip Mismatch</p>
+            <p className="text-slate-900 font-bold">Force Close — Dip Mismatch</p>
             <p className="text-slate-400 text-xs mt-0.5">{PRODUCT_LABELS[po.product_type]} · PO #{po.id.slice(0, 8).toUpperCase()}</p>
           </div>
         </div>
 
-        <div className="bg-slate-800/50 border border-slate-700/30 rounded-xl p-4 mb-4 text-sm">
+        <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 mb-4 text-sm">
           <div className="flex justify-between mb-1">
             <span className="text-slate-400">Expected Remaining</span>
-            <span className="text-white font-medium">{liters(po.remaining_volume)}</span>
+            <span className="text-slate-900 font-medium">{liters(po.remaining_volume)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-400">Calibration Factor</span>
-            <span className="text-white font-medium">{po.calibration_factor.toFixed(2)}</span>
+            <span className="text-slate-900 font-medium">{po.calibration_factor.toFixed(2)}</span>
           </div>
         </div>
 
@@ -103,28 +103,28 @@ function ForceCloseModal({
           value={physical}
           onChange={e => { setPhysical(e.target.value); setErr(""); }}
           placeholder="Enter actual physical volume…"
-          className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 mb-3"
+          className="w-full bg-white border border-slate-100 text-slate-900 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 mb-3"
         />
 
         {shortage != null && !isNaN(shortage) && (
           <div className={`rounded-xl px-4 py-3 mb-3 text-sm flex justify-between ${
-            shortage > 0 ? "bg-red-900/30 border border-red-700/40" : "bg-emerald-900/20 border border-emerald-700/30"
+            shortage > 0 ? "bg-pale-red border border-red-100" : "bg-pale-green border border-emerald-100"
           }`}>
-            <span className={shortage > 0 ? "text-red-300" : "text-emerald-300"}>
+            <span className={shortage > 0 ? "text-pale-red-foreground" : "text-pale-green-foreground"}>
               {shortage > 0 ? "Shortage" : "Surplus"}
             </span>
-            <span className={`font-bold ${shortage > 0 ? "text-red-300" : "text-emerald-300"}`}>
+            <span className={`font-bold ${shortage > 0 ? "text-pale-red-foreground" : "text-pale-green-foreground"}`}>
               {liters(Math.abs(shortage))}
             </span>
           </div>
         )}
 
-        {err && <p className="text-red-400 text-xs mb-3">{err}</p>}
+        {err && <p className="text-pale-red-foreground text-xs mb-3">{err}</p>}
 
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-semibold rounded-xl py-3 text-sm transition-all"
+            className="flex-1 bg-white hover:bg-slate-100 border border-slate-100 text-slate-700 font-semibold rounded-xl py-3 text-sm transition-all"
           >
             Cancel
           </button>
@@ -193,7 +193,7 @@ function VerifyModal({
         value={form[field]}
         onChange={e => { setForm(f => ({ ...f, [field]: e.target.value })); setErr(""); }}
         placeholder="0"
-        className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full bg-white border border-slate-100 text-slate-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
     </div>
   );
@@ -201,16 +201,16 @@ function VerifyModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="relative bg-[#111827] border border-slate-700/50 rounded-xl p-6 w-full max-w-md shadow">
-        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-slate-500 hover:text-white">
+      <div className="relative bg-white border border-slate-100 rounded-xl p-6 w-full max-w-md shadow">
+        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-slate-500 hover:text-slate-900">
           <X className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-xl bg-blue-900/40 border border-blue-700/30 flex items-center justify-center">
-            <Edit3 className="w-5 h-5 text-blue-400" />
+          <div className="w-10 h-10 rounded-xl bg-pale-blue border border-blue-100 flex items-center justify-center">
+            <Edit3 className="w-5 h-5 text-pale-blue-foreground" />
           </div>
           <div>
-            <p className="text-white font-bold">Unlock Net Profit</p>
+            <p className="text-slate-900 font-bold">Unlock Net Profit</p>
             <p className="text-slate-400 text-xs mt-0.5">{PRODUCT_LABELS[po.product_type]} · PO #{po.id.slice(0, 8).toUpperCase()}</p>
           </div>
         </div>
@@ -222,12 +222,12 @@ function VerifyModal({
           <Field label="Retail Price Set (MMK/L)" field="retail_price_set" />
         </div>
 
-        {err && <p className="text-red-400 text-xs mb-3">{err}</p>}
+        {err && <p className="text-pale-red-foreground text-xs mb-3">{err}</p>}
 
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-semibold rounded-xl py-3 text-sm transition-all"
+            className="flex-1 bg-white hover:bg-slate-100 border border-slate-100 text-slate-700 font-semibold rounded-xl py-3 text-sm transition-all"
           >
             Cancel
           </button>
@@ -294,24 +294,24 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <div className="bg-[#111827] border border-slate-700/50 rounded-xl overflow-hidden">
+    <div className="bg-white border border-slate-100 rounded-xl overflow-hidden">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full px-5 py-4 flex items-center gap-2 hover:bg-slate-700/10 transition-colors"
+        className="w-full px-5 py-4 flex items-center gap-2 hover:bg-slate-100 transition-colors"
       >
         <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center">
-          <Plus className={`w-4 h-4 text-blue-400 transition-transform ${open ? "rotate-45" : ""}`} />
+          <Plus className={`w-4 h-4 text-pale-blue-foreground transition-transform ${open ? "rotate-45" : ""}`} />
         </div>
-        <h2 className="text-white font-semibold text-sm">Create New Purchase Order</h2>
+        <h2 className="text-slate-900 font-semibold text-sm">Create New Purchase Order</h2>
         {okMsg && (
-          <span className="ml-auto flex items-center gap-1.5 text-xs text-emerald-300 bg-emerald-900/30 border border-emerald-700/30 rounded-full px-2.5 py-1">
+          <span className="ml-auto flex items-center gap-1.5 text-xs text-pale-green-foreground bg-pale-green border border-emerald-100 rounded-full px-2.5 py-1">
             <CheckCircle className="w-3 h-3" /> {okMsg}
           </span>
         )}
       </button>
 
       {open && (
-        <form onSubmit={handleSubmit} className="px-5 pb-5 border-t border-slate-700/30 pt-4 space-y-4">
+        <form onSubmit={handleSubmit} className="px-5 pb-5 border-t border-slate-100 pt-4 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2">
               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">PO Name</label>
@@ -320,7 +320,7 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="e.g. Mandalay Depot Batch 23"
-                className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-white border border-slate-100 text-slate-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -329,7 +329,7 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
               <select
                 value={productType}
                 onChange={e => setProductType(e.target.value as any)}
-                className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+                className="w-full bg-white border border-slate-100 text-slate-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
               >
                 <option value="92">92 RON</option>
                 <option value="95">95 RON</option>
@@ -346,39 +346,39 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
                 value={volume}
                 onChange={e => setVolume(e.target.value)}
                 placeholder="e.g. 10000"
-                className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-white border border-slate-100 text-slate-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                Calibration Factor <span className="text-slate-600 normal-case font-normal">(default 1.00)</span>
+                Calibration Factor <span className="text-slate-400 normal-case font-normal">(default 1.00)</span>
               </label>
               <input
                 type="number" min="0" step="0.01"
                 value={calibration}
                 onChange={e => setCalibration(e.target.value)}
                 placeholder="1.00"
-                className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-white border border-slate-100 text-slate-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                Wholesale Price (MMK/L) <span className="text-slate-600 normal-case font-normal">(default 0)</span>
+                Wholesale Price (MMK/L) <span className="text-slate-400 normal-case font-normal">(default 0)</span>
               </label>
               <input
                 type="number" min="0" step="0.01"
                 value={wholesale}
                 onChange={e => setWholesale(e.target.value)}
                 placeholder="0"
-                className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-white border border-slate-100 text-slate-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
 
           {err && (
-            <div className="flex items-start gap-2 bg-red-900/20 border border-red-700/30 rounded-lg px-3 py-2 text-xs text-red-300">
+            <div className="flex items-start gap-2 bg-pale-red border border-red-100 rounded-lg px-3 py-2 text-xs text-pale-red-foreground">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               {err}
             </div>
@@ -394,7 +394,7 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
                 ? <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Creating…</>
                 : <><Plus className="w-4 h-4" /> Create Purchase Order</>}
             </button>
-            <p className="text-slate-500 text-xs">Defaults to <span className="text-slate-300 font-semibold">QUEUED</span> — promote to ACTIVE from the table.</p>
+            <p className="text-slate-500 text-xs">Defaults to <span className="text-slate-700 font-semibold">QUEUED</span> — promote to ACTIVE from the table.</p>
           </div>
         </form>
       )}
@@ -543,12 +543,12 @@ export default function PORegistry() {
   const activePOs = pos.filter(p => p.status === "ACTIVE");
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div className="flex-1 overflow-auto bg-slate-50">
       {/* Header */}
-      <div className="px-6 py-5 border-b border-slate-700/50">
+      <div className="px-6 py-5 border-b border-slate-100 bg-white">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-white">PO Registry</h1>
+            <h1 className="text-2xl font-bold text-slate-900">PO Registry</h1>
             <p className="text-slate-400 text-sm mt-0.5">Fuel purchase orders · FIFO inventory engine</p>
           </div>
           <div className="flex items-center gap-2">
@@ -577,8 +577,8 @@ export default function PORegistry() {
 
         {/* FIFO status bar */}
         {fifoRunning && (
-          <div className="mt-3 rounded-xl px-4 py-2.5 text-sm flex items-center gap-2 border bg-slate-800/60 border-slate-700/30 text-slate-300">
-            <span className="w-3 h-3 border border-slate-400/30 border-t-slate-300 rounded-full animate-spin shrink-0" />
+          <div className="mt-3 rounded-xl px-4 py-2.5 text-sm flex items-center gap-2 border bg-slate-50 border-slate-100 text-slate-700">
+            <span className="w-3 h-3 border border-slate-200 border-t-slate-500 rounded-full animate-spin shrink-0" />
             {fifoMsg}
           </div>
         )}
@@ -586,10 +586,10 @@ export default function PORegistry() {
         {!fifoRunning && fifoResult && (
           <div className={`mt-3 rounded-xl px-4 py-3 text-sm border ${
             fifoResult.error
-              ? "bg-red-900/20 border-red-700/30 text-red-300"
+              ? "bg-pale-red border-red-100 text-pale-red-foreground"
               : fifoResult.failedPOs > 0
-              ? "bg-amber-900/20 border-amber-700/40 text-amber-200"
-              : "bg-emerald-900/20 border-emerald-700/30 text-emerald-300"
+              ? "bg-pale-gold border-amber-100 text-pale-gold-foreground"
+              : "bg-pale-green border-emerald-100 text-pale-green-foreground"
           }`}>
             {fifoResult.error ? (
               <div className="flex items-start gap-2">
@@ -622,7 +622,7 @@ export default function PORegistry() {
                   </div>
                   <div>
                     <span className="opacity-60">Write failures:</span>
-                    <span className={`font-bold ml-1 ${fifoResult.failedPOs > 0 ? "text-red-300" : ""}`}>{fifoResult.failedPOs}</span>
+                    <span className={`font-bold ml-1 ${fifoResult.failedPOs > 0 ? "text-pale-red-foreground" : ""}`}>{fifoResult.failedPOs}</span>
                   </div>
                   <div>
                     <span className="opacity-60">Total liters processed:</span>
@@ -644,12 +644,12 @@ export default function PORegistry() {
 
                 {fifoResult.failures.length > 0 && (
                   <details className="mt-3 text-xs">
-                    <summary className="cursor-pointer font-semibold text-red-300 hover:text-red-200">
+                    <summary className="cursor-pointer font-semibold text-pale-red-foreground hover:text-red-200">
                       Show {fifoResult.failures.length} failure detail{fifoResult.failures.length > 1 ? "s" : ""}
                     </summary>
                     <ul className="mt-2 space-y-1 bg-black/30 rounded-lg p-3 font-mono">
                       {fifoResult.failures.map((f, i) => (
-                        <li key={i} className="text-red-300">• {f}</li>
+                        <li key={i} className="text-pale-red-foreground">• {f}</li>
                       ))}
                     </ul>
                   </details>
@@ -684,7 +684,7 @@ export default function PORegistry() {
                 const fill = pct(po.remaining_volume, po.initial_volume);
                 const profit = calcNetProfit(po);
                 return (
-                  <div key={po.id} className="bg-[#111827] border border-emerald-600/25 rounded-xl p-5 relative overflow-hidden">
+                  <div key={po.id} className="bg-white border border-emerald-100 rounded-xl p-5 relative overflow-hidden">
                     {/* Progress bar background */}
                     <div
                       className="absolute inset-0 bg-emerald-500/5 origin-left transition-all"
@@ -693,10 +693,10 @@ export default function PORegistry() {
                     <div className="relative">
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <p className="text-white font-bold">{PRODUCT_LABELS[po.product_type]}</p>
+                          <p className="text-slate-900 font-bold">{PRODUCT_LABELS[po.product_type]}</p>
                           <p className="text-slate-500 text-xs font-mono mt-0.5">#{po.id.slice(0, 8).toUpperCase()}</p>
                         </div>
-                        <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-300 bg-emerald-900/40 border border-emerald-600/30 rounded-full px-2.5 py-1">
+                        <span className="flex items-center gap-1.5 text-xs font-semibold text-pale-green-foreground bg-pale-green border border-emerald-100 rounded-full px-2.5 py-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                           ACTIVE
                         </span>
@@ -706,9 +706,9 @@ export default function PORegistry() {
                       <div className="mb-3">
                         <div className="flex justify-between text-xs text-slate-400 mb-1">
                           <span>Remaining</span>
-                          <span className="font-semibold text-white">{fill.toFixed(1)}%</span>
+                          <span className="font-semibold text-slate-900">{fill.toFixed(1)}%</span>
                         </div>
-                        <div className="h-2 bg-slate-700/60 rounded-full overflow-hidden">
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all ${
                               fill < 20 ? "bg-red-500" : fill < 50 ? "bg-amber-500" : "bg-emerald-500"
@@ -725,26 +725,26 @@ export default function PORegistry() {
                       {/* Calibration */}
                       <div className="flex justify-between text-xs mb-4">
                         <span className="text-slate-400">Calibration Factor</span>
-                        <span className="text-slate-300 font-mono">{po.calibration_factor.toFixed(2)}</span>
+                        <span className="text-slate-700 font-mono">{po.calibration_factor.toFixed(2)}</span>
                       </div>
 
                       {/* Profit badge */}
                       <div className="mb-4">
                         {!po.is_verified ? (
-                          <div className="flex items-center gap-2 bg-slate-800/60 border border-slate-700/30 rounded-lg px-3 py-2">
+                          <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
                             <Lock className="w-3.5 h-3.5 text-slate-500" />
                             <span className="text-slate-500 text-xs font-semibold tracking-wider">[ PENDING ] — Costs not verified</span>
                           </div>
                         ) : profit != null ? (
                           <div className={`flex items-center justify-between rounded-lg px-3 py-2 border ${
                             profit >= 0
-                              ? "bg-emerald-900/30 border-emerald-700/30"
-                              : "bg-red-900/30 border-red-700/30"
+                              ? "bg-pale-green border-emerald-100"
+                              : "bg-pale-red border-red-100"
                           }`}>
                             <span className="text-xs font-semibold text-slate-400 flex items-center gap-1">
                               <Unlock className="w-3 h-3" /> Net Profit
                             </span>
-                            <span className={`font-bold text-sm tabular-nums ${profit >= 0 ? "text-emerald-300" : "text-red-300"}`}>
+                            <span className={`font-bold text-sm tabular-nums ${profit >= 0 ? "text-pale-green-foreground" : "text-pale-red-foreground"}`}>
                               {profit >= 0 ? "+" : ""}{mmk(profit)}
                             </span>
                           </div>
@@ -755,14 +755,14 @@ export default function PORegistry() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => setForceCloseTarget(po)}
-                          className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-red-400 hover:text-red-300 bg-red-900/20 hover:bg-red-900/30 border border-red-700/30 rounded-lg py-2 transition-all"
+                          className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-pale-red-foreground hover:text-pale-red-foreground bg-pale-red hover:bg-pale-red border border-red-100 rounded-lg py-2 transition-all"
                         >
                           <AlertTriangle className="w-3.5 h-3.5" />
                           Force Close / Dip Mismatch
                         </button>
                         <button
                           onClick={() => setVerifyTarget(po)}
-                          className="flex items-center justify-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 bg-blue-900/20 hover:bg-blue-900/30 border border-blue-700/30 rounded-lg px-3 py-2 transition-all"
+                          className="flex items-center justify-center gap-1.5 text-xs font-semibold text-pale-blue-foreground hover:text-pale-blue-foreground bg-pale-blue hover:bg-pale-blue border border-blue-100 rounded-lg px-3 py-2 transition-all"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                           {po.is_verified ? "Edit" : "Verify"}
@@ -777,17 +777,17 @@ export default function PORegistry() {
         )}
 
         {/* PO Table */}
-        <div className="bg-[#111827] border border-slate-700/50 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-700/40 flex items-center gap-2">
-            <PackageSearch className="w-4 h-4 text-blue-400" />
-            <h2 className="text-white font-semibold text-sm">All Purchase Orders</h2>
+        <div className="bg-white border border-slate-100 rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+            <PackageSearch className="w-4 h-4 text-pale-blue-foreground" />
+            <h2 className="text-slate-900 font-semibold text-sm">All Purchase Orders</h2>
             <span className="ml-auto text-slate-500 text-xs">{totalCount} total</span>
           </div>
           {deleteError && (
-            <div className="mx-5 mt-4 flex items-start gap-2 bg-red-900/30 border border-red-700/40 rounded-xl px-4 py-3 text-xs text-red-300">
+            <div className="mx-5 mt-4 flex items-start gap-2 bg-pale-red border border-red-100 rounded-xl px-4 py-3 text-xs text-pale-red-foreground">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>{deleteError}</span>
-              <button onClick={() => setDeleteError("")} aria-label="Dismiss error" className="ml-auto text-red-400 hover:text-red-200"><X className="w-3.5 h-3.5" /></button>
+              <button onClick={() => setDeleteError("")} aria-label="Dismiss error" className="ml-auto text-pale-red-foreground hover:text-red-200"><X className="w-3.5 h-3.5" /></button>
             </div>
           )}
 
@@ -798,15 +798,15 @@ export default function PORegistry() {
             </div>
           ) : pos.length === 0 ? (
             <div className="p-16 text-center">
-              <PackageSearch className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+              <PackageSearch className="w-10 h-10 text-slate-200 mx-auto mb-3" />
               <p className="text-slate-400 text-sm font-medium">No purchase orders found</p>
-              <p className="text-slate-600 text-xs mt-1">Create a purchase order to get started</p>
+              <p className="text-slate-400 text-xs mt-1">Create a purchase order to get started</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[900px]">
                 <thead>
-                  <tr className="border-b border-slate-700/40">
+                  <tr className="border-b border-slate-100">
                     <th className="px-5 py-3 w-10">
                       <input type="checkbox"
                         checked={pos.length > 0 && selectedIds.size === pos.length}
@@ -833,7 +833,7 @@ export default function PORegistry() {
                     const profit = calcNetProfit(po);
                     const fillPct = pct(po.remaining_volume, po.initial_volume);
                     return (
-                      <tr key={po.id} className={`border-b border-slate-700/20 last:border-0 transition-colors ${selectedIds.has(po.id) ? "bg-red-900/10" : "hover:bg-slate-700/10"}`}>
+                      <tr key={po.id} className={`border-b border-slate-100 last:border-0 transition-colors ${selectedIds.has(po.id) ? "bg-pale-red" : "hover:bg-slate-100"}`}>
                         <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
                           <input type="checkbox"
                             checked={selectedIds.has(po.id)}
@@ -844,25 +844,25 @@ export default function PORegistry() {
                         </td>
                         <td className="px-5 py-3.5">
                           <div className="flex flex-col">
-                            <span className="text-white text-sm font-semibold">{po.name ?? "—"}</span>
+                            <span className="text-slate-900 text-sm font-semibold">{po.name ?? "—"}</span>
                             <span className="text-slate-500 text-xs font-mono mt-0.5">#{po.id.slice(0, 8).toUpperCase()}</span>
                           </div>
                         </td>
-                        <td className="px-5 py-3.5 text-slate-300 text-sm">{PRODUCT_LABELS[po.product_type]}</td>
+                        <td className="px-5 py-3.5 text-slate-700 text-sm">{PRODUCT_LABELS[po.product_type]}</td>
                         <td className="px-5 py-3.5">
                           <span className={`inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-2.5 py-1 border ${cfg.bg} ${cfg.border} ${cfg.text}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} ${po.status === "ACTIVE" ? "animate-pulse" : ""}`} />
                             {cfg.label}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 text-right text-slate-300 text-sm tabular-nums">{liters(po.initial_volume)}</td>
+                        <td className="px-5 py-3.5 text-right text-slate-700 text-sm tabular-nums">{liters(po.initial_volume)}</td>
                         <td className="px-5 py-3.5 text-right">
                           <div className="flex flex-col items-end gap-1">
-                            <span className={`text-sm font-semibold tabular-nums ${fillPct < 20 ? "text-red-400" : "text-white"}`}>
+                            <span className={`text-sm font-semibold tabular-nums ${fillPct < 20 ? "text-pale-red-foreground" : "text-slate-900"}`}>
                               {liters(po.remaining_volume)}
                             </span>
                             {po.status === "ACTIVE" && (
-                              <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                              <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                                 <div
                                   className={`h-full rounded-full ${fillPct < 20 ? "bg-red-500" : fillPct < 50 ? "bg-amber-500" : "bg-emerald-500"}`}
                                   style={{ width: `${fillPct}%` }}
@@ -876,25 +876,25 @@ export default function PORegistry() {
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           {po.shortage_liters != null ? (
-                            <span className="text-red-400 text-sm font-semibold tabular-nums">{liters(po.shortage_liters)}</span>
+                            <span className="text-pale-red-foreground text-sm font-semibold tabular-nums">{liters(po.shortage_liters)}</span>
                           ) : (
-                            <span className="text-slate-600 text-sm">—</span>
+                            <span className="text-slate-400 text-sm">—</span>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 text-center text-slate-300 text-sm font-mono">
+                        <td className="px-5 py-3.5 text-center text-slate-700 text-sm font-mono">
                           {po.calibration_factor.toFixed(2)}
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           {!po.is_verified ? (
-                            <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-800/60 border border-slate-700/30 rounded-full px-2.5 py-1">
+                            <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-50 border border-slate-100 rounded-full px-2.5 py-1">
                               <Lock className="w-3 h-3" /> PENDING
                             </span>
                           ) : profit != null ? (
-                            <span className={`text-sm font-bold tabular-nums ${profit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                            <span className={`text-sm font-bold tabular-nums ${profit >= 0 ? "text-pale-green-foreground" : "text-pale-red-foreground"}`}>
                               {profit >= 0 ? "+" : ""}{mmk(profit)}
                             </span>
                           ) : (
-                            <span className="text-slate-600 text-sm">—</span>
+                            <span className="text-slate-400 text-sm">—</span>
                           )}
                         </td>
                         <td className="px-5 py-3.5">
@@ -903,7 +903,7 @@ export default function PORegistry() {
                               <button
                                 onClick={() => handleSetActive(po)}
                                 title="Promote to ACTIVE — current on-hand batch"
-                                className="flex items-center gap-1 text-xs font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-900/20 hover:bg-emerald-900/30 border border-emerald-700/30 rounded-lg px-2.5 py-1.5 transition-all"
+                                className="flex items-center gap-1 text-xs font-semibold text-pale-green-foreground hover:text-pale-green-foreground bg-pale-green hover:bg-pale-green border border-emerald-100 rounded-lg px-2.5 py-1.5 transition-all"
                               >
                                 <Play className="w-3 h-3" />
                                 Set Active
@@ -913,7 +913,7 @@ export default function PORegistry() {
                               <button
                                 onClick={() => setForceCloseTarget(po)}
                                 title="Force Close / Dip Mismatch"
-                                className="text-red-400 hover:text-red-300 hover:bg-red-900/20 p-1.5 rounded-lg transition-all"
+                                className="text-pale-red-foreground hover:text-pale-red-foreground hover:bg-pale-red p-1.5 rounded-lg transition-all"
                               >
                                 <AlertTriangle className="w-4 h-4" />
                               </button>
@@ -921,14 +921,14 @@ export default function PORegistry() {
                             <button
                               onClick={() => setVerifyTarget(po)}
                               title={po.is_verified ? "Edit costs" : "Verify costs"}
-                              className="text-blue-400 hover:text-blue-300 hover:bg-blue-900/20 p-1.5 rounded-lg transition-all"
+                              className="text-pale-blue-foreground hover:text-pale-blue-foreground hover:bg-pale-blue p-1.5 rounded-lg transition-all"
                             >
                               {po.is_verified ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
                             </button>
                             <button
                               onClick={() => handleDeletePO(po)}
                               title="Delete this PO"
-                              className="text-slate-500 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-lg transition-all"
+                              className="text-slate-500 hover:text-pale-red-foreground hover:bg-pale-red p-1.5 rounded-lg transition-all"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -944,20 +944,20 @@ export default function PORegistry() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="px-5 py-4 border-t border-slate-700/40 flex items-center justify-between">
+            <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between">
               <p className="text-slate-500 text-xs">Page {page + 1} of {totalPages} · {totalCount} POs</p>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setPage(p => Math.max(0, p - 1))}
                   disabled={page === 0}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-100 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 transition-all"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" /> Previous Page
                 </button>
                 <button
                   onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-100 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 transition-all"
                 >
                   Next Page <ChevronRight className="w-3.5 h-3.5" />
                 </button>

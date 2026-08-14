@@ -35,9 +35,9 @@ function Field({ label, value, onChange, prefix, suffix, hint }: {
           onChange={e => onChange(e.target.value)}
           placeholder="0"
           className={[
-            "w-full rounded-lg border bg-slate-900 border-slate-600 text-white text-sm font-semibold",
+            "w-full rounded-lg border bg-slate-900 border-slate-200 text-slate-900 text-sm font-semibold",
             "px-3 py-2.5 outline-none tabular-nums",
-            "focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 placeholder:text-slate-600",
+            "focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 placeholder:text-slate-400",
             prefix ? "pl-8" : "",
             suffix ? "pr-8" : "",
           ].join(" ")}
@@ -46,7 +46,7 @@ function Field({ label, value, onChange, prefix, suffix, hint }: {
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-semibold select-none">{suffix}</span>
         )}
       </div>
-      {hint && <p className="text-[10px] text-slate-600 mt-0.5">{hint}</p>}
+      {hint && <p className="text-[10px] text-slate-400 mt-0.5">{hint}</p>}
     </div>
   );
 }
@@ -54,9 +54,9 @@ function Field({ label, value, onChange, prefix, suffix, hint }: {
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-5 mb-3 flex items-center gap-2">
-      <span className="flex-1 h-px bg-slate-700/60" />
+      <span className="flex-1 h-px bg-slate-100" />
       {children}
-      <span className="flex-1 h-px bg-slate-700/60" />
+      <span className="flex-1 h-px bg-slate-100" />
     </p>
   );
 }
@@ -172,21 +172,21 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-      <div className="relative w-full max-w-[520px] bg-[#0f1623] border-l border-slate-700/50 h-full overflow-y-auto shadow flex flex-col">
+      <div className="relative w-full max-w-[520px] bg-white border-l border-slate-100 h-full overflow-y-auto shadow flex flex-col">
         {/* Header */}
-        <div className="sticky top-0 bg-[#0f1623] border-b border-slate-700/50 px-6 py-4 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between z-10">
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-0.5">Edit Shift</p>
-            <h2 className="text-white font-bold text-base font-mono">#{String(shift.id).slice(0, 8).toUpperCase()}</h2>
+            <h2 className="text-slate-900 font-bold text-base font-mono">#{String(shift.id).slice(0, 8).toUpperCase()}</h2>
           </div>
-          <button onClick={onClose} aria-label="Close panel" className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors">
+          <button onClick={onClose} aria-label="Close panel" className="text-slate-500 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="flex-1 px-6 py-5 space-y-1 overflow-y-auto">
           {saveError && (
-            <div className="flex items-start gap-2 bg-red-900/30 border border-red-700/40 rounded-xl px-4 py-3 text-xs text-red-300 mb-4">
+            <div className="flex items-start gap-2 bg-pale-red border border-red-100 rounded-xl px-4 py-3 text-xs text-pale-red-foreground mb-4">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>{saveError}</span>
             </div>
@@ -202,7 +202,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
               type="date"
               value={shiftDate}
               onChange={e => setShiftDate(e.target.value)}
-              className="w-full rounded-lg border bg-slate-900 border-slate-600 text-white text-sm font-semibold px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30"
+              className="w-full rounded-lg border bg-slate-900 border-slate-200 text-slate-900 text-sm font-semibold px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30"
             />
           </div>
 
@@ -242,7 +242,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
                   value={e.name}
                   onChange={ev => updateExpense(i, "name", ev.target.value)}
                   placeholder="Description"
-                  className="rounded-lg border bg-slate-900 border-slate-600 text-white text-sm px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 placeholder:text-slate-600"
+                  className="rounded-lg border bg-slate-900 border-slate-200 text-slate-900 text-sm px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 placeholder:text-slate-400"
                 />
                 <div className="relative">
                   <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs select-none">K</span>
@@ -251,10 +251,10 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
                     value={e.amount || ""}
                     onChange={ev => updateExpense(i, "amount", ev.target.value)}
                     placeholder="0"
-                    className="w-28 rounded-lg border bg-slate-900 border-slate-600 text-white text-sm pl-7 pr-2 py-2.5 outline-none tabular-nums focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 placeholder:text-slate-600"
+                    className="w-28 rounded-lg border bg-slate-900 border-slate-200 text-slate-900 text-sm pl-7 pr-2 py-2.5 outline-none tabular-nums focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 placeholder:text-slate-400"
                   />
                 </div>
-                <button type="button" onClick={() => removeExpense(i)} aria-label={`Remove expense ${i + 1}`} className="text-slate-600 hover:text-red-400 transition-colors p-1">
+                <button type="button" onClick={() => removeExpense(i)} aria-label={`Remove expense ${i + 1}`} className="text-slate-300 hover:text-red-500 transition-colors p-1">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -262,25 +262,25 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
             <button
               type="button"
               onClick={addExpense}
-              className="text-xs font-semibold text-blue-400 hover:text-blue-300 border border-slate-700 hover:border-blue-500/40 rounded-lg px-3 py-1.5 transition-all flex items-center gap-1"
+              className="text-xs font-semibold text-pale-blue-foreground hover:opacity-80 border border-slate-200 hover:border-blue-300 rounded-lg px-3 py-1.5 transition-all flex items-center gap-1"
             >
               <Plus className="w-3.5 h-3.5" /> Add Expense
             </button>
           </div>
 
           <SectionTitle>Cash Summary</SectionTitle>
-          <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl overflow-hidden divide-y divide-slate-700/30 mb-4">
+          <div className="bg-slate-50 border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-100 mb-4">
             <div className="px-4 py-2.5 flex justify-between text-sm">
               <span className="text-slate-400">Grand Total (Sales)</span>
-              <span className="text-white font-medium tabular-nums">{fmt(grandTotal)}</span>
+              <span className="text-slate-900 font-medium tabular-nums">{fmt(grandTotal)}</span>
             </div>
             <div className="px-4 py-2.5 flex justify-between text-sm">
               <span className="text-slate-400">Total Expenses</span>
-              <span className="text-amber-300 font-medium tabular-nums">{fmt(totalExp)}</span>
+              <span className="text-pale-gold-foreground font-medium tabular-nums">{fmt(totalExp)}</span>
             </div>
             <div className="px-4 py-2.5 flex justify-between text-sm font-semibold">
-              <span className="text-slate-300">Expected Total</span>
-              <span className="text-white tabular-nums">{fmt(netExpected)}</span>
+              <span className="text-slate-700">Expected Total</span>
+              <span className="text-slate-900 tabular-nums">{fmt(netExpected)}</span>
             </div>
           </div>
 
@@ -289,10 +289,10 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
           {/* Difference preview */}
           <div className={`mt-3 rounded-xl px-4 py-3 flex justify-between items-center text-sm font-bold border ${
             Math.abs(diff) >= 10_000
-              ? "bg-red-900/20 border-red-700/40 text-red-300"
+              ? "bg-pale-red border-red-100 text-pale-red-foreground"
               : diff >= 0
-              ? "bg-emerald-900/20 border-emerald-700/30 text-emerald-400"
-              : "bg-amber-900/20 border-amber-700/30 text-amber-400"
+              ? "bg-pale-green border-emerald-100 text-pale-green-foreground"
+              : "bg-pale-gold border-amber-100 text-pale-gold-foreground"
           }`}>
             <span>Difference</span>
             <span className="tabular-nums">{diff >= 0 ? "+" : ""}{fmt(diff)}</span>
@@ -300,10 +300,10 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-[#0f1623] border-t border-slate-700/50 px-6 py-4 flex items-center gap-3">
+        <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex items-center gap-3">
           <button
             onClick={onClose}
-            className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 hover:text-white font-semibold rounded-xl py-2.5 text-sm transition-all"
+            className="flex-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-300 hover:text-slate-900 font-semibold rounded-xl py-2.5 text-sm transition-all"
           >
             Cancel
           </button>

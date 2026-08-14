@@ -44,10 +44,10 @@ function ScoreGauge({ score }: { score: number }) {
   return (
     <div className="flex flex-col items-center gap-1">
       <svg viewBox="0 0 120 72" className="w-36 h-24" role="img" aria-label={`Trust and repayment score: ${score} out of 100, ${tier}`}>
-        <path d={`M 20 55 A 40 40 0 0 1 100 55`} fill="none" stroke="#1e293b" strokeWidth="12" strokeLinecap="round" />
+        <path d={`M 20 55 A 40 40 0 0 1 100 55`} fill="none" stroke="#e2e8f0" strokeWidth="12" strokeLinecap="round" />
         <path d={`M 20 55 A 40 40 0 0 1 100 55`} fill="none" stroke={color} strokeWidth="12" strokeLinecap="round"
           strokeDasharray={`${progress} ${semi}`} />
-        <text x={cx} y={52} textAnchor="middle" fill="white" fontSize="18" fontWeight="700">{score}</text>
+        <text x={cx} y={52} textAnchor="middle" fill="#0f172a" fontSize="18" fontWeight="700">{score}</text>
         <text x={cx} y={66} textAnchor="middle" fill={color} fontSize="9" fontWeight="600">{tier.toUpperCase()}</text>
       </svg>
       <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Trust & Repayment Score</p>
@@ -71,7 +71,7 @@ function fmtDateTime(d: string) {
   });
 }
 
-const inputCls = "w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600";
+const inputCls = "w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-300/50 placeholder:text-slate-400";
 const labelCls = "block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5";
 
 export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfileChange }: Props) {
@@ -514,25 +514,25 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-      <div className="relative w-full max-w-[520px] bg-[#0f1623] border-l border-slate-700/50 h-full overflow-y-auto shadow">
+      <div className="relative w-full max-w-[520px] bg-white border-l border-slate-100 h-full overflow-y-auto shadow">
         {/* Header */}
-        <div className="sticky top-0 bg-[#0f1623] border-b border-slate-700/50 px-6 py-4 flex items-start justify-between z-10">
+        <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-start justify-between z-10">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-full bg-slate-700 flex items-center justify-center text-slate-200 font-bold text-lg">
+            <div className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-slate-200 font-bold text-lg">
               {profile.name[0].toUpperCase()}
             </div>
             <div>
-              <h2 className="text-white font-bold text-base leading-tight">{profile.name}</h2>
+              <h2 className="text-slate-900 font-bold text-base leading-tight">{profile.name}</h2>
               <p className="text-slate-500 text-xs">{profile.relation} · Created {fmtDate(profile.created_at)}</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
             <button onClick={openEdit} title="Edit Profile"
-              className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors">
+              className="text-slate-400 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
               <Pencil className="w-4 h-4" />
             </button>
             <button onClick={onClose} aria-label="Close panel"
-              className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors">
+              className="text-slate-500 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -541,14 +541,14 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
         <div className="p-6 space-y-6">
           {/* Status banners */}
           {isCleared ? (
-            <div className="flex items-center gap-3 bg-emerald-900/30 border border-emerald-700/50 rounded-xl px-4 py-3">
-              <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
-              <p className="text-emerald-300 font-semibold text-sm">Debt fully cleared</p>
+            <div className="flex items-center gap-3 bg-pale-green border border-emerald-100 rounded-xl px-4 py-3">
+              <CheckCircle className="w-5 h-5 text-pale-green-foreground shrink-0" />
+              <p className="text-pale-green-foreground font-semibold text-sm">Debt fully cleared</p>
             </div>
           ) : (isHighRisk && !NO_SCORE_RELATIONS.has(profile.relation)) ? (
-            <div className="flex items-center gap-3 bg-red-900/30 border border-red-700/50 rounded-xl px-4 py-3">
-              <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
-              <p className="text-red-300 font-semibold text-sm">High Risk — Low repayment activity</p>
+            <div className="flex items-center gap-3 bg-pale-red border border-red-100 rounded-xl px-4 py-3">
+              <AlertTriangle className="w-5 h-5 text-pale-red-foreground shrink-0" />
+              <p className="text-pale-red-foreground font-semibold text-sm">High Risk — Low repayment activity</p>
             </div>
           ) : null}
 
@@ -556,22 +556,22 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
           {(isOverCreditLimit || isPastDueDate) && (
             <div className="space-y-2">
               {isOverCreditLimit && (
-                <div className="flex items-start gap-3 bg-amber-900/30 border border-amber-700/50 rounded-xl px-4 py-3">
-                  <BadgeAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-3 bg-pale-gold border border-amber-100 rounded-xl px-4 py-3">
+                  <BadgeAlert className="w-5 h-5 text-pale-gold-foreground shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-amber-300 font-semibold text-sm">Credit Limit Exceeded</p>
-                    <p className="text-amber-400/70 text-xs mt-0.5">
+                    <p className="text-pale-gold-foreground font-semibold text-sm">Credit Limit Exceeded</p>
+                    <p className="text-pale-gold-foreground/80 text-xs mt-0.5">
                       Balance {mmkFmt(profile.current_balance)} exceeds limit of {mmkFmt(profile.credit_limit)}
                     </p>
                   </div>
                 </div>
               )}
               {isPastDueDate && (
-                <div className="flex items-start gap-3 bg-red-900/30 border border-red-700/50 rounded-xl px-4 py-3">
-                  <ShieldAlert className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-3 bg-pale-red border border-red-100 rounded-xl px-4 py-3">
+                  <ShieldAlert className="w-5 h-5 text-pale-red-foreground shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-red-300 font-semibold text-sm">Payment Overdue</p>
-                    <p className="text-red-400/70 text-xs mt-0.5">Due date {fmtDate(profile.payment_due_date!)} has passed</p>
+                    <p className="text-pale-red-foreground font-semibold text-sm">Payment Overdue</p>
+                    <p className="text-pale-red-foreground/80 text-xs mt-0.5">Due date {fmtDate(profile.payment_due_date!)} has passed</p>
                   </div>
                 </div>
               )}
@@ -579,15 +579,15 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
           )}
 
           {/* Profile info */}
-          <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4 space-y-2.5">
+          <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-2.5">
             <div className="flex justify-between text-sm">
               <span className="text-slate-400 flex items-center gap-1.5"><User className="w-3 h-3" /> Name</span>
-              <span className="text-white font-semibold">{profile.name}</span>
+              <span className="text-slate-900 font-semibold">{profile.name}</span>
             </div>
             {profile.age != null && (
               <div className="flex justify-between text-sm">
                 <span className="text-slate-400">Age</span>
-                <span className="text-white font-medium">{profile.age}</span>
+                <span className="text-slate-900 font-medium">{profile.age}</span>
               </div>
             )}
             {displayPhones.length > 0 && (
@@ -595,27 +595,27 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                 <span className="text-slate-400 flex items-center gap-1.5"><Phone className="w-3 h-3" /> Phone</span>
                 <div className="text-right space-y-0.5">
                   {displayPhones.map((ph, i) => (
-                    <p key={i} className="text-white font-medium">{ph}{i === 0 && displayPhones.length > 1 ? " (primary)" : ""}</p>
+                    <p key={i} className="text-slate-900 font-medium">{ph}{i === 0 && displayPhones.length > 1 ? " (primary)" : ""}</p>
                   ))}
                 </div>
               </div>
             )}
             <div className="flex justify-between text-sm">
               <span className="text-slate-400 flex items-center gap-1.5"><CreditCard className="w-3 h-3" /> Current Balance</span>
-              <span className={`font-bold tabular-nums flex items-center gap-1 ${isCleared ? "text-emerald-400" : "text-red-300"}`}>
+              <span className={`font-bold tabular-nums flex items-center gap-1 ${isCleared ? "text-pale-green-foreground" : "text-pale-red-foreground"}`}>
                 {isCleared ? <><CheckCircle className="w-3.5 h-3.5" /> Cleared</> : mmkFmt(profile.current_balance)}
               </span>
             </div>
             {profile.total_debt != null && (
               <div className="flex justify-between text-sm">
                 <span className="text-slate-400">Original Debt</span>
-                <span className="text-slate-300 tabular-nums">{mmkFmt(profile.total_debt)}</span>
+                <span className="text-slate-700 tabular-nums">{mmkFmt(profile.total_debt)}</span>
               </div>
             )}
             {profile.credit_limit != null && (
               <div className="flex justify-between text-sm">
                 <span className="text-slate-400">Credit Limit</span>
-                <span className={`font-semibold tabular-nums ${isOverCreditLimit ? "text-amber-400" : "text-slate-300"}`}>
+                <span className={`font-semibold tabular-nums ${isOverCreditLimit ? "text-pale-gold-foreground" : "text-slate-700"}`}>
                   {mmkFmt(profile.credit_limit)}
                 </span>
               </div>
@@ -623,14 +623,14 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
             {profile.payment_due_date && (
               <div className="flex justify-between text-sm">
                 <span className="text-slate-400 flex items-center gap-1.5"><Calendar className="w-3 h-3" /> Payment Due</span>
-                <span className={`font-semibold ${isPastDueDate ? "text-red-400" : "text-slate-300"}`}>
+                <span className={`font-semibold ${isPastDueDate ? "text-pale-red-foreground" : "text-slate-700"}`}>
                   {fmtDate(profile.payment_due_date)}
                 </span>
               </div>
             )}
             <div className="flex justify-between text-sm">
               <span className="text-slate-400 flex items-center gap-1.5"><Clock className="w-3 h-3" /> Last Payment</span>
-              <span className="text-slate-300">{profile.last_payment_at ? fmtDate(profile.last_payment_at) : "No payments yet"}</span>
+              <span className="text-slate-700">{profile.last_payment_at ? fmtDate(profile.last_payment_at) : "No payments yet"}</span>
             </div>
           </div>
 
@@ -638,14 +638,14 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
           {(hasPieData || !NO_SCORE_RELATIONS.has(profile.relation)) && (
             <div className={`grid gap-4 ${hasPieData && !NO_SCORE_RELATIONS.has(profile.relation) ? "grid-cols-2" : "grid-cols-1 place-items-center"}`}>
               {hasPieData && (
-                <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4 flex flex-col items-center">
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col items-center">
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Repayment Progress</p>
                   <ResponsiveContainer width={120} height={120}>
                     <PieChart>
                       <Pie data={pieData} cx={55} cy={55} innerRadius={30} outerRadius={50} paddingAngle={2} dataKey="value">
                         {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                       </Pie>
-                      <Tooltip contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", fontSize: "12px" }} formatter={(v: number) => [mmkFmt(v), ""]} />
+                      <Tooltip contentStyle={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: "12px", fontSize: "12px", boxShadow: "0 4px 16px rgba(16,24,40,0.08)" }} formatter={(v: number) => [mmkFmt(v), ""]} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="flex gap-3 mt-1 text-xs">
@@ -655,7 +655,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                 </div>
               )}
               {!NO_SCORE_RELATIONS.has(profile.relation) && (
-                <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4 flex flex-col items-center justify-center">
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col items-center justify-center">
                   <ScoreGauge score={profile.score} />
                   <div className="mt-2 space-y-1 text-xs text-slate-600 text-center">
                     <p>80–100 Excellent · 40–79 Average</p>
@@ -667,17 +667,17 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
           )}
 
           {/* Add Transaction */}
-          <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+          <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Record Transaction</p>
             <form onSubmit={handleAddTransaction} className="space-y-3">
               {/* Type toggle */}
               <div className="flex gap-2">
                 <button type="button" onClick={() => setTxnType("payment")}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1 ${txnType === "payment" ? "bg-emerald-600/30 border-emerald-500/50 text-emerald-300" : "bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300"}`}>
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1 ${txnType === "payment" ? "bg-pale-green border-emerald-200 text-pale-green-foreground" : "bg-white border-slate-100 text-slate-500 hover:text-slate-700"}`}>
                   <TrendingDown className="w-3.5 h-3.5" /> Payment (reduces debt)
                 </button>
                 <button type="button" onClick={() => setTxnType("debt")}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1 ${txnType === "debt" ? "bg-red-600/30 border-red-500/50 text-red-300" : "bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300"}`}>
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1 ${txnType === "debt" ? "bg-pale-red border-red-200 text-pale-red-foreground" : "bg-white border-slate-100 text-slate-500 hover:text-slate-700"}`}>
                   <TrendingUp className="w-3.5 h-3.5" /> New Debt (adds to balance)
                 </button>
               </div>
@@ -689,7 +689,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                   <div>
                     <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Product Type</label>
                     <select value={fuelProduct} onChange={e => setFuelProduct(e.target.value as typeof fuelProduct)}
-                      className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300/50">
                       <option value="92 RON">92 RON</option>
                       <option value="PD">PD (Premium Diesel)</option>
                       <option value="95">95 RON</option>
@@ -704,7 +704,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">K</span>
                       <input type="text" inputMode="decimal" value={fuelAmountInput} onChange={e => handleFuelAmountChange(e.target.value)}
                         placeholder="0"
-                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-7 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl pl-7 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300/50 placeholder:text-slate-400" />
                     </div>
                   </div>
 
@@ -715,14 +715,14 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                       <input type="text" inputMode="decimal" value={fuelLitersInput}
                         onChange={e => handleFuelLitersChange(e.target.value)}
                         placeholder="0.000"
-                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300/50 placeholder:text-slate-400" />
                     </div>
                     <div>
                       <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Gallons (G)</label>
                       <input type="text" inputMode="decimal" value={fuelGallonsInput}
                         onChange={e => handleFuelGallonsChange(e.target.value)}
                         placeholder="0.0000"
-                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300/50 placeholder:text-slate-400" />
                     </div>
                   </div>
 
@@ -737,7 +737,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                       <input type="text" inputMode="decimal" value={fuelPriceInput}
                         onChange={e => handleFuelPriceChange(e.target.value)}
                         placeholder="e.g. 1650"
-                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-7 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl pl-7 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300/50 placeholder:text-slate-400" />
                     </div>
                   </div>
                 </>
@@ -750,14 +750,14 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">K</span>
                       <input type="number" value={txnAmount} onChange={e => setTxnAmount(e.target.value)}
                         placeholder="0" min="0"
-                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-7 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600"
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl pl-7 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300/50 placeholder:text-slate-400"
                         required />
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Date</label>
                     <input type="date" value={txnDate} onChange={e => setTxnDate(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300/50" />
                   </div>
                 </div>
               )}
@@ -767,7 +767,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                 <div>
                   <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Date</label>
                   <input type="date" value={txnDate} onChange={e => setTxnDate(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300/50" />
                 </div>
               )}
 
@@ -778,11 +778,11 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                 </label>
                 <input type="text" value={txnNote} onChange={e => setTxnNote(e.target.value)}
                   placeholder={showFuelFields ? "e.g. Plate no., vehicle type…" : "e.g. Partial payment, Invoice #2…"}
-                  className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300/50 placeholder:text-slate-400" />
               </div>
 
               {txnError && (
-                <p className="text-xs text-red-400 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {txnError}</p>
+                <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {txnError}</p>
               )}
               <button type="submit" disabled={submitting}
                 className={`w-full py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${txnType === "payment" ? "bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50" : "bg-red-700 hover:bg-red-600 text-white disabled:opacity-50"}`}>
@@ -800,15 +800,15 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
             {loadingTxn ? (
               <div className="py-8 text-center"><Loader2 className="w-6 h-6 text-blue-500/50 animate-spin mx-auto" /></div>
             ) : transactions.length === 0 ? (
-              <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-6 text-center">
+              <div className="bg-slate-50 border border-slate-100 rounded-xl p-6 text-center">
                 <p className="text-slate-500 text-sm">No transactions yet</p>
               </div>
             ) : (
-              <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl overflow-hidden">
+              <div className="bg-slate-50 border border-slate-100 rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[760px] text-sm border-collapse">
                     <thead>
-                      <tr className="bg-slate-900/50 border-b border-slate-700/50">
+                      <tr className="bg-slate-50 border-b border-slate-100">
                         <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wider">Date</th>
                         <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wider">Description</th>
                         <th className="px-4 py-2.5 text-right text-[11px] font-bold text-slate-400 uppercase tracking-wider">Debit</th>
@@ -817,7 +817,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                         <th className="px-4 py-2.5 text-right text-[11px] font-bold text-slate-400 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-700/30">
+                    <tbody className="divide-y divide-slate-100">
                       {transactions.map(txn => {
                         const isPayment = txn.amount < 0;
                         const hasProductType = !isPayment && !!txn.product_type;
@@ -826,9 +826,9 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                         const isEditingRemark = remarkEditingId === txn.id;
                         const balance = runningBalances.get(txn.id) ?? 0;
                         return (
-                          <tr key={txn.id} className={`align-top transition-colors ${isHighlighted ? "bg-amber-400/[0.05] border-l-[3px] border-amber-400" : "hover:bg-slate-800/60"}`}>
+                          <tr key={txn.id} className={`align-top transition-colors ${isHighlighted ? "bg-amber-400/[0.05] border-l-[3px] border-amber-400" : "hover:bg-slate-50"}`}>
                             <td className="px-4 py-3 whitespace-nowrap">
-                              <p className="text-slate-300 text-xs">{fmtDateTime(txn.date)}</p>
+                              <p className="text-slate-600 text-xs">{fmtDateTime(txn.date)}</p>
                               <p className="text-slate-600 text-[10px] font-mono mt-0.5">{txn.transaction_number}</p>
                             </td>
                             <td className="px-4 py-3 min-w-[220px]">
@@ -844,26 +844,26 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                                       if (e.key === "Escape") setRemarkEditingId(null);
                                     }}
                                     placeholder="Add a remark…"
-                                    className="flex-1 bg-slate-700 border border-slate-600 text-white text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/50 placeholder:text-slate-500"
+                                    className="flex-1 bg-slate-100 border border-slate-200 text-slate-900 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/50 placeholder:text-slate-500"
                                   />
                                   <button
                                     onClick={() => handleSaveRemark(txn)}
-                                    className="text-xs text-amber-400 hover:text-amber-300 font-semibold px-2 py-1 rounded-lg hover:bg-amber-900/20 transition-all">
+                                    className="text-xs text-pale-gold-foreground hover:opacity-80 font-semibold px-2 py-1 rounded-lg hover:bg-pale-gold transition-all">
                                     Save
                                   </button>
                                   <button
                                     onClick={() => setRemarkEditingId(null)}
                                     aria-label="Cancel editing remark"
-                                    className="text-xs text-slate-500 hover:text-slate-300 px-1.5 py-1 rounded-lg hover:bg-slate-700 transition-all">
+                                    className="text-xs text-slate-400 hover:text-slate-700 px-1.5 py-1 rounded-lg hover:bg-slate-100 transition-all">
                                     <X className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
                               ) : (
                                 <>
-                                  <p className="text-white text-sm">{describeTransaction(txn)}</p>
+                                  <p className="text-slate-900 text-sm">{describeTransaction(txn)}</p>
                                   <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                     {hasProductType && (
-                                      <span className="text-[10px] font-bold text-blue-400 bg-blue-900/20 border border-blue-700/30 px-1.5 py-0.5 rounded">
+                                      <span className="text-[10px] font-bold text-pale-blue-foreground bg-pale-blue px-1.5 py-0.5 rounded">
                                         {txn.product_type}
                                       </span>
                                     )}
@@ -877,20 +877,20 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                                     ) : (
                                       <span className="text-[10px] text-slate-500 italic">(Flat Amount Purchase)</span>
                                     ))}
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${txn.source === "daily_app" ? "text-amber-400 border-amber-700/40 bg-amber-900/20" : "text-slate-500 border-slate-700/40"}`}>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${txn.source === "daily_app" ? "text-pale-gold-foreground border-amber-100 bg-pale-gold" : "text-slate-500 border-slate-100"}`}>
                                       {txn.source === "daily_app" ? "Daily App" : "Manual"}
                                     </span>
                                     {txn.note ? (
                                       <button
                                         onClick={() => { setRemarkEditingId(txn.id); setRemarkDraft(txn.note ?? ""); }}
                                         title="Edit remark"
-                                        className="flex items-center gap-0.5 text-[10px] text-amber-400/80 hover:text-amber-300 transition-colors">
+                                        className="flex items-center gap-0.5 text-[10px] text-pale-gold-foreground/80 hover:text-pale-gold-foreground transition-colors">
                                         <Pencil className="w-2.5 h-2.5" /> edit remark
                                       </button>
                                     ) : (
                                       <button
                                         onClick={() => { setRemarkEditingId(txn.id); setRemarkDraft(""); }}
-                                        className="flex items-center gap-0.5 text-[10px] text-slate-600 hover:text-slate-400 transition-colors">
+                                        className="flex items-center gap-0.5 text-[10px] text-slate-300 hover:text-slate-500 transition-colors">
                                         <MessageSquarePlus className="w-3 h-3" /> remark
                                       </button>
                                     )}
@@ -898,13 +898,13 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                                 </>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap text-red-300">
+                            <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap text-pale-red-foreground">
                               {!isPayment ? mmkFmt(txn.amount) : ""}
                             </td>
-                            <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap text-emerald-400">
+                            <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap text-pale-green-foreground">
                               {isPayment ? mmkFmt(-txn.amount) : ""}
                             </td>
-                            <td className={`px-4 py-3 text-right tabular-nums whitespace-nowrap font-semibold ${balance > 0 ? "text-red-300" : "text-emerald-400"}`}>
+                            <td className={`px-4 py-3 text-right tabular-nums whitespace-nowrap font-semibold ${balance > 0 ? "text-pale-red-foreground" : "text-pale-green-foreground"}`}>
                               {mmkFmt(balance)}
                             </td>
                             <td className="px-4 py-3">
@@ -916,19 +916,19 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                                   title={isHighlighted ? "Remove highlight" : "Highlight transaction"}
                                   className={`p-1.5 rounded-lg transition-all ${
                                     isHighlighted
-                                      ? "text-amber-400 bg-amber-900/20"
-                                      : "text-slate-600 hover:text-amber-400 hover:bg-amber-900/20"
+                                      ? "text-pale-gold-foreground bg-pale-gold"
+                                      : "text-slate-300 hover:text-pale-gold-foreground hover:bg-pale-gold"
                                   }`}>
                                   {togglingHighlight === txn.id
                                     ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                     : <Bookmark className="w-3.5 h-3.5" fill={isHighlighted ? "currentColor" : "none"} />}
                                 </button>
                                 <button type="button" onClick={() => openEditTxn(txn)} title="Edit transaction"
-                                  className="text-slate-600 hover:text-blue-400 hover:bg-blue-900/20 p-1.5 rounded-lg transition-all">
+                                  className="text-slate-300 hover:text-pale-blue-foreground hover:bg-pale-blue p-1.5 rounded-lg transition-all">
                                   <Pencil className="w-3.5 h-3.5" />
                                 </button>
                                 <button onClick={() => handleDeleteTransaction(txn)} disabled={deletingId === txn.id} title="Delete transaction"
-                                  className="text-slate-600 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-lg transition-all">
+                                  className="text-slate-300 hover:text-pale-red-foreground hover:bg-pale-red p-1.5 rounded-lg transition-all">
                                   {deletingId === txn.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                                 </button>
                               </div>
@@ -949,13 +949,13 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
       {editingTxn && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70" onClick={() => setEditingTxn(null)} />
-          <div className="relative bg-[#0f1623] border border-slate-700/50 rounded-xl w-full max-w-md shadow max-h-[92vh] flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between shrink-0">
+          <div className="relative bg-white border border-slate-100 rounded-xl w-full max-w-md shadow max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div>
                 <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Transaction</p>
-                <h3 className="text-white font-bold text-base">Edit Entry</h3>
+                <h3 className="text-slate-900 font-bold text-base">Edit Entry</h3>
               </div>
-              <button type="button" onClick={() => setEditingTxn(null)} aria-label="Close" className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors">
+              <button type="button" onClick={() => setEditingTxn(null)} aria-label="Close" className="text-slate-500 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -963,7 +963,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
             <form onSubmit={handleSaveEditTxn} className="overflow-y-auto p-6 space-y-4">
               {/* Total Amount */}
               <div>
-                <label className={labelCls}>Total Amount (MMK) <span className="text-red-400">*</span></label>
+                <label className={labelCls}>Total Amount (MMK) <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">K</span>
                   <input type="text" inputMode="decimal" value={editAmount} onChange={e => handleEditAmountChange(e.target.value)}
@@ -1032,14 +1032,14 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
               </div>
 
               {editTxnError && (
-                <p className="text-xs text-red-400 flex items-center gap-1">
+                <p className="text-xs text-red-500 flex items-center gap-1">
                   <AlertTriangle className="w-3 h-3" /> {editTxnError}
                 </p>
               )}
 
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => setEditingTxn(null)}
-                  className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-semibold rounded-xl py-2.5 text-sm transition-all">
+                  className="flex-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold rounded-xl py-2.5 text-sm transition-all">
                   Cancel
                 </button>
                 <button type="submit" disabled={editTxnSaving}
@@ -1056,13 +1056,13 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
       {showEdit && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70" onClick={() => setShowEdit(false)} />
-          <div className="relative bg-[#0f1623] border border-slate-700/50 rounded-xl w-full max-w-md shadow max-h-[92vh] flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between shrink-0">
+          <div className="relative bg-white border border-slate-100 rounded-xl w-full max-w-md shadow max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div>
                 <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Profile</p>
-                <h3 className="text-white font-bold text-base">Edit Details</h3>
+                <h3 className="text-slate-900 font-bold text-base">Edit Details</h3>
               </div>
-              <button onClick={() => setShowEdit(false)} aria-label="Close" className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors">
+              <button onClick={() => setShowEdit(false)} aria-label="Close" className="text-slate-500 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1070,7 +1070,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
             <form onSubmit={handleSaveEdit} className="overflow-y-auto p-6 space-y-5">
               {/* Name */}
               <div>
-                <label className={labelCls}>Name <span className="text-red-400">*</span></label>
+                <label className={labelCls}>Name <span className="text-red-500">*</span></label>
                 <input type="text" value={editName} onChange={e => setEditName(e.target.value)}
                   placeholder="Full name or alias" className={inputCls} required />
               </div>
@@ -1100,7 +1100,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                   </label>
                   {editPhones.length < 3 && (
                     <button type="button" onClick={addPhone}
-                      className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-semibold transition-colors">
+                      className="flex items-center gap-1 text-xs text-pale-blue-foreground hover:opacity-80 font-semibold transition-colors">
                       <Plus className="w-3 h-3" /> Add
                     </button>
                   )}
@@ -1126,7 +1126,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                       {idx > 0 && (
                         <button type="button" onClick={() => removePhone(idx)}
                           aria-label={`Remove phone number ${idx + 1}`}
-                          className="text-slate-600 hover:text-red-400 hover:bg-red-900/20 p-2 rounded-lg transition-all shrink-0">
+                          className="text-slate-300 hover:text-pale-red-foreground hover:bg-pale-red p-2 rounded-lg transition-all shrink-0">
                           <X className="w-3.5 h-3.5" />
                         </button>
                       )}
@@ -1165,14 +1165,14 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
               </div>
 
               {editError && (
-                <div className="flex items-start gap-2 bg-red-900/30 border border-red-700/40 rounded-xl px-4 py-3 text-xs text-red-300">
+                <div className="flex items-start gap-2 bg-pale-red border border-red-100 rounded-xl px-4 py-3 text-xs text-pale-red-foreground">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {editError}
                 </div>
               )}
 
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => setShowEdit(false)}
-                  className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-semibold rounded-xl py-2.5 text-sm transition-all">
+                  className="flex-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold rounded-xl py-2.5 text-sm transition-all">
                   Cancel
                 </button>
                 <button type="submit" disabled={editSaving}

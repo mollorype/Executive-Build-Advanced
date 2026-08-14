@@ -86,48 +86,48 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="relative w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-blue-600/20 border border-blue-500/30 mb-4">
-            <Shield className="w-8 h-8 text-blue-400" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-pale-blue mb-4">
+            <Shield className="w-8 h-8 text-pale-blue-foreground" />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">STM Financial</h1>
-          <p className="mt-1 text-sm text-slate-400 uppercase tracking-widest font-medium">
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">STM Financial</h1>
+          <p className="mt-1 text-sm text-slate-500 uppercase tracking-widest font-medium">
             Executive Portal
           </p>
         </div>
 
         {accessDenied && (
-          <div className="mb-6 rounded-xl bg-red-500/10 border border-red-500/30 p-5 text-center">
-            <AlertTriangle className="w-10 h-10 text-red-400 mx-auto mb-3" />
-            <p className="text-red-300 font-semibold text-lg">Access Denied</p>
-            <p className="text-red-400 text-sm mt-1">
+          <div className="mb-6 rounded-2xl bg-pale-red border border-red-100 p-5 text-center">
+            <AlertTriangle className="w-10 h-10 text-pale-red-foreground mx-auto mb-3" />
+            <p className="text-pale-red-foreground font-semibold text-lg">Access Denied</p>
+            <p className="text-pale-red-foreground/80 text-sm mt-1">
               This portal is restricted to authorized executive accounts only.
             </p>
           </div>
         )}
 
-        <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-8 shadow-sm">
+        <div className="bg-white border border-slate-100 rounded-2xl p-8 shadow-sm">
           <div className="flex items-center gap-2 mb-6">
-            <Lock className="w-4 h-4 text-blue-400" />
-            <span className="text-xs text-slate-400 uppercase tracking-wider font-medium">
+            <Lock className="w-4 h-4 text-pale-blue-foreground" />
+            <span className="text-xs text-slate-500 uppercase tracking-wider font-medium">
               {mode === "signin" ? "Secure Authentication" : "Account Setup"}
             </span>
           </div>
 
           {confirmationSent ? (
             <div className="text-center py-4">
-              <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto mb-3" />
-              <p className="text-white font-semibold">Check your email</p>
-              <p className="text-slate-400 text-sm mt-2">
-                We sent a confirmation link to <span className="text-slate-300">{email}</span>.
+              <CheckCircle className="w-10 h-10 text-pale-green-foreground mx-auto mb-3" />
+              <p className="text-slate-900 font-semibold">Check your email</p>
+              <p className="text-slate-500 text-sm mt-2">
+                We sent a confirmation link to <span className="text-slate-700">{email}</span>.
                 Confirm your account, then sign in below.
               </p>
               <button
                 type="button"
                 onClick={() => switchMode("signin")}
-                className="mt-5 text-blue-400 hover:text-blue-300 text-sm font-medium"
+                className="mt-5 text-pale-blue-foreground hover:opacity-80 text-sm font-medium"
               >
                 Back to sign in
               </button>
@@ -135,7 +135,7 @@ export default function Login() {
           ) : (
             <form onSubmit={mode === "signin" ? handleSignIn : handleSignUp} className="space-y-5">
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                   Email Address
                 </label>
                 <input
@@ -143,13 +143,13 @@ export default function Login() {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
-                  className="w-full bg-[#0d1527] border border-slate-600/50 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300 transition-all"
                   placeholder="Enter your email"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                   {mode === "signin" ? "Password" : "Create Password"}
                 </label>
                 <div className="relative">
@@ -158,13 +158,13 @@ export default function Login() {
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     required
-                    className="w-full bg-[#0d1527] border border-slate-600/50 rounded-lg px-4 py-3 pr-12 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 pr-12 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300 transition-all"
                     placeholder={mode === "signin" ? "Enter your password" : "At least 8 characters"}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -173,7 +173,7 @@ export default function Login() {
 
               {mode === "signup" && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                     Confirm Password
                   </label>
                   <input
@@ -181,14 +181,14 @@ export default function Login() {
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
                     required
-                    className="w-full bg-[#0d1527] border border-slate-600/50 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300 transition-all"
                     placeholder="Re-enter your password"
                   />
                 </div>
               )}
 
               {error && (
-                <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-red-400 text-sm">
+                <div className="rounded-xl bg-pale-red border border-red-100 px-4 py-3 text-pale-red-foreground text-sm">
                   {error}
                 </div>
               )}
@@ -196,7 +196,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 mt-2"
+                className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground font-semibold py-3 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 mt-2"
               >
                 {loading ? (
                   <>
@@ -214,7 +214,7 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => switchMode(mode === "signin" ? "signup" : "signin")}
-                className="w-full text-center text-slate-500 hover:text-slate-300 text-xs font-medium transition-colors"
+                className="w-full text-center text-slate-400 hover:text-slate-600 text-xs font-medium transition-colors"
               >
                 {mode === "signin"
                   ? "First time? Set your password"
@@ -224,7 +224,7 @@ export default function Login() {
           )}
         </div>
 
-        <p className="text-center text-slate-600 text-xs mt-6">
+        <p className="text-center text-slate-400 text-xs mt-6">
           Unauthorized access is strictly prohibited · STM Financial
         </p>
       </div>

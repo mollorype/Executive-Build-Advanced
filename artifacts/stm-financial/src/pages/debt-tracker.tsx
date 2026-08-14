@@ -16,14 +16,14 @@ import {
 } from "lucide-react";
 
 const RELATION_COLORS: Record<DebtRelation, string> = {
-  Friends:    "bg-slate-500/20 text-slate-300 border-slate-500/30",
-  Family:     "bg-slate-500/20 text-slate-300 border-slate-500/30",
-  Own:        "bg-slate-500/20 text-slate-300 border-slate-500/30",
-  Contract:   "bg-slate-500/20 text-slate-300 border-slate-500/30",
-  Vendor:     "bg-slate-500/20 text-slate-300 border-slate-500/30",
-  Employee:   "bg-slate-500/20 text-slate-300 border-slate-500/30",
-  "On Paper": "bg-slate-500/20 text-slate-300 border-slate-500/30",
-  Other:      "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  Friends:    "bg-slate-100 text-slate-600 border-slate-200",
+  Family:     "bg-slate-100 text-slate-600 border-slate-200",
+  Own:        "bg-slate-100 text-slate-600 border-slate-200",
+  Contract:   "bg-slate-100 text-slate-600 border-slate-200",
+  Vendor:     "bg-slate-100 text-slate-600 border-slate-200",
+  Employee:   "bg-slate-100 text-slate-600 border-slate-200",
+  "On Paper": "bg-slate-100 text-slate-600 border-slate-200",
+  Other:      "bg-slate-100 text-slate-600 border-slate-200",
 };
 
 const LITERS_PER_GALLON = 4.54609;
@@ -237,12 +237,12 @@ export default function DebtTracker() {
   const cleared = profiles.filter(p => p.current_balance <= 0).length;
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div className="flex-1 overflow-auto bg-slate-50">
       {/* Page header */}
-      <div className="px-6 py-5 border-b border-slate-700/50">
+      <div className="px-6 py-5 border-b border-slate-100 bg-white">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-white">Debt Tracker</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Debt Tracker</h1>
             <p className="text-slate-400 text-sm mt-0.5">Manage debt profiles & repayment history</p>
           </div>
           <button
@@ -263,21 +263,21 @@ export default function DebtTracker() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
-                  <Banknote className="w-4 h-4 text-amber-400" />
+                  <Banknote className="w-4 h-4 text-pale-gold-foreground" />
                 </div>
-                <p className="text-xs font-bold text-amber-400/80 uppercase tracking-widest">Total Outstanding Debt</p>
+                <p className="text-xs font-bold text-pale-gold-foreground/80 uppercase tracking-widest">Total Outstanding Debt</p>
               </div>
               <p className="text-slate-400 text-[11px] mt-1 ml-10">
                 {RELATIONS.filter(r => !RECEIVABLES_EXCLUDED_RELATIONS.has(r)).join(" · ")}
               </p>
-              <p className="text-slate-600 text-[10px] ml-10 mt-0.5 italic">
+              <p className="text-slate-400 text-[10px] ml-10 mt-0.5 italic">
                 Excludes {Array.from(RECEIVABLES_EXCLUDED_RELATIONS).join(", ")}
               </p>
             </div>
 
             {/* Right: the big number */}
             <div className="text-right shrink-0">
-              <p className="text-3xl font-black tabular-nums text-amber-300 tracking-tight">
+              <p className="text-3xl font-black tabular-nums text-pale-gold-foreground tracking-tight">
                 {mmkFmt(externalOwed)}
               </p>
               <p className="text-xs text-slate-500 mt-1">
@@ -289,13 +289,13 @@ export default function DebtTracker() {
           {/* Bottom mini-bar: % of total */}
           {totalOwed > 0 && (
             <div className="relative mt-4">
-              <div className="h-1.5 w-full rounded-full bg-slate-700/60 overflow-hidden">
+              <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-amber-500 transition-all duration-700"
                   style={{ width: `${Math.min(100, (externalOwed / totalOwed) * 100).toFixed(1)}%` }}
                 />
               </div>
-              <p className="text-[10px] text-slate-600 mt-1 text-right">
+              <p className="text-[10px] text-slate-400 mt-1 text-right">
                 {((externalOwed / totalOwed) * 100).toFixed(0)}% of all outstanding debt
               </p>
             </div>
@@ -304,46 +304,46 @@ export default function DebtTracker() {
 
         {/* Stats row */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4">
+          <div className="bg-white border border-slate-100 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
-                <TrendingDown className="w-4 h-4 text-red-400" />
+                <TrendingDown className="w-4 h-4 text-pale-red-foreground" />
               </div>
               <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Balance (All Profiles)</span>
             </div>
-            <p className="text-lg font-bold text-white tabular-nums">{mmkFmt(totalOwed)}</p>
+            <p className="text-lg font-bold text-slate-900 tabular-nums">{mmkFmt(totalOwed)}</p>
             <p className="text-slate-500 text-xs mt-1">{profiles.length} active profiles</p>
           </div>
-          <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4">
+          <div className="bg-white border border-slate-100 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                <CheckCircle className="w-4 h-4 text-emerald-400" />
+                <CheckCircle className="w-4 h-4 text-pale-green-foreground" />
               </div>
               <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Cleared</span>
             </div>
-            <p className="text-lg font-bold text-white">{cleared}</p>
+            <p className="text-lg font-bold text-slate-900">{cleared}</p>
             <p className="text-slate-500 text-xs mt-1">Fully paid off</p>
           </div>
-          <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4 col-span-2 md:col-span-1">
+          <div className="bg-white border border-slate-100 rounded-xl p-4 col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
-                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                <AlertTriangle className="w-4 h-4 text-pale-gold-foreground" />
               </div>
               <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">High Risk</span>
             </div>
-            <p className="text-lg font-bold text-white">{redFlags}</p>
+            <p className="text-lg font-bold text-slate-900">{redFlags}</p>
             <p className="text-slate-500 text-xs mt-1">Score below 40</p>
           </div>
         </div>
 
         {/* Relation Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)}>
-        <TabsList className="bg-[#111827] border border-slate-700/50 p-1 h-auto flex-wrap gap-1">
+        <TabsList className="bg-white border border-slate-100 p-1 h-auto flex-wrap gap-1">
           {(Object.keys(TAB_LABELS) as TabId[]).map(id => (
             <TabsTrigger
               key={id}
               value={id}
-              className="text-xs font-semibold px-3 py-1.5 data-[state=active]:bg-slate-700 data-[state=active]:text-white text-slate-400"
+              className="text-xs font-semibold px-3 py-1.5 data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 text-slate-400"
             >
               {TAB_LABELS[id]}
               <span className="ml-1.5 text-[10px] text-slate-500">
@@ -356,7 +356,7 @@ export default function DebtTracker() {
         <TabsContent value={activeTab} className="mt-3 space-y-5">
 
         {/* Search + Sort */}
-        <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4 flex flex-col sm:flex-row gap-3">
+        <div className="bg-white border border-slate-100 rounded-xl p-4 flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
@@ -364,7 +364,7 @@ export default function DebtTracker() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search profiles by name…"
-              className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-9 pr-4 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-slate-600"
+              className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl pl-9 pr-4 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-slate-400"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -372,7 +372,7 @@ export default function DebtTracker() {
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value as SortKey)}
-              className="bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="newest">Newest First</option>
               <option value="oldest">Oldest First</option>
@@ -385,10 +385,10 @@ export default function DebtTracker() {
         </div>
 
         {/* Profile list */}
-        <div className="bg-[#111827] border border-slate-700/50 rounded-xl overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-slate-700/50 flex items-center gap-2">
-            <CreditCard className="w-4 h-4 text-blue-400" />
-            <h2 className="text-white font-semibold text-sm">Debt Profiles</h2>
+        <div className="bg-white border border-slate-100 rounded-xl overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
+            <CreditCard className="w-4 h-4 text-pale-blue-foreground" />
+            <h2 className="text-slate-900 font-semibold text-sm">Debt Profiles</h2>
             <span className="ml-auto text-slate-500 text-xs">{filtered.length} {filtered.length === 1 ? "profile" : "profiles"}</span>
           </div>
 
@@ -399,14 +399,14 @@ export default function DebtTracker() {
             </div>
           ) : filtered.length === 0 ? (
             <div className="p-16 text-center">
-              <CreditCard className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+              <CreditCard className="w-10 h-10 text-slate-200 mx-auto mb-3" />
               <p className="text-slate-400 text-sm font-medium">
                 {search ? "No profiles match your search" : "No debt profiles yet"}
               </p>
               {!search && (
                 <button
                   onClick={() => { resetCreate(); setShowCreate(true); }}
-                  className="mt-4 text-blue-400 hover:text-blue-300 text-xs font-semibold"
+                  className="mt-4 text-pale-blue-foreground hover:text-pale-blue-foreground text-xs font-semibold"
                 >
                   Create the first profile <ChevronRight className="w-3 h-3 inline" />
                 </button>
@@ -415,14 +415,14 @@ export default function DebtTracker() {
           ) : (
             <>
               {/* Desktop table header */}
-              <div className="hidden md:flex items-center px-5 py-2 bg-slate-800/50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-700/30">
+              <div className="hidden md:flex items-center px-5 py-2 bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100">
                 <div className="flex-1">Name</div>
                 <div className="w-28">Relation</div>
                 <div className="w-36 text-right">Balance</div>
                 <div className="w-28 text-right">Score</div>
                 <div className="w-20" />
               </div>
-              <div className="divide-y divide-slate-700/20">
+              <div className="divide-y divide-slate-100">
                 {filtered.map(profile => {
                   const paid = profile.current_balance <= 0;
                   const risk = profile.score < 40;
@@ -432,16 +432,16 @@ export default function DebtTracker() {
                     <div
                       key={profile.id}
                       onClick={() => setSelectedProfile(profile)}
-                      className="group flex items-center px-5 py-3.5 cursor-pointer hover:bg-slate-700/20 transition-colors gap-4"
+                      className="group flex items-center px-5 py-3.5 cursor-pointer hover:bg-slate-100 transition-colors gap-4"
                     >
                       {/* Avatar */}
-                      <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-bold text-sm shrink-0">
+                      <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm shrink-0">
                         {profile.name[0].toUpperCase()}
                       </div>
 
                       {/* Name + phone (flex-1) */}
                       <div className="flex-1 min-w-0">
-                        <p className="text-white font-semibold text-sm truncate">{profile.name}</p>
+                        <p className="text-slate-900 font-semibold text-sm truncate">{profile.name}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           {profile.phone_number && (
                             <span className="text-slate-500 text-xs flex items-center gap-1">
@@ -455,7 +455,7 @@ export default function DebtTracker() {
                         </div>
                         {/* Mobile: balance + score row */}
                         <div className="flex items-center justify-between mt-1.5 md:hidden">
-                          <span className={`font-bold text-sm tabular-nums ${paid ? "text-emerald-400" : risk ? "text-red-400" : "text-white"}`}>
+                          <span className={`font-bold text-sm tabular-nums ${paid ? "text-pale-green-foreground" : risk ? "text-pale-red-foreground" : "text-slate-900"}`}>
                             {paid ? "Cleared" : mmkFmt(profile.current_balance)}
                           </span>
                           {!NO_SCORE_RELATIONS.has(profile.relation) && (
@@ -475,7 +475,7 @@ export default function DebtTracker() {
 
                       {/* Desktop: balance */}
                       <div className="hidden md:block w-36 text-right">
-                        <span className={`font-bold text-sm tabular-nums flex items-center justify-end gap-1 ${paid ? "text-emerald-400" : risk ? "text-red-400" : "text-white"}`}>
+                        <span className={`font-bold text-sm tabular-nums flex items-center justify-end gap-1 ${paid ? "text-pale-green-foreground" : risk ? "text-pale-red-foreground" : "text-slate-900"}`}>
                           {paid ? <><CheckCircle className="w-3.5 h-3.5" /> Cleared</> : mmkFmt(profile.current_balance)}
                         </span>
                       </div>
@@ -483,11 +483,11 @@ export default function DebtTracker() {
                       {/* Desktop: score */}
                       <div className="hidden md:block w-28 text-right">
                         {NO_SCORE_RELATIONS.has(profile.relation) ? (
-                          <span className="text-xs text-slate-600 italic">N/A</span>
+                          <span className="text-xs text-slate-400 italic">N/A</span>
                         ) : (
                           <>
                             <span className="text-sm font-bold tabular-nums" style={{ color: sc }}>
-                              {profile.score}<span className="text-slate-600 font-normal">/100</span>
+                              {profile.score}<span className="text-slate-400 font-normal">/100</span>
                             </span>
                             <p className="text-xs mt-0.5" style={{ color: sc }}>{tier}</p>
                           </>
@@ -497,7 +497,7 @@ export default function DebtTracker() {
                       <div className="w-20 flex justify-end items-center gap-1">
                         <button
                           onClick={(e) => { e.stopPropagation(); setLedgerProfile(profile); }}
-                          className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-blue-400 hover:bg-blue-900/20 p-1.5 rounded-lg transition-all"
+                          className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-pale-blue-foreground hover:bg-pale-blue p-1.5 rounded-lg transition-all"
                           title="Export / Preview ledger"
                           aria-label={`Export ledger for ${profile.name}`}
                         >
@@ -505,12 +505,12 @@ export default function DebtTracker() {
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteProfile(profile); }}
-                          className="opacity-0 group-hover:opacity-100 text-slate-700 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-lg transition-all"
+                          className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-pale-red-foreground hover:bg-pale-red p-1.5 rounded-lg transition-all"
                           title="Delete profile"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                        <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-400 transition-colors" />
+                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-400 transition-colors" />
                       </div>
                     </div>
                   );
@@ -528,13 +528,13 @@ export default function DebtTracker() {
       {showCreate && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowCreate(false)} />
-          <div className="relative w-full max-w-md bg-[#0f1623] border-l border-slate-700/50 h-full overflow-y-auto shadow">
-            <div className="sticky top-0 bg-[#0f1623] border-b border-slate-700/50 px-6 py-4 flex items-center justify-between z-10">
+          <div className="relative w-full max-w-md bg-white border-l border-slate-100 h-full overflow-y-auto shadow">
+            <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between z-10">
               <div>
                 <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold">New Profile</p>
-                <h2 className="text-white font-bold text-base">Create Debt Profile</h2>
+                <h2 className="text-slate-900 font-bold text-base">Create Debt Profile</h2>
               </div>
-              <button onClick={() => setShowCreate(false)} aria-label="Close panel" className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors">
+              <button onClick={() => setShowCreate(false)} aria-label="Close panel" className="text-slate-500 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -543,14 +543,14 @@ export default function DebtTracker() {
               {/* Name */}
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Name <span className="text-red-400">*</span>
+                  Name <span className="text-pale-red-foreground">*</span>
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
                   placeholder="Full name or alias"
-                  className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600"
+                  className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-400"
                   required
                 />
               </div>
@@ -561,7 +561,7 @@ export default function DebtTracker() {
                 <select
                   value={relation}
                   onChange={e => setRelation(e.target.value as DebtRelation)}
-                  className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                 >
                   {RELATIONS.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
@@ -571,11 +571,11 @@ export default function DebtTracker() {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                    Phone Numbers <span className="text-slate-600 normal-case font-normal">(up to 3)</span>
+                    Phone Numbers <span className="text-slate-400 normal-case font-normal">(up to 3)</span>
                   </label>
                   {phones.length < 3 && (
                     <button type="button" onClick={addCreatePhone}
-                      className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-semibold transition-colors">
+                      className="flex items-center gap-1 text-xs text-pale-blue-foreground hover:text-pale-blue-foreground font-semibold transition-colors">
                       <Plus className="w-3 h-3" /> Add
                     </button>
                   )}
@@ -584,23 +584,23 @@ export default function DebtTracker() {
                   {phones.map((ph, idx) => (
                     <div key={idx} className="flex gap-2 items-center">
                       <div className="relative flex-1">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-600" />
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                         <input
                           type="tel"
                           value={ph}
                           onChange={e => updateCreatePhone(idx, e.target.value)}
                           placeholder="09-000000000"
                           maxLength={13}
-                          className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600"
+                          className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-400"
                         />
                         {idx === 0 && phones.length > 1 && (
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-600 font-semibold uppercase">Primary</span>
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-semibold uppercase">Primary</span>
                         )}
                       </div>
                       {idx > 0 && (
                         <button type="button" onClick={() => removeCreatePhone(idx)}
                           aria-label={`Remove phone number ${idx + 1}`}
-                          className="text-slate-600 hover:text-red-400 hover:bg-red-900/20 p-2 rounded-lg transition-all shrink-0">
+                          className="text-slate-400 hover:text-pale-red-foreground hover:bg-pale-red p-2 rounded-lg transition-all shrink-0">
                           <X className="w-3.5 h-3.5" />
                         </button>
                       )}
@@ -613,12 +613,12 @@ export default function DebtTracker() {
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Date</label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="date"
                     value={date}
                     onChange={e => setDate(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   />
                 </div>
               </div>
@@ -626,7 +626,7 @@ export default function DebtTracker() {
               {/* Credit Limit */}
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Credit Limit <span className="text-slate-600 normal-case font-normal">(optional)</span>
+                  Credit Limit <span className="text-slate-400 normal-case font-normal">(optional)</span>
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium select-none">K</span>
@@ -636,27 +636,27 @@ export default function DebtTracker() {
                     onChange={e => setCreditLimit(e.target.value)}
                     placeholder="Leave blank for no limit"
                     min="0"
-                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600"
+                    className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-400"
                   />
                 </div>
-                <p className="text-xs text-slate-600 mt-1">Triggers an alert when balance exceeds this amount.</p>
+                <p className="text-xs text-slate-400 mt-1">Triggers an alert when balance exceeds this amount.</p>
               </div>
 
               {/* Payment Due Date */}
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Payment Due Date <span className="text-slate-600 normal-case font-normal">(optional)</span>
+                  Payment Due Date <span className="text-slate-400 normal-case font-normal">(optional)</span>
                 </label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="date"
                     value={paymentDueDate}
                     onChange={e => setPaymentDueDate(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   />
                 </div>
-                <p className="text-xs text-slate-600 mt-1">Triggers an alert when today is past this date and debt remains.</p>
+                <p className="text-xs text-slate-400 mt-1">Triggers an alert when today is past this date and debt remains.</p>
               </div>
 
               {/* Starting Debt / Fuel Fields */}
@@ -664,15 +664,15 @@ export default function DebtTracker() {
                 /* Family / Own — simple amount only */
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Starting Amount <span className="text-slate-600 normal-case font-normal">(optional)</span>
+                    Starting Amount <span className="text-slate-400 normal-case font-normal">(optional)</span>
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium select-none">K</span>
                     <input type="number" value={totalDebt} onChange={e => setTotalDebt(e.target.value)}
                       placeholder="Leave blank if unknown" min="0"
-                      className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                      className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-400" />
                   </div>
-                  <p className="text-xs text-slate-600 mt-1">Can be updated later via transactions.</p>
+                  <p className="text-xs text-slate-400 mt-1">Can be updated later via transactions.</p>
                 </div>
               ) : (
                 /* Standard customers — full fuel details */
@@ -683,7 +683,7 @@ export default function DebtTracker() {
                   <div>
                     <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Product Type</label>
                     <select value={createFuelProduct} onChange={e => setCreateFuelProduct(e.target.value as typeof createFuelProduct)}
-                      className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                      className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
                       <option value="92 RON">92 RON</option>
                       <option value="PD">PD (Premium Diesel)</option>
                       <option value="95">95 RON</option>
@@ -694,13 +694,13 @@ export default function DebtTracker() {
                   {/* Total Amount */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Total Amount <span className="text-slate-600 normal-case font-normal">(optional)</span>
+                      Total Amount <span className="text-slate-400 normal-case font-normal">(optional)</span>
                     </label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium select-none">K</span>
                       <input type="text" inputMode="decimal" value={totalDebt} onChange={e => handleCreateAmountChange(e.target.value)}
                         placeholder="0"
-                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                        className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-400" />
                     </div>
                   </div>
 
@@ -711,45 +711,45 @@ export default function DebtTracker() {
                       <input type="text" inputMode="decimal" value={createFuelLiters}
                         onChange={e => handleCreateLitersChange(e.target.value)}
                         placeholder="0.000"
-                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                        className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-400" />
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Gallons (G)</label>
                       <input type="text" inputMode="decimal" value={createFuelGallons}
                         onChange={e => handleCreateGallonsChange(e.target.value)}
                         placeholder="0.0000"
-                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                        className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-400" />
                     </div>
                   </div>
 
                   {/* Price Per Liter — user-entered, optional */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Price Per Liter <span className="text-slate-600 normal-case font-normal">(optional)</span>
+                      Price Per Liter <span className="text-slate-400 normal-case font-normal">(optional)</span>
                     </label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium select-none">K</span>
                       <input type="text" inputMode="decimal" value={createFuelPrice}
                         onChange={e => handleCreatePriceChange(e.target.value)}
                         placeholder="e.g. 1650"
-                        className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                        className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl pl-8 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-400" />
                     </div>
                   </div>
 
                   {/* Remarks */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Remarks <span className="text-slate-600 normal-case font-normal">(optional)</span>
+                      Remarks <span className="text-slate-400 normal-case font-normal">(optional)</span>
                     </label>
                     <input type="text" value={createFuelRemarks} onChange={e => setCreateFuelRemarks(e.target.value)}
                       placeholder="e.g. Plate no., vehicle type…"
-                      className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-600" />
+                      className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-400" />
                   </div>
                 </div>
               )}
 
               {createError && (
-                <div className="flex items-start gap-2 bg-red-900/30 border border-red-700/40 rounded-xl px-4 py-3 text-xs text-red-300">
+                <div className="flex items-start gap-2 bg-pale-red border border-red-100 rounded-xl px-4 py-3 text-xs text-pale-red-foreground">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                   {createError}
                 </div>

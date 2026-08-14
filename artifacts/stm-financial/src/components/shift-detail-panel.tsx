@@ -53,32 +53,32 @@ function ItemizedBreakdown({ title, entries }: { title: string; entries: Itemize
   return (
     <div className="mt-3">
       <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-2 flex items-center gap-2">
-        <span className="flex-1 h-px bg-slate-700/60 block" />
+        <span className="flex-1 h-px bg-slate-100 block" />
         {title}
-        <span className="flex-1 h-px bg-slate-700/60 block" />
+        <span className="flex-1 h-px bg-slate-100 block" />
       </p>
-      <div className="bg-slate-800/40 border border-blue-700/30 rounded-xl overflow-hidden">
-        <div className="divide-y divide-slate-700/30">
+      <div className="bg-slate-50 border border-slate-100 rounded-xl overflow-hidden">
+        <div className="divide-y divide-slate-100">
           {entries.map(item => (
             <div key={item.key} className="px-4 py-3 flex items-start justify-between gap-3 text-sm">
               <div className="min-w-0">
-                <span className="text-blue-300 font-semibold">{item.product}</span>
+                <span className="text-pale-blue-foreground font-semibold">{item.product}</span>
                 <p className="text-slate-500 text-xs mt-0.5 tabular-nums">
                   {item.unitCount} {item.unitNoun} &nbsp;·&nbsp; {item.litersPerUnit.toLocaleString("en-US", { maximumFractionDigits: 1 })} L/{item.unitPriceNoun} &nbsp;·&nbsp; {item.totalLiters.toLocaleString("en-US", { maximumFractionDigits: 1 })} L total
                 </p>
-                <p className="text-slate-600 text-xs mt-0.5 tabular-nums">
-                  {fmt0(item.unitPrice)} MMK/{item.unitPriceNoun} &nbsp;·&nbsp; <span className="text-slate-500">{pricePerLiter(item.total, item.totalLiters)}</span>
+                <p className="text-slate-500 text-xs mt-0.5 tabular-nums">
+                  {fmt0(item.unitPrice)} MMK/{item.unitPriceNoun} &nbsp;·&nbsp; <span className="text-slate-400">{pricePerLiter(item.total, item.totalLiters)}</span>
                 </p>
               </div>
-              <span className="text-blue-300 font-bold tabular-nums shrink-0">{fmt0(item.total)} MMK</span>
+              <span className="text-pale-blue-foreground font-bold tabular-nums shrink-0">{fmt0(item.total)} MMK</span>
             </div>
           ))}
         </div>
-        <div className="px-4 py-3 border-t border-slate-700/50 bg-slate-800/60 flex items-center justify-between text-sm">
-          <span className="text-slate-400 font-semibold">Total {title.replace(" — Itemized", "")}</span>
+        <div className="px-4 py-3 border-t border-slate-100 bg-white flex items-center justify-between text-sm">
+          <span className="text-slate-500 font-semibold">Total {title.replace(" — Itemized", "")}</span>
           <div className="text-right">
-            <span className="text-blue-400 font-bold tabular-nums block">{mmk(grandTotal)}</span>
-            <span className="text-slate-500 text-xs tabular-nums">{pricePerLiter(grandTotal, grandLiters)} avg</span>
+            <span className="text-pale-blue-foreground font-bold tabular-nums block">{mmk(grandTotal)}</span>
+            <span className="text-slate-400 text-xs tabular-nums">{pricePerLiter(grandTotal, grandLiters)} avg</span>
           </div>
         </div>
       </div>
@@ -89,7 +89,7 @@ function ItemizedBreakdown({ title, entries }: { title: string; entries: Itemize
 function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <div className="flex items-center gap-2 mb-3">
-      <div className="w-6 h-6 rounded-md bg-slate-700/60 flex items-center justify-center text-slate-400">
+      <div className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center text-slate-400">
         {icon}
       </div>
       <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{label}</span>
@@ -110,19 +110,19 @@ function ProductRow({ label, litersVal, price, total, isCashOnly }: ProductRowPr
   return (
     <div className={`rounded-lg border px-4 py-3 mb-2 last:mb-0 ${
       hasAnyData
-        ? "bg-slate-800/60 border-slate-700/40"
-        : "bg-slate-900/30 border-slate-800/20 opacity-40"
+        ? "bg-slate-50 border-slate-100"
+        : "bg-slate-50/60 border-slate-100 opacity-50"
     }`}>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-white text-sm font-semibold">{label}</span>
-        <span className={`font-bold text-sm tabular-nums ${hasAnyData ? "text-blue-300" : "text-slate-600"}`}>
+        <span className="text-slate-900 text-sm font-semibold">{label}</span>
+        <span className={`font-bold text-sm tabular-nums ${hasAnyData ? "text-pale-blue-foreground" : "text-slate-400"}`}>
           {hasAnyData ? mmk(total) : "No data"}
         </span>
       </div>
       {!isCashOnly && (
         <div className="flex gap-5 text-xs text-slate-500 mt-0.5">
-          <span>Qty: <span className="text-slate-300">{liters(litersVal)}</span></span>
-          <span>Price: <span className="text-slate-300">{price != null ? mmk(price) + "/L" : "—"}</span></span>
+          <span>Qty: <span className="text-slate-700">{liters(litersVal)}</span></span>
+          <span>Price: <span className="text-slate-700">{price != null ? mmk(price) + "/L" : "—"}</span></span>
         </div>
       )}
       {isCashOnly && hasAnyData && (
@@ -188,17 +188,17 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-      <div className="relative w-full max-w-[490px] bg-[#0f1623] border-l border-slate-700/50 h-full overflow-y-auto shadow">
+      <div className="relative w-full max-w-[490px] bg-white border-l border-slate-100 h-full overflow-y-auto shadow">
         {/* Header */}
-        <div className="sticky top-0 bg-[#0f1623] border-b border-slate-700/50 px-6 py-4 flex items-start justify-between z-10">
+        <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-start justify-between z-10">
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-1">Shift Receipt</p>
-            <h2 className="text-white font-bold text-base font-mono">#{String(shift.id).slice(0, 8).toUpperCase()}</h2>
+            <h2 className="text-slate-900 font-bold text-base font-mono">#{String(shift.id).slice(0, 8).toUpperCase()}</h2>
           </div>
           <button
             onClick={onClose}
             aria-label="Close panel"
-            className="text-slate-500 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-slate-700/50 mt-0.5"
+            className="text-slate-500 hover:text-slate-900 transition-colors p-1.5 rounded-lg hover:bg-slate-100 mt-0.5"
           >
             <X className="w-5 h-5" />
           </button>
@@ -207,11 +207,11 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
         <div className="p-6 space-y-6">
           {/* Red Flag Banner */}
           {isRedFlag && (
-            <div className="flex items-start gap-3 bg-red-900/30 border border-red-700/50 rounded-xl px-4 py-3">
-              <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 bg-pale-red border border-red-100 rounded-xl px-4 py-3">
+              <AlertTriangle className="w-5 h-5 text-pale-red-foreground shrink-0 mt-0.5" />
               <div>
-                <p className="text-red-300 font-bold text-sm">Red Flag — Large Cash Discrepancy</p>
-                <p className="text-red-400/70 text-xs mt-0.5">
+                <p className="text-pale-red-foreground font-bold text-sm">Red Flag — Large Cash Discrepancy</p>
+                <p className="text-pale-red-foreground/80 text-xs mt-0.5">
                   Difference of {mmk(Math.abs(diff))} exceeds the 10,000 MMK threshold.
                 </p>
               </div>
@@ -219,19 +219,19 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
           )}
 
           {/* Submission Info */}
-          <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4 space-y-2.5">
+          <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-2.5">
             <SectionHeader icon={<Clock className="w-3.5 h-3.5" />} label="Submission Details" />
             <div className="flex justify-between text-sm">
               <span className="text-slate-400 flex items-center gap-1.5">
                 <Clock className="w-3 h-3" /> Submitted
               </span>
-              <span className="text-white font-medium text-right max-w-[55%] leading-snug">{submissionTime}</span>
+              <span className="text-slate-900 font-medium text-right max-w-[55%] leading-snug">{submissionTime}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-slate-400 flex items-center gap-1.5">
                 <User className="w-3 h-3" /> Employee
               </span>
-              <span className="text-white font-semibold">{shift.employee_username || "—"}</span>
+              <span className="text-slate-900 font-semibold">{shift.employee_username || "—"}</span>
             </div>
           </div>
 
@@ -271,32 +271,32 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
             <SectionHeader icon={<Receipt className="w-3.5 h-3.5" />} label="Operational Expenses" />
 
             {hasBreakdown ? (
-              <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl overflow-hidden">
+              <div className="bg-slate-50 border border-slate-100 rounded-xl overflow-hidden">
                 {/* Itemized list */}
-                <div className="divide-y divide-slate-700/30">
+                <div className="divide-y divide-slate-100">
                   {shift.expenses_breakdown!.map((item, i) => (
                     <div key={i} className="px-4 py-3 flex items-center justify-between text-sm">
-                      <span className="text-slate-300 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500/70 shrink-0" />
+                      <span className="text-slate-700 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-pale-gold-foreground/70 shrink-0" />
                         {item.name}
                       </span>
-                      <span className="text-amber-300 font-semibold tabular-nums">
+                      <span className="text-pale-gold-foreground font-semibold tabular-nums">
                         {new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(item.amount)} MMK
                       </span>
                     </div>
                   ))}
                 </div>
                 {/* Total row */}
-                <div className="px-4 py-3 border-t border-slate-700/50 bg-slate-800/60 flex justify-between text-sm">
-                  <span className="text-slate-400 font-semibold">Total Expenses</span>
-                  <span className="text-amber-400 font-bold tabular-nums">{mmk(shift.expenses)}</span>
+                <div className="px-4 py-3 border-t border-slate-100 bg-white flex justify-between text-sm">
+                  <span className="text-slate-500 font-semibold">Total Expenses</span>
+                  <span className="text-pale-gold-foreground font-bold tabular-nums">{mmk(shift.expenses)}</span>
                 </div>
               </div>
             ) : (
-              <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+              <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400">Total Expenses</span>
-                  <span className={`font-semibold tabular-nums ${shift.expenses ? "text-amber-400" : "text-slate-600"}`}>
+                  <span className={`font-semibold tabular-nums ${shift.expenses ? "text-pale-gold-foreground" : "text-slate-400"}`}>
                     {shift.expenses ? mmk(shift.expenses) : "None recorded"}
                   </span>
                 </div>
@@ -314,21 +314,21 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
           {/* Cash Summary */}
           <div>
             <SectionHeader icon={<BadgeDollarSign className="w-3.5 h-3.5" />} label="Cash Summary" />
-            <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl overflow-hidden divide-y divide-slate-700/30">
+            <div className="bg-slate-50 border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-100">
               <div className="px-4 py-3 flex justify-between text-sm">
                 <span className="text-slate-400">Expected Total</span>
-                <span className="text-white font-medium tabular-nums">{mmk(shift.expected_cash_total)}</span>
+                <span className="text-slate-900 font-medium tabular-nums">{mmk(shift.expected_cash_total)}</span>
               </div>
               <div className="px-4 py-3 flex justify-between text-sm">
                 <span className="text-slate-400">Actual Collected</span>
-                <span className="text-white font-semibold tabular-nums">{mmk(shift.actual_cash_collected)}</span>
+                <span className="text-slate-900 font-semibold tabular-nums">{mmk(shift.actual_cash_collected)}</span>
               </div>
-              <div className={`px-4 py-3 flex justify-between text-sm ${isRedFlag ? "bg-red-900/25" : ""}`}>
-                <span className={`font-bold ${isRedFlag ? "text-red-300" : "text-slate-300"}`}>
+              <div className={`px-4 py-3 flex justify-between text-sm ${isRedFlag ? "bg-pale-red" : ""}`}>
+                <span className={`font-bold ${isRedFlag ? "text-pale-red-foreground" : "text-slate-700"}`}>
                   Difference
                 </span>
                 <span className={`font-bold text-base tabular-nums ${
-                  isRedFlag ? "text-red-300" : diff >= 0 ? "text-emerald-400" : "text-amber-400"
+                  isRedFlag ? "text-pale-red-foreground" : diff >= 0 ? "text-pale-green-foreground" : "text-pale-gold-foreground"
                 }`}>
                   {diff >= 0 ? "+" : ""}{mmk(diff)}
                 </span>
