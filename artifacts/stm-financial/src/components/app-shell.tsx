@@ -33,8 +33,8 @@ export default function AppShell({ children }: Props) {
       <aside className="hidden lg:flex w-64 flex-col bg-white border-r border-slate-100 fixed inset-y-0 left-0 z-30">
         <div className="px-5 py-5 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-              <Shield className="w-5 h-5 text-blue-600" />
+            <div className="w-9 h-9 rounded-xl bg-pale-blue flex items-center justify-center shrink-0">
+              <Shield className="w-5 h-5 text-pale-blue-foreground" />
             </div>
             <div>
               <p className="text-slate-900 font-bold text-sm leading-tight">STM Financial</p>
@@ -45,7 +45,7 @@ export default function AppShell({ children }: Props) {
 
         <div className="px-4 py-4 border-b border-slate-100">
           <div className="bg-slate-50 rounded-xl px-4 py-3 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-sm">
+            <div className="w-8 h-8 rounded-full bg-pale-blue flex items-center justify-center text-pale-blue-foreground font-bold text-sm">
               {profile?.username?.[0]?.toUpperCase() ?? "C"}
             </div>
             <div className="min-w-0">
@@ -64,7 +64,7 @@ export default function AppShell({ children }: Props) {
                 onClick={() => setLocation(path)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   active
-                    ? "bg-blue-50 text-blue-600"
+                    ? "bg-pale-blue text-pale-blue-foreground"
                     : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                 }`}
               >
@@ -112,7 +112,7 @@ export default function AppShell({ children }: Props) {
                   onClick={() => { setLocation(path); setMobileOpen(false); }}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     active
-                      ? "bg-blue-50 text-blue-600"
+                      ? "bg-pale-blue text-pale-blue-foreground"
                       : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                   }`}
                 >

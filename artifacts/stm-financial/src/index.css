@@ -45,6 +45,11 @@
   --color-chart-4: hsl(var(--chart-4));
   --color-chart-5: hsl(var(--chart-5));
 
+  --color-pale-blue: hsl(var(--pale-blue));
+  --color-pale-blue-foreground: hsl(var(--pale-blue-foreground));
+  --color-pale-gold: hsl(var(--pale-gold));
+  --color-pale-gold-foreground: hsl(var(--pale-gold-foreground));
+
   --color-sidebar: hsl(var(--sidebar));
   --color-sidebar-foreground: hsl(var(--sidebar-foreground));
   --color-sidebar-border: hsl(var(--sidebar-border));
@@ -82,15 +87,15 @@
   --sidebar: 0 0% 100%;
   --sidebar-foreground: 222 47% 11%;
   --sidebar-border: 220 16% 91%;
-  --sidebar-primary: 217 91% 60%;
+  --sidebar-primary: 205 45% 42%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 217 91% 97%;
-  --sidebar-accent-foreground: 217 91% 45%;
-  --sidebar-ring: 217 91% 60%;
+  --sidebar-accent: 205 50% 95%;
+  --sidebar-accent-foreground: 205 45% 36%;
+  --sidebar-ring: 205 45% 42%;
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
   --popover-border: 220 16% 91%;
-  --primary: 217 91% 60%;
+  --primary: 205 45% 42%;
   --primary-foreground: 0 0% 100%;
   --secondary: 220 20% 96%;
   --secondary-foreground: 222 47% 11%;
@@ -101,12 +106,17 @@
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
   --input: 220 16% 91%;
-  --ring: 217 91% 60%;
-  --chart-1: 217 91% 60%;
-  --chart-2: 24 95% 53%;
-  --chart-3: 262 83% 66%;
-  --chart-4: 220 9% 65%;
-  --chart-5: 142 71% 45%;
+  --ring: 205 45% 42%;
+  --chart-1: 205 45% 45%;
+  --chart-2: 42 55% 42%;
+  --chart-3: 205 45% 28%;
+  --chart-4: 42 55% 30%;
+  --chart-5: 215 15% 58%;
+
+  --pale-blue: 205 50% 95%;
+  --pale-blue-foreground: 205 45% 36%;
+  --pale-gold: 42 60% 94%;
+  --pale-gold-foreground: 42 58% 32%;
 
   --app-font-sans: 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;

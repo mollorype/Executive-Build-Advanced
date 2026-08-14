@@ -159,15 +159,15 @@ export default function Dashboard() {
             <div className="relative flex items-start justify-between gap-4 flex-wrap">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                    <DollarSign className="w-4 h-4 text-emerald-600" />
+                  <div className="w-9 h-9 rounded-xl bg-pale-blue flex items-center justify-center shrink-0">
+                    <DollarSign className="w-4 h-4 text-pale-blue-foreground" />
                   </div>
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Total Sales Today</p>
                 </div>
                 <p className="text-slate-400 text-[11px] mt-1 ml-11">Fuel, Pipa & Jelly Can sales</p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-3xl font-black tabular-nums text-emerald-600 tracking-tight">{mmkFmt(totalSalesToday)}</p>
+                <p className="text-3xl font-black tabular-nums text-pale-blue-foreground tracking-tight">{mmkFmt(totalSalesToday)}</p>
                 <p className="text-xs text-slate-400 mt-1">
                   {todayShifts.length} {todayShifts.length === 1 ? "shift" : "shifts"} today
                 </p>
@@ -180,8 +180,8 @@ export default function Dashboard() {
             <div className="relative flex items-start justify-between gap-4 flex-wrap">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="w-9 h-9 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
-                    <Banknote className="w-4 h-4 text-orange-600" />
+                  <div className="w-9 h-9 rounded-xl bg-pale-gold flex items-center justify-center shrink-0">
+                    <Banknote className="w-4 h-4 text-pale-gold-foreground" />
                   </div>
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Total Outstanding Debt</p>
                 </div>
@@ -193,7 +193,7 @@ export default function Dashboard() {
                 </p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-3xl font-black tabular-nums text-orange-600 tracking-tight">{mmkFmt(debtOwed)}</p>
+                <p className="text-3xl font-black tabular-nums text-pale-gold-foreground tracking-tight">{mmkFmt(debtOwed)}</p>
                 <p className="text-xs text-slate-400 mt-1">
                   {debtActiveCount} {debtActiveCount === 1 ? "debtor" : "debtors"} with open balance
                 </p>
@@ -206,8 +206,8 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white border border-slate-100 shadow-sm rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-blue-600" />
+              <div className="w-9 h-9 rounded-xl bg-pale-blue flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-pale-blue-foreground" />
               </div>
               <span className="text-slate-500 text-xs font-medium uppercase tracking-wider">Sales This Week</span>
             </div>
@@ -228,8 +228,8 @@ export default function Dashboard() {
 
           <div className="bg-white border border-slate-100 shadow-sm rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center">
-                <Users className="w-4 h-4 text-purple-600" />
+              <div className="w-9 h-9 rounded-xl bg-pale-gold flex items-center justify-center">
+                <Users className="w-4 h-4 text-pale-gold-foreground" />
               </div>
               <span className="text-slate-500 text-xs font-medium uppercase tracking-wider">Total Shifts</span>
             </div>
@@ -239,8 +239,8 @@ export default function Dashboard() {
 
           <div className="bg-white border border-slate-100 shadow-sm rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center">
-                <BarChart3 className="w-4 h-4 text-blue-600" />
+              <div className="w-9 h-9 rounded-xl bg-pale-blue flex items-center justify-center">
+                <BarChart3 className="w-4 h-4 text-pale-blue-foreground" />
               </div>
               <span className="text-slate-500 text-xs font-medium uppercase tracking-wider">Avg Daily Sales</span>
             </div>
@@ -252,7 +252,7 @@ export default function Dashboard() {
         {/* Fuel Price History */}
         <div className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden p-4">
           <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-4 h-4 text-blue-600" />
+            <TrendingUp className="w-4 h-4 text-pale-blue-foreground" />
             <h2 className="text-slate-900 font-semibold text-sm">Fuel Price History</h2>
             <span className="ml-auto text-slate-400 text-xs">Last 30 days</span>
           </div>
@@ -279,7 +279,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden p-4">
             <div className="flex items-center gap-2 mb-4">
-              <BarChart3 className="w-4 h-4 text-blue-600" />
+              <BarChart3 className="w-4 h-4 text-pale-blue-foreground" />
               <h2 className="text-slate-900 font-semibold text-sm">Sales Trend</h2>
               <span className="ml-auto text-slate-400 text-xs">Last 30 days</span>
             </div>
@@ -304,7 +304,7 @@ export default function Dashboard() {
 
           <div className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden p-4">
             <div className="flex items-center gap-2 mb-4">
-              <CreditCard className="w-4 h-4 text-blue-600" />
+              <CreditCard className="w-4 h-4 text-pale-blue-foreground" />
               <h2 className="text-slate-900 font-semibold text-sm">Debt by Category</h2>
             </div>
             {debtProfiles.length === 0 ? (
