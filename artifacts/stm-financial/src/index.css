@@ -49,6 +49,10 @@
   --color-pale-blue-foreground: hsl(var(--pale-blue-foreground));
   --color-pale-gold: hsl(var(--pale-gold));
   --color-pale-gold-foreground: hsl(var(--pale-gold-foreground));
+  --color-pale-green: hsl(var(--pale-green));
+  --color-pale-green-foreground: hsl(var(--pale-green-foreground));
+  --color-pale-red: hsl(var(--pale-red));
+  --color-pale-red-foreground: hsl(var(--pale-red-foreground));
 
   --color-sidebar: hsl(var(--sidebar));
   --color-sidebar-foreground: hsl(var(--sidebar-foreground));
@@ -117,6 +121,10 @@
   --pale-blue-foreground: 205 45% 36%;
   --pale-gold: 42 60% 94%;
   --pale-gold-foreground: 42 58% 32%;
+  --pale-green: 142 45% 94%;
+  --pale-green-foreground: 142 40% 28%;
+  --pale-red: 0 70% 96%;
+  --pale-red-foreground: 0 60% 45%;
 
   --app-font-sans: 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;

@@ -159,15 +159,15 @@ export default function Dashboard() {
             <div className="relative flex items-start justify-between gap-4 flex-wrap">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="w-9 h-9 rounded-xl bg-pale-blue flex items-center justify-center shrink-0">
-                    <DollarSign className="w-4 h-4 text-pale-blue-foreground" />
+                  <div className="w-9 h-9 rounded-xl bg-pale-green flex items-center justify-center shrink-0">
+                    <DollarSign className="w-4 h-4 text-pale-green-foreground" />
                   </div>
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Total Sales Today</p>
                 </div>
                 <p className="text-slate-400 text-[11px] mt-1 ml-11">Fuel, Pipa & Jelly Can sales</p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-3xl font-black tabular-nums text-pale-blue-foreground tracking-tight">{mmkFmt(totalSalesToday)}</p>
+                <p className="text-3xl font-black tabular-nums text-pale-green-foreground tracking-tight">{mmkFmt(totalSalesToday)}</p>
                 <p className="text-xs text-slate-400 mt-1">
                   {todayShifts.length} {todayShifts.length === 1 ? "shift" : "shifts"} today
                 </p>
@@ -217,8 +217,8 @@ export default function Dashboard() {
 
           <div className="bg-white border border-slate-100 shadow-sm rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center">
-                <AlertTriangle className="w-4 h-4 text-red-600" />
+              <div className="w-9 h-9 rounded-xl bg-pale-red flex items-center justify-center">
+                <AlertTriangle className="w-4 h-4 text-pale-red-foreground" />
               </div>
               <span className="text-slate-500 text-xs font-medium uppercase tracking-wider">Red Flags</span>
             </div>
