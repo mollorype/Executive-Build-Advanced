@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   supabase, DebtProfile, DebtTransaction, DEBT_TABLES, RELATIONS, DebtRelation,
   NO_SCORE_RELATIONS,
   generateTxnNumber, calculateScore, scoreColor, scoreTier, mmkFmt, formatPhone,
   getDisplayPhones, combineDateWithCurrentTime,
 } from "@/lib/debt-supabase";
+import { sortTransactionsChronological, describeTransaction } from "@/lib/ledger";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import {
   X, Plus, Trash2, Clock, User, Phone, CreditCard,
@@ -76,6 +77,18 @@ const labelCls = "block text-xs font-semibold text-slate-400 uppercase tracking-
 export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfileChange }: Props) {
   const [transactions, setTransactions] = useState<DebtTransaction[]>([]);
   const [loadingTxn, setLoadingTxn] = useState(true);
+
+  // Balance immediately after each transaction, read chronologically — independent of the
+  // table's own (newest-first) display order.
+  const runningBalances = useMemo(() => {
+    const map = new Map<string, number>();
+    let running = 0;
+    for (const t of sortTransactionsChronological(transactions)) {
+      running += t.amount;
+      map.set(t.id, running);
+    }
+    return map;
+  }, [transactions]);
 
   const [txnAmount, setTxnAmount] = useState("");
   const [txnDate, setTxnDate] = useState(new Date().toISOString().slice(0, 10));
@@ -792,126 +805,140 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
               </div>
             ) : (
               <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl overflow-hidden">
-                {transactions.map((txn, i) => {
-                  const isPayment = txn.amount < 0;
-                  const hasProductType = !isPayment && !!txn.product_type;
-                  const hasVolume = txn.liters != null && txn.liters > 0;
-                  const isHighlighted = !!txn.highlighted;
-                  const isEditingRemark = remarkEditingId === txn.id;
-                  return (
-                    <div key={txn.id} className={[
-                      "flex items-start gap-3 px-4 py-3 text-sm group transition-colors",
-                      i > 0 ? "border-t border-slate-700/30" : "",
-                      isHighlighted ? "border-l-[3px] border-amber-400 bg-amber-400/[0.04] pl-3" : "",
-                    ].join(" ")}>
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isPayment ? "bg-emerald-500/20" : "bg-red-500/20"}`}>
-                        {isPayment
-                          ? <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />
-                          : <TrendingUp className="w-3.5 h-3.5 text-red-400" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className={`font-bold tabular-nums ${isPayment ? "text-emerald-400" : "text-red-300"}`}>
-                            {isPayment ? "" : "+"}{mmkFmt(txn.amount)}
-                          </span>
-                          <span className="text-slate-600 text-[10px] font-mono shrink-0">{txn.transaction_number}</span>
-                        </div>
-                        <p className="text-slate-500 text-xs mt-0.5">{fmtDateTime(txn.date)}</p>
-                        {/* Product type — shown even when volumes are null/blank */}
-                        {hasProductType && (
-                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                            <span className="text-[10px] font-bold text-blue-400 bg-blue-900/20 border border-blue-700/30 px-1.5 py-0.5 rounded">
-                              {txn.product_type}
-                            </span>
-                            {hasVolume ? (
-                              <span className="text-[10px] text-slate-400">
-                                {txn.liters!.toLocaleString("en-US", { maximumFractionDigits: 3 })} L
-                                {txn.price_per_liter != null && (
-                                  <> @ {new Intl.NumberFormat("en-US").format(txn.price_per_liter)}/L</>
-                                )}
-                              </span>
-                            ) : (
-                              <span className="text-[10px] text-slate-500 italic">(Flat Amount Purchase)</span>
-                            )}
-                          </div>
-                        )}
-                        {/* Remark — inline editable */}
-                        {isEditingRemark ? (
-                          <div className="flex items-center gap-1.5 mt-1.5">
-                            <input
-                              autoFocus
-                              type="text"
-                              value={remarkDraft}
-                              onChange={e => setRemarkDraft(e.target.value)}
-                              onKeyDown={e => {
-                                if (e.key === "Enter") handleSaveRemark(txn);
-                                if (e.key === "Escape") setRemarkEditingId(null);
-                              }}
-                              placeholder="Add a remark…"
-                              className="flex-1 bg-slate-700 border border-slate-600 text-white text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/50 placeholder:text-slate-500"
-                            />
-                            <button
-                              onClick={() => handleSaveRemark(txn)}
-                              className="text-xs text-amber-400 hover:text-amber-300 font-semibold px-2 py-1 rounded-lg hover:bg-amber-900/20 transition-all">
-                              Save
-                            </button>
-                            <button
-                              onClick={() => setRemarkEditingId(null)}
-                              aria-label="Cancel editing remark"
-                              className="text-xs text-slate-500 hover:text-slate-300 px-1.5 py-1 rounded-lg hover:bg-slate-700 transition-all">
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ) : txn.note ? (
-                          <p
-                            title="Click to edit remark"
-                            onClick={() => { setRemarkEditingId(txn.id); setRemarkDraft(txn.note ?? ""); }}
-                            className="text-slate-400 text-xs mt-0.5 italic cursor-pointer hover:text-amber-300 transition-colors">
-                            "{txn.note}"
-                          </p>
-                        ) : null}
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded border ${txn.source === "daily_app" ? "text-amber-400 border-amber-700/40 bg-amber-900/20" : "text-slate-500 border-slate-700/40"}`}>
-                            {txn.source === "daily_app" ? "Daily App" : "Manual"}
-                          </span>
-                          {/* Quick add remark when none exists */}
-                          {!txn.note && !isEditingRemark && (
-                            <button
-                              onClick={() => { setRemarkEditingId(txn.id); setRemarkDraft(""); }}
-                              className="flex items-center gap-0.5 text-[10px] text-slate-600 hover:text-slate-400 opacity-0 group-hover:opacity-100 transition-all">
-                              <MessageSquarePlus className="w-3 h-3" /> remark
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-1 shrink-0 mt-0.5">
-                        {/* Highlight toggle — always visible when highlighted, hover-only otherwise */}
-                        <button
-                          type="button"
-                          onClick={() => handleToggleHighlight(txn)}
-                          disabled={togglingHighlight === txn.id}
-                          title={isHighlighted ? "Remove highlight" : "Highlight transaction"}
-                          className={`p-1.5 rounded-lg transition-all ${
-                            isHighlighted
-                              ? "text-amber-400 bg-amber-900/20"
-                              : "text-slate-600 hover:text-amber-400 hover:bg-amber-900/20 opacity-0 group-hover:opacity-100"
-                          }`}>
-                          {togglingHighlight === txn.id
-                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            : <Bookmark className="w-3.5 h-3.5" fill={isHighlighted ? "currentColor" : "none"} />}
-                        </button>
-                        <button type="button" onClick={() => openEditTxn(txn)} title="Edit transaction"
-                          className="text-slate-600 hover:text-blue-400 hover:bg-blue-900/20 p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100">
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => handleDeleteTransaction(txn)} disabled={deletingId === txn.id} title="Delete transaction"
-                          className="text-slate-600 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100">
-                          {deletingId === txn.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-slate-900/50 border-b border-slate-700/50">
+                        <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wider">Date</th>
+                        <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wider">Description</th>
+                        <th className="px-4 py-2.5 text-right text-[11px] font-bold text-slate-400 uppercase tracking-wider">Debit</th>
+                        <th className="px-4 py-2.5 text-right text-[11px] font-bold text-slate-400 uppercase tracking-wider">Credit</th>
+                        <th className="px-4 py-2.5 text-right text-[11px] font-bold text-slate-400 uppercase tracking-wider">Balance</th>
+                        <th className="px-4 py-2.5 text-right text-[11px] font-bold text-slate-400 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700/30">
+                      {transactions.map(txn => {
+                        const isPayment = txn.amount < 0;
+                        const hasProductType = !isPayment && !!txn.product_type;
+                        const hasVolume = txn.liters != null && txn.liters > 0;
+                        const isHighlighted = !!txn.highlighted;
+                        const isEditingRemark = remarkEditingId === txn.id;
+                        const balance = runningBalances.get(txn.id) ?? 0;
+                        return (
+                          <tr key={txn.id} className={`align-top transition-colors ${isHighlighted ? "bg-amber-400/[0.05] border-l-[3px] border-amber-400" : "hover:bg-slate-800/60"}`}>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <p className="text-slate-300 text-xs">{fmtDateTime(txn.date)}</p>
+                              <p className="text-slate-600 text-[10px] font-mono mt-0.5">{txn.transaction_number}</p>
+                            </td>
+                            <td className="px-4 py-3 min-w-[220px]">
+                              {isEditingRemark ? (
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    autoFocus
+                                    type="text"
+                                    value={remarkDraft}
+                                    onChange={e => setRemarkDraft(e.target.value)}
+                                    onKeyDown={e => {
+                                      if (e.key === "Enter") handleSaveRemark(txn);
+                                      if (e.key === "Escape") setRemarkEditingId(null);
+                                    }}
+                                    placeholder="Add a remark…"
+                                    className="flex-1 bg-slate-700 border border-slate-600 text-white text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/50 placeholder:text-slate-500"
+                                  />
+                                  <button
+                                    onClick={() => handleSaveRemark(txn)}
+                                    className="text-xs text-amber-400 hover:text-amber-300 font-semibold px-2 py-1 rounded-lg hover:bg-amber-900/20 transition-all">
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={() => setRemarkEditingId(null)}
+                                    aria-label="Cancel editing remark"
+                                    className="text-xs text-slate-500 hover:text-slate-300 px-1.5 py-1 rounded-lg hover:bg-slate-700 transition-all">
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <>
+                                  <p className="text-white text-sm">{describeTransaction(txn)}</p>
+                                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                    {hasProductType && (
+                                      <span className="text-[10px] font-bold text-blue-400 bg-blue-900/20 border border-blue-700/30 px-1.5 py-0.5 rounded">
+                                        {txn.product_type}
+                                      </span>
+                                    )}
+                                    {hasProductType && (hasVolume ? (
+                                      <span className="text-[10px] text-slate-400">
+                                        {txn.liters!.toLocaleString("en-US", { maximumFractionDigits: 3 })} L
+                                        {txn.price_per_liter != null && (
+                                          <> @ {new Intl.NumberFormat("en-US").format(txn.price_per_liter)}/L</>
+                                        )}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] text-slate-500 italic">(Flat Amount Purchase)</span>
+                                    ))}
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${txn.source === "daily_app" ? "text-amber-400 border-amber-700/40 bg-amber-900/20" : "text-slate-500 border-slate-700/40"}`}>
+                                      {txn.source === "daily_app" ? "Daily App" : "Manual"}
+                                    </span>
+                                    {txn.note ? (
+                                      <button
+                                        onClick={() => { setRemarkEditingId(txn.id); setRemarkDraft(txn.note ?? ""); }}
+                                        title="Edit remark"
+                                        className="flex items-center gap-0.5 text-[10px] text-amber-400/80 hover:text-amber-300 transition-colors">
+                                        <Pencil className="w-2.5 h-2.5" /> edit remark
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={() => { setRemarkEditingId(txn.id); setRemarkDraft(""); }}
+                                        className="flex items-center gap-0.5 text-[10px] text-slate-600 hover:text-slate-400 transition-colors">
+                                        <MessageSquarePlus className="w-3 h-3" /> remark
+                                      </button>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap text-red-300">
+                              {!isPayment ? mmkFmt(txn.amount) : ""}
+                            </td>
+                            <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap text-emerald-400">
+                              {isPayment ? mmkFmt(-txn.amount) : ""}
+                            </td>
+                            <td className={`px-4 py-3 text-right tabular-nums whitespace-nowrap font-semibold ${balance > 0 ? "text-red-300" : "text-emerald-400"}`}>
+                              {mmkFmt(balance)}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleHighlight(txn)}
+                                  disabled={togglingHighlight === txn.id}
+                                  title={isHighlighted ? "Remove highlight" : "Highlight transaction"}
+                                  className={`p-1.5 rounded-lg transition-all ${
+                                    isHighlighted
+                                      ? "text-amber-400 bg-amber-900/20"
+                                      : "text-slate-600 hover:text-amber-400 hover:bg-amber-900/20"
+                                  }`}>
+                                  {togglingHighlight === txn.id
+                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    : <Bookmark className="w-3.5 h-3.5" fill={isHighlighted ? "currentColor" : "none"} />}
+                                </button>
+                                <button type="button" onClick={() => openEditTxn(txn)} title="Edit transaction"
+                                  className="text-slate-600 hover:text-blue-400 hover:bg-blue-900/20 p-1.5 rounded-lg transition-all">
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={() => handleDeleteTransaction(txn)} disabled={deletingId === txn.id} title="Delete transaction"
+                                  className="text-slate-600 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-lg transition-all">
+                                  {deletingId === txn.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>

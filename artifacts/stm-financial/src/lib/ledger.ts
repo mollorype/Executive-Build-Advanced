@@ -17,12 +17,21 @@ export interface Ledger {
   totalCredit: number;
 }
 
-function describeTransaction(t: DebtTransaction): string {
+export function describeTransaction(t: DebtTransaction): string {
   if (t.note && t.note.trim()) return t.note.trim();
   if (t.product_type && t.liters) {
     return `${t.product_type} — ${t.liters.toFixed(2)} L`;
   }
   return t.amount < 0 ? "Payment" : "Debt Entry";
+}
+
+/** Oldest-first, matching how a ledger is read top to bottom. */
+export function sortTransactionsChronological(transactions: DebtTransaction[]): DebtTransaction[] {
+  return [...transactions].sort((a, b) => {
+    const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+    if (dateDiff !== 0) return dateDiff;
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
 }
 
 /**
@@ -35,11 +44,7 @@ export function buildLedger(
   from: string | null,
   to: string | null
 ): Ledger {
-  const sorted = [...transactions].sort((a, b) => {
-    const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
-    if (dateDiff !== 0) return dateDiff;
-    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-  });
+  const sorted = sortTransactionsChronological(transactions);
 
   const fromTime = from ? new Date(`${from}T00:00:00`).getTime() : -Infinity;
   const toTime = to ? new Date(`${to}T23:59:59.999`).getTime() : Infinity;
