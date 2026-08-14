@@ -1696,10 +1696,10 @@ function SyncStatusBanner({ isOnline, pendingCount, justSynced, lang }: { isOnli
   }
 
   return (
-    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50">
-      <div className={`flex items-center gap-1.5 text-xs font-bold rounded-full px-3.5 py-1.5 shadow-lg ${className}`}>
+    <div className="fixed bottom-20 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
+      <div className={`flex items-center gap-1.5 text-xs font-bold rounded-full px-3.5 py-1.5 shadow-lg max-w-full pointer-events-auto ${className}`}>
         {icon}
-        {label}
+        <span className="truncate">{label}</span>
       </div>
     </div>
   );
