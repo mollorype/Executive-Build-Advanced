@@ -28,28 +28,28 @@ export default function AppShell({ children }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0f1e] flex">
+    <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar — desktop */}
-      <aside className="hidden lg:flex w-64 flex-col bg-[#0d1424] border-r border-slate-700/40 fixed inset-y-0 left-0 z-30">
-        <div className="px-5 py-5 border-b border-slate-700/40">
+      <aside className="hidden lg:flex w-64 flex-col bg-white border-r border-slate-100 fixed inset-y-0 left-0 z-30">
+        <div className="px-5 py-5 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center shrink-0">
-              <Shield className="w-5 h-5 text-blue-400" />
+            <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+              <Shield className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-white font-bold text-sm leading-tight">STM Financial</p>
+              <p className="text-slate-900 font-bold text-sm leading-tight">STM Financial</p>
               <p className="text-slate-500 text-xs">Executive Portal</p>
             </div>
           </div>
         </div>
 
-        <div className="px-4 py-4 border-b border-slate-700/40">
-          <div className="bg-slate-800/50 rounded-xl px-4 py-3 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-blue-600/30 border border-blue-500/30 flex items-center justify-center text-blue-300 font-bold text-sm">
+        <div className="px-4 py-4 border-b border-slate-100">
+          <div className="bg-slate-50 rounded-xl px-4 py-3 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-sm">
               {profile?.username?.[0]?.toUpperCase() ?? "C"}
             </div>
             <div className="min-w-0">
-              <p className="text-white text-sm font-semibold truncate">{profile?.username ?? "CEO"}</p>
+              <p className="text-slate-900 text-sm font-semibold truncate">{profile?.username ?? "CEO"}</p>
               <p className="text-slate-500 text-xs uppercase tracking-wider">{profile?.role ?? "Executive"}</p>
             </div>
           </div>
@@ -64,8 +64,8 @@ export default function AppShell({ children }: Props) {
                 onClick={() => setLocation(path)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   active
-                    ? "bg-blue-600/20 text-blue-300 border border-blue-500/20"
-                    : "text-slate-400 hover:text-white hover:bg-slate-700/40"
+                    ? "bg-blue-50 text-blue-600"
+                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />
@@ -76,10 +76,10 @@ export default function AppShell({ children }: Props) {
           })}
         </nav>
 
-        <div className="px-3 py-4 border-t border-slate-700/40">
+        <div className="px-3 py-4 border-t border-slate-100">
           <button
             onClick={handleSignOut}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all"
           >
             <LogOut className="w-4 h-4 shrink-0" />
             Sign Out
@@ -88,12 +88,12 @@ export default function AppShell({ children }: Props) {
       </aside>
 
       {/* Mobile header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-[#0d1424] border-b border-slate-700/40 px-4 py-3 flex items-center justify-end">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-end">
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
           aria-expanded={mobileOpen}
-          className="text-slate-400 hover:text-white p-1"
+          className="text-slate-500 hover:text-slate-900 p-1"
         >
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
@@ -102,8 +102,8 @@ export default function AppShell({ children }: Props) {
       {/* Mobile sidebar */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-30">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
-          <div className="absolute left-0 top-14 bottom-0 w-64 bg-[#0d1424] border-r border-slate-700/40 flex flex-col p-3 space-y-1">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+          <div className="absolute left-0 top-14 bottom-0 w-64 bg-white border-r border-slate-100 shadow-lg flex flex-col p-3 space-y-1">
             {visibleNavItems.map(({ path, label, icon: Icon }) => {
               const active = location === path;
               return (
@@ -112,8 +112,8 @@ export default function AppShell({ children }: Props) {
                   onClick={() => { setLocation(path); setMobileOpen(false); }}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     active
-                      ? "bg-blue-600/20 text-blue-300 border border-blue-500/20"
-                      : "text-slate-400 hover:text-white hover:bg-slate-700/40"
+                      ? "bg-blue-50 text-blue-600"
+                      : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -123,7 +123,7 @@ export default function AppShell({ children }: Props) {
             })}
             <button
               onClick={handleSignOut}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all mt-4"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all mt-4"
             >
               <LogOut className="w-4 h-4" />
               Sign Out
