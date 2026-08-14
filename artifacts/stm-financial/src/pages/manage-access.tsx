@@ -158,7 +158,8 @@ function EmailAllowlistCard({
                 <Mail className="w-4 h-4 text-slate-500" />
               </div>
               <input
-                type="email"
+                type="text"
+                inputMode="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
