@@ -76,10 +76,12 @@ export function mapRowToShift(row: Record<string, unknown>): Shift {
   };
 }
 
+export type Role = "ceo" | "accountant";
+
 export type Profile = {
   id: string;
   username: string;
-  role: string;
+  role: Role;
 };
 
 export type FuelPurchaseOrder = {

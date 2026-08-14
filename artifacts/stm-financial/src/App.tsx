@@ -3,18 +3,23 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import type { Role } from "@/lib/supabase";
 import AppShell from "@/components/app-shell";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import Shifts from "@/pages/shifts";
 import ManageAccess from "@/pages/manage-access";
-import AccessDenied from "@/pages/access-denied";
 import PORegistry from "@/pages/po-registry";
 import DebtTracker from "@/pages/debt-tracker";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+/** Where a role lands when it hits a page it isn't allowed on, or logs in fresh. */
+function homeFor(role: Role): string {
+  return role === "accountant" ? "/debt-tracker" : "/dashboard";
+}
+
+function ProtectedRoute({ children, allow = ["ceo"] }: { children: React.ReactNode; allow?: Role[] }) {
   const { user, profile, loading } = useAuth();
 
   if (loading) {
@@ -32,10 +37,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Redirect to="/" />;
   }
 
-  if (profile && profile.role !== "ceo") {
-    return <AccessDenied />;
-  }
-
   if (!profile) {
     return (
       <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center">
@@ -45,6 +46,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     );
+  }
+
+  if (!allow.includes(profile.role)) {
+    // A recognized role just hit a page outside its scope (e.g. an Accountant on /dashboard) — send them home.
+    return <Redirect to={homeFor(profile.role)} />;
   }
 
   return (
@@ -65,8 +71,8 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (user && profile?.role === "ceo") {
-    return <Redirect to="/dashboard" />;
+  if (user && profile) {
+    return <Redirect to={homeFor(profile.role)} />;
   }
 
   return <>{children}</>;
@@ -100,7 +106,7 @@ function Router() {
       </Route>
 
       <Route path="/debt-tracker">
-        <ProtectedRoute>
+        <ProtectedRoute allow={["ceo", "accountant"]}>
           <DebtTracker />
         </ProtectedRoute>
       </Route>

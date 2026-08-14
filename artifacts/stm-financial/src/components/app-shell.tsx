@@ -1,24 +1,26 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth-context";
+import type { Role } from "@/lib/supabase";
 import {
   Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, PackageSearch, CreditCard, Receipt,
 } from "lucide-react";
 
 type Props = { children: React.ReactNode };
 
-const navItems = [
-  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/shifts", label: "Shifts", icon: Receipt },
-  { path: "/po-registry", label: "PO Registry", icon: PackageSearch },
-  { path: "/debt-tracker", label: "Debt Tracker", icon: CreditCard },
-  { path: "/manage-access", label: "Staff Access", icon: Users },
+const navItems: { path: string; label: string; icon: typeof LayoutDashboard; roles: Role[] }[] = [
+  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["ceo"] },
+  { path: "/shifts", label: "Shifts", icon: Receipt, roles: ["ceo"] },
+  { path: "/po-registry", label: "PO Registry", icon: PackageSearch, roles: ["ceo"] },
+  { path: "/debt-tracker", label: "Debt Tracker", icon: CreditCard, roles: ["ceo", "accountant"] },
+  { path: "/manage-access", label: "Staff Access", icon: Users, roles: ["ceo"] },
 ];
 
 export default function AppShell({ children }: Props) {
   const { profile, signOut } = useAuth();
   const [location, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const visibleNavItems = navItems.filter(item => !profile || item.roles.includes(profile.role));
 
   async function handleSignOut() {
     await signOut();
@@ -54,7 +56,7 @@ export default function AppShell({ children }: Props) {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {navItems.map(({ path, label, icon: Icon }) => {
+          {visibleNavItems.map(({ path, label, icon: Icon }) => {
             const active = location === path || location.startsWith(path);
             return (
               <button
@@ -102,7 +104,7 @@ export default function AppShell({ children }: Props) {
         <div className="lg:hidden fixed inset-0 z-30">
           <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
           <div className="absolute left-0 top-14 bottom-0 w-64 bg-[#0d1424] border-r border-slate-700/40 flex flex-col p-3 space-y-1">
-            {navItems.map(({ path, label, icon: Icon }) => {
+            {visibleNavItems.map(({ path, label, icon: Icon }) => {
               const active = location === path;
               return (
                 <button
