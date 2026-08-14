@@ -86,11 +86,7 @@ export default function AppShell({ children }: Props) {
       </aside>
 
       {/* Mobile header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-[#0d1424] border-b border-slate-700/40 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Shield className="w-5 h-5 text-blue-400" />
-          <span className="text-white font-bold text-sm">STM Financial</span>
-        </div>
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-[#0d1424] border-b border-slate-700/40 px-4 py-3 flex items-center justify-end">
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
