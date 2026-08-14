@@ -7,11 +7,12 @@ import {
   combineDateWithCurrentTime,
 } from "@/lib/debt-supabase";
 import DebtProfileDetail from "@/components/debt-profile-detail";
+import DebtLedgerModal from "@/components/debt-ledger-modal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Plus, Search, SortAsc, User, Phone, X, Calendar, CreditCard,
   AlertTriangle, CheckCircle, TrendingDown, Loader2, Trash2, ShieldCheck,
-  Banknote, ArrowUpDown, ChevronRight,
+  Banknote, ArrowUpDown, ChevronRight, FileSpreadsheet,
 } from "lucide-react";
 
 const RELATION_COLORS: Record<DebtRelation, string> = {
@@ -41,6 +42,7 @@ export default function DebtTracker() {
   const [activeTab, setActiveTab] = useState<TabId>("normal");
   const [selectedProfile, setSelectedProfile] = useState<DebtProfile | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [ledgerProfile, setLedgerProfile] = useState<DebtProfile | null>(null);
 
   const [name, setName] = useState("");
   const [relation, setRelation] = useState<DebtRelation>("Other");
@@ -418,7 +420,7 @@ export default function DebtTracker() {
                 <div className="w-28">Relation</div>
                 <div className="w-36 text-right">Balance</div>
                 <div className="w-28 text-right">Score</div>
-                <div className="w-10" />
+                <div className="w-20" />
               </div>
               <div className="divide-y divide-slate-700/20">
                 {filtered.map(profile => {
@@ -492,7 +494,15 @@ export default function DebtTracker() {
                         )}
                       </div>
 
-                      <div className="w-10 flex justify-end items-center gap-1">
+                      <div className="w-20 flex justify-end items-center gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setLedgerProfile(profile); }}
+                          className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-blue-400 hover:bg-blue-900/20 p-1.5 rounded-lg transition-all"
+                          title="Export / Preview ledger"
+                          aria-label={`Export ledger for ${profile.name}`}
+                        >
+                          <FileSpreadsheet className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteProfile(profile); }}
                           className="opacity-0 group-hover:opacity-100 text-slate-700 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-lg transition-all"
@@ -767,6 +777,14 @@ export default function DebtTracker() {
             setSelectedProfile(null);
           }}
           onProfileChange={(p) => setSelectedProfile(p)}
+        />
+      )}
+
+      {/* Debtors Ledger Export/Preview Modal */}
+      {ledgerProfile && (
+        <DebtLedgerModal
+          profile={ledgerProfile}
+          onClose={() => setLedgerProfile(null)}
         />
       )}
     </div>
