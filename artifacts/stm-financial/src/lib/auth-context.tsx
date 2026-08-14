@@ -29,20 +29,16 @@ async function resolveAccountantRole(email: string): Promise<Role | null> {
 /**
  * Resolves the role for an already-authenticated Supabase user (sign-in / session hydration).
  * Accountants are allow-listed explicitly in accountant_access. Everyone else is the CEO —
- * this matches the app's original behavior, since the only way to obtain a Supabase Auth
- * account at all (outside the accountant self-serve flow) is to be provisioned directly in
- * the Supabase dashboard, i.e. by the CEO. If CEO_EMAIL is configured (VITE_CEO_EMAIL, to be
- * exposed to the client build), it's enforced as an extra check.
+ * the only way to obtain a Supabase Auth account at all, outside the accountant self-serve
+ * flow, is to be provisioned directly in the Supabase dashboard, i.e. by the CEO. There's
+ * deliberately no separate CEO_EMAIL check: an env var that's merely misconfigured (unset,
+ * wrong value, stray whitespace) would silently lock the real CEO out, which has already
+ * happened twice — the allowlist-gated Supabase Auth account itself is the only trust boundary
+ * this needs.
  */
 async function resolveRole(email: string): Promise<Role | null> {
   const accountantRole = await resolveAccountantRole(email);
-  if (accountantRole) return accountantRole;
-
-  const ceoEmail = import.meta.env.VITE_CEO_EMAIL as string | undefined;
-  if (ceoEmail) {
-    return email.toLowerCase() === ceoEmail.toLowerCase() ? "ceo" : null;
-  }
-  return "ceo";
+  return accountantRole ?? "ceo";
 }
 
 function buildProfile(user: User, role: Role): Profile {
