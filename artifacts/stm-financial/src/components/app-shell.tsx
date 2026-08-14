@@ -8,11 +8,11 @@ import {
 type Props = { children: React.ReactNode };
 
 const navItems = [
-  { path: "/dashboard", label: "Operations", icon: LayoutDashboard },
+  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/shifts", label: "Shifts", icon: Receipt },
   { path: "/po-registry", label: "PO Registry", icon: PackageSearch },
   { path: "/debt-tracker", label: "Debt Tracker", icon: CreditCard },
-  { path: "/manage-access", label: "Manage Access", icon: Users },
+  { path: "/manage-access", label: "Staff Access", icon: Users },
 ];
 
 export default function AppShell({ children }: Props) {
@@ -93,6 +93,8 @@ export default function AppShell({ children }: Props) {
         </div>
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileOpen}
           className="text-slate-400 hover:text-white p-1"
         >
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}

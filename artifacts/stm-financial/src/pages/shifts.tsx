@@ -149,7 +149,7 @@ export default function Shifts() {
       .in("id", ids)
       .select("id");
     if (error) return error.message;
-    if (!data || data.length === 0) return "Supabase blocked the delete — go to Supabase → Table Editor → daily_sales_reports → RLS Policies and add a DELETE policy (e.g. USING (true)).";
+    if (!data || data.length === 0) return "The delete was blocked by a permissions rule. Contact your system administrator.";
     return null;
   }
 
@@ -255,6 +255,7 @@ export default function Shifts() {
                   type="date"
                   value={customFrom}
                   onChange={e => { setCustomFrom(e.target.value); setPage(0); }}
+                  aria-label="From date"
                   className="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
                 <span className="text-slate-500 text-xs">→</span>
@@ -262,6 +263,7 @@ export default function Shifts() {
                   type="date"
                   value={customTo}
                   onChange={e => { setCustomTo(e.target.value); setPage(0); }}
+                  aria-label="To date"
                   className="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
@@ -331,7 +333,7 @@ export default function Shifts() {
             <div className="mx-5 mt-4 flex items-start gap-2 bg-red-900/30 border border-red-700/40 rounded-xl px-4 py-3 text-xs text-red-300">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>{deleteError}</span>
-              <button onClick={() => setDeleteError("")} className="ml-auto text-red-400 hover:text-red-200"><X className="w-3.5 h-3.5" /></button>
+              <button onClick={() => setDeleteError("")} aria-label="Dismiss error" className="ml-auto text-red-400 hover:text-red-200"><X className="w-3.5 h-3.5" /></button>
             </div>
           )}
 
@@ -341,6 +343,7 @@ export default function Shifts() {
               <input type="checkbox"
                 checked={selectedIds.size === shifts.length}
                 onChange={toggleSelectAll}
+                aria-label="Select all shifts"
                 className="w-4 h-4 rounded accent-red-500 cursor-pointer"
               />
               <span className="text-slate-500 text-xs">
@@ -352,13 +355,13 @@ export default function Shifts() {
           {loading ? (
             <div className="p-16 text-center">
               <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-slate-500 text-sm">Loading shift data...</p>
+              <p className="text-slate-500 text-sm">Loading shift data…</p>
             </div>
           ) : shifts.length === 0 ? (
             <div className="p-16 text-center">
               <BarChart3 className="w-10 h-10 text-slate-700 mx-auto mb-3" />
               <p className="text-slate-400 text-sm font-medium">No shifts in this time window</p>
-              <p className="text-slate-600 text-xs mt-1">Try a different date range or check your Supabase table</p>
+              <p className="text-slate-600 text-xs mt-1">Try a different date range</p>
             </div>
           ) : (
             <div className="divide-y divide-slate-700/20">
@@ -398,6 +401,7 @@ export default function Shifts() {
                       checked={isSelected}
                       onChange={() => toggleSelect(shift.id)}
                       onClick={e => e.stopPropagation()}
+                      aria-label={`Select shift by ${shift.employee_username || "unknown"}`}
                       className="w-4 h-4 rounded accent-red-500 cursor-pointer shrink-0"
                     />
 

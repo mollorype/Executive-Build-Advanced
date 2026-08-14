@@ -9,7 +9,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import {
   X, Plus, Trash2, Clock, User, Phone, CreditCard,
   AlertTriangle, CheckCircle, Loader2, Calendar, Pencil, ShieldAlert, BadgeAlert,
-  Bookmark, MessageSquarePlus,
+  Bookmark, MessageSquarePlus, TrendingDown, TrendingUp,
 } from "lucide-react";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -42,14 +42,14 @@ function ScoreGauge({ score }: { score: number }) {
   const tier = scoreTier(score);
   return (
     <div className="flex flex-col items-center gap-1">
-      <svg viewBox="0 0 120 72" className="w-36 h-24">
+      <svg viewBox="0 0 120 72" className="w-36 h-24" role="img" aria-label={`Trust and repayment score: ${score} out of 100, ${tier}`}>
         <path d={`M 20 55 A 40 40 0 0 1 100 55`} fill="none" stroke="#1e293b" strokeWidth="12" strokeLinecap="round" />
         <path d={`M 20 55 A 40 40 0 0 1 100 55`} fill="none" stroke={color} strokeWidth="12" strokeLinecap="round"
           strokeDasharray={`${progress} ${semi}`} />
         <text x={cx} y={52} textAnchor="middle" fill="white" fontSize="18" fontWeight="700">{score}</text>
         <text x={cx} y={66} textAnchor="middle" fill={color} fontSize="9" fontWeight="600">{tier.toUpperCase()}</text>
       </svg>
-      <p className="text-xs text-slate-500">Trust & Repayment Score</p>
+      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Trust & Repayment Score</p>
     </div>
   );
 }
@@ -518,7 +518,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
               className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors">
               <Pencil className="w-4 h-4" />
             </button>
-            <button onClick={onClose}
+            <button onClick={onClose} aria-label="Close panel"
               className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors">
               <X className="w-5 h-5" />
             </button>
@@ -589,8 +589,8 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
             )}
             <div className="flex justify-between text-sm">
               <span className="text-slate-400 flex items-center gap-1.5"><CreditCard className="w-3 h-3" /> Current Balance</span>
-              <span className={`font-bold tabular-nums ${isCleared ? "text-emerald-400" : "text-red-300"}`}>
-                {isCleared ? "Cleared ✓" : mmkFmt(profile.current_balance)}
+              <span className={`font-bold tabular-nums flex items-center gap-1 ${isCleared ? "text-emerald-400" : "text-red-300"}`}>
+                {isCleared ? <><CheckCircle className="w-3.5 h-3.5" /> Cleared</> : mmkFmt(profile.current_balance)}
               </span>
             </div>
             {profile.total_debt != null && (
@@ -660,12 +660,12 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
               {/* Type toggle */}
               <div className="flex gap-2">
                 <button type="button" onClick={() => setTxnType("payment")}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${txnType === "payment" ? "bg-emerald-600/30 border-emerald-500/50 text-emerald-300" : "bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300"}`}>
-                  ↓ Payment (reduces debt)
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1 ${txnType === "payment" ? "bg-emerald-600/30 border-emerald-500/50 text-emerald-300" : "bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300"}`}>
+                  <TrendingDown className="w-3.5 h-3.5" /> Payment (reduces debt)
                 </button>
                 <button type="button" onClick={() => setTxnType("debt")}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${txnType === "debt" ? "bg-red-600/30 border-red-500/50 text-red-300" : "bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300"}`}>
-                  ↑ New Debt (adds to balance)
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1 ${txnType === "debt" ? "bg-red-600/30 border-red-500/50 text-red-300" : "bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300"}`}>
+                  <TrendingUp className="w-3.5 h-3.5" /> New Debt (adds to balance)
                 </button>
               </div>
 
@@ -680,7 +680,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                       <option value="92 RON">92 RON</option>
                       <option value="PD">PD (Premium Diesel)</option>
                       <option value="95">95 RON</option>
-                      <option value="HSD">HSD (Diesel)</option>
+                      <option value="HSD">Diesel</option>
                     </select>
                   </div>
 
@@ -805,7 +805,9 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                       isHighlighted ? "border-l-[3px] border-amber-400 bg-amber-400/[0.04] pl-3" : "",
                     ].join(" ")}>
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isPayment ? "bg-emerald-500/20" : "bg-red-500/20"}`}>
-                        <span className={`text-[10px] font-bold ${isPayment ? "text-emerald-400" : "text-red-400"}`}>{isPayment ? "↓" : "↑"}</span>
+                        {isPayment
+                          ? <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />
+                          : <TrendingUp className="w-3.5 h-3.5 text-red-400" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
@@ -855,8 +857,9 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                             </button>
                             <button
                               onClick={() => setRemarkEditingId(null)}
+                              aria-label="Cancel editing remark"
                               className="text-xs text-slate-500 hover:text-slate-300 px-1.5 py-1 rounded-lg hover:bg-slate-700 transition-all">
-                              ✕
+                              <X className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         ) : txn.note ? (
@@ -897,11 +900,11 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                             ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                             : <Bookmark className="w-3.5 h-3.5" fill={isHighlighted ? "currentColor" : "none"} />}
                         </button>
-                        <button type="button" onClick={() => openEditTxn(txn)}
+                        <button type="button" onClick={() => openEditTxn(txn)} title="Edit transaction"
                           className="text-slate-600 hover:text-blue-400 hover:bg-blue-900/20 p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={() => handleDeleteTransaction(txn)} disabled={deletingId === txn.id}
+                        <button onClick={() => handleDeleteTransaction(txn)} disabled={deletingId === txn.id} title="Delete transaction"
                           className="text-slate-600 hover:text-red-400 hover:bg-red-900/20 p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100">
                           {deletingId === txn.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                         </button>
@@ -925,7 +928,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                 <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Transaction</p>
                 <h3 className="text-white font-bold text-base">Edit Entry</h3>
               </div>
-              <button type="button" onClick={() => setEditingTxn(null)} className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors">
+              <button type="button" onClick={() => setEditingTxn(null)} aria-label="Close" className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -961,7 +964,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                       <option value="92 RON">92 RON</option>
                       <option value="PD">PD (Premium Diesel)</option>
                       <option value="95">95 RON</option>
-                      <option value="HSD">HSD (Diesel)</option>
+                      <option value="HSD">Diesel</option>
                     </select>
                   </div>
 
@@ -1032,7 +1035,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                 <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Profile</p>
                 <h3 className="text-white font-bold text-base">Edit Details</h3>
               </div>
-              <button onClick={() => setShowEdit(false)} className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors">
+              <button onClick={() => setShowEdit(false)} aria-label="Close" className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1095,6 +1098,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                       </div>
                       {idx > 0 && (
                         <button type="button" onClick={() => removePhone(idx)}
+                          aria-label={`Remove phone number ${idx + 1}`}
                           className="text-slate-600 hover:text-red-400 hover:bg-red-900/20 p-2 rounded-lg transition-all shrink-0">
                           <X className="w-3.5 h-3.5" />
                         </button>

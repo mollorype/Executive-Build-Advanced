@@ -10,10 +10,10 @@ import { runFIFOEngine, forceClosePO, verifyPO, calcNetProfit, FIFORunResult } f
 const PAGE_SIZE = 20;
 
 const PRODUCT_LABELS: Record<string, string> = {
-  "92": "Fuel 92 Ron",
-  "95": "Fuel 95 Ron",
-  PD: "Premium Diesel",
-  D: "Normal Diesel",
+  "92": "92 RON",
+  "95": "95 RON",
+  PD: "PD (Premium Diesel)",
+  D: "Diesel",
   pipa: "Pipa",
 };
 
@@ -69,7 +69,7 @@ function ForceCloseModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
       <div className="relative bg-[#111827] border border-red-700/40 rounded-xl p-6 w-full max-w-md shadow">
-        <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white">
+        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-slate-500 hover:text-white">
           <X className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-3 mb-5">
@@ -94,7 +94,7 @@ function ForceCloseModal({
         </div>
 
         <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-          Physical Dip-Stick Reading (Liters)
+          Physical Dip-Stick Reading (L)
         </label>
         <input
           type="number"
@@ -121,13 +121,21 @@ function ForceCloseModal({
 
         {err && <p className="text-red-400 text-xs mb-3">{err}</p>}
 
-        <button
-          onClick={handle}
-          disabled={loading || !physical}
-          className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl py-3 text-sm transition-all"
-        >
-          {loading ? "Closing…" : "Confirm Force Close"}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-semibold rounded-xl py-3 text-sm transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handle}
+            disabled={loading || !physical}
+            className="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl py-3 text-sm transition-all"
+          >
+            {loading ? "Closing…" : "Confirm Force Close"}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -194,7 +202,7 @@ function VerifyModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
       <div className="relative bg-[#111827] border border-slate-700/50 rounded-xl p-6 w-full max-w-md shadow">
-        <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white">
+        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-slate-500 hover:text-white">
           <X className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-3 mb-5">
@@ -208,21 +216,29 @@ function VerifyModal({
         </div>
 
         <div className="space-y-3 mb-4">
-          <Field label="Wholesale Price (MMK / L)" field="wholesale_price" />
-          <Field label="Transportation Fees (MMK / L)" field="transportation_fees" />
-          <Field label="Confidential Fees (MMK / L)" field="confidential_fees" />
-          <Field label="Retail Price Set (MMK / L)" field="retail_price_set" />
+          <Field label="Wholesale Price (MMK/L)" field="wholesale_price" />
+          <Field label="Transportation Fees (MMK/L)" field="transportation_fees" />
+          <Field label="Confidential Fees (MMK/L)" field="confidential_fees" />
+          <Field label="Retail Price Set (MMK/L)" field="retail_price_set" />
         </div>
 
         {err && <p className="text-red-400 text-xs mb-3">{err}</p>}
 
-        <button
-          onClick={handle}
-          disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl py-3 text-sm transition-all"
-        >
-          {loading ? "Saving…" : "Save & Unlock Profit"}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-semibold rounded-xl py-3 text-sm transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handle}
+            disabled={loading}
+            className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl py-3 text-sm transition-all"
+          >
+            {loading ? "Saving…" : "Save & Unlock Profit"}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -315,16 +331,16 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
                 onChange={e => setProductType(e.target.value as any)}
                 className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
               >
-                <option value="92">92 Ron</option>
-                <option value="95">95 Ron</option>
-                <option value="PD">Premium Diesel (PD)</option>
-                <option value="D">Normal Diesel (D)</option>
+                <option value="92">92 RON</option>
+                <option value="95">95 RON</option>
+                <option value="PD">PD (Premium Diesel)</option>
+                <option value="D">Diesel</option>
                 <option value="pipa">Pipa</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Total Volume (Liters)</label>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Total Volume (L)</label>
               <input
                 type="number" min="0" step="0.01"
                 value={volume}
@@ -349,7 +365,7 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
 
             <div>
               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                Wholesale Base Price (MMK/L) <span className="text-slate-600 normal-case font-normal">(default 0)</span>
+                Wholesale Price (MMK/L) <span className="text-slate-600 normal-case font-normal">(default 0)</span>
               </label>
               <input
                 type="number" min="0" step="0.01"
@@ -484,7 +500,7 @@ export default function PORegistry() {
       .in("id", ids)
       .select("id");
     if (error) return error.message;
-    if (!data || data.length === 0) return "Supabase blocked the delete — go to Supabase → Table Editor → fuel_purchase_orders → RLS Policies and add a DELETE policy (e.g. USING (true)).";
+    if (!data || data.length === 0) return "The delete was blocked by a permissions rule. Contact your system administrator.";
     return null;
   }
 
@@ -515,7 +531,7 @@ export default function PORegistry() {
   async function handleRunFIFO() {
     setFifoRunning(true);
     setFifoResult(null);
-    setFifoMsg("Initialising…");
+    setFifoMsg("Initializing…");
     const result = await runFIFOEngine(setFifoMsg);
     setFifoRunning(false);
     setFifoResult(result);
@@ -641,12 +657,12 @@ export default function PORegistry() {
 
                 {fifoResult.processedShifts === 0 && (
                   <p className="text-xs mt-2 opacity-80">
-                    ⚠ No shifts were found in the database — nothing to deduct.
+                    No shifts were found — nothing to deduct.
                   </p>
                 )}
                 {fifoResult.processedShifts > 0 && Object.keys(fifoResult.productVolumes).length === 0 && (
                   <p className="text-xs mt-2 opacity-80">
-                    ⚠ Shifts exist but contain no fuel-liter data (fuel_92_liters, fuel_95_liters, premium_diesel_liters, pipa_amount, or diesel_cash + diesel_price). Nothing to deduct.
+                    Shifts exist but none report fuel liters sold. Nothing to deduct.
                   </p>
                 )}
               </div>
@@ -771,7 +787,7 @@ export default function PORegistry() {
             <div className="mx-5 mt-4 flex items-start gap-2 bg-red-900/30 border border-red-700/40 rounded-xl px-4 py-3 text-xs text-red-300">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>{deleteError}</span>
-              <button onClick={() => setDeleteError("")} className="ml-auto text-red-400 hover:text-red-200"><X className="w-3.5 h-3.5" /></button>
+              <button onClick={() => setDeleteError("")} aria-label="Dismiss error" className="ml-auto text-red-400 hover:text-red-200"><X className="w-3.5 h-3.5" /></button>
             </div>
           )}
 
@@ -784,7 +800,7 @@ export default function PORegistry() {
             <div className="p-16 text-center">
               <PackageSearch className="w-10 h-10 text-slate-700 mx-auto mb-3" />
               <p className="text-slate-400 text-sm font-medium">No purchase orders found</p>
-              <p className="text-slate-600 text-xs mt-1">Add records to the fuel_purchase_orders table in Supabase</p>
+              <p className="text-slate-600 text-xs mt-1">Create a purchase order to get started</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -795,6 +811,7 @@ export default function PORegistry() {
                       <input type="checkbox"
                         checked={pos.length > 0 && selectedIds.size === pos.length}
                         onChange={toggleSelectAll}
+                        aria-label="Select all purchase orders"
                         className="w-4 h-4 rounded accent-red-500 cursor-pointer"
                       />
                     </th>
@@ -821,6 +838,7 @@ export default function PORegistry() {
                           <input type="checkbox"
                             checked={selectedIds.has(po.id)}
                             onChange={() => toggleSelect(po.id)}
+                            aria-label={`Select purchase order ${po.name}`}
                             className="w-4 h-4 rounded accent-red-500 cursor-pointer"
                           />
                         </td>
@@ -934,14 +952,14 @@ export default function PORegistry() {
                   disabled={page === 0}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 transition-all"
                 >
-                  <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                  <ChevronLeft className="w-3.5 h-3.5" /> Previous Page
                 </button>
                 <button
                   onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 transition-all"
                 >
-                  Next <ChevronRight className="w-3.5 h-3.5" />
+                  Next Page <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>

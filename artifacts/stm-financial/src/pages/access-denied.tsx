@@ -23,7 +23,7 @@ export default function AccessDenied() {
           Your account does not have executive privileges.
         </p>
         <p className="text-slate-500 text-sm mb-8">
-          This portal is restricted to authorized CEO-level accounts only. Contact your system administrator if you believe this is an error.
+          This portal is restricted to authorized executive accounts only. Contact your system administrator if you believe this is an error.
         </p>
         <button
           onClick={handleSignOut}
@@ -33,7 +33,7 @@ export default function AccessDenied() {
           Return to Login
         </button>
         <p className="text-slate-700 text-xs mt-8 uppercase tracking-widest">
-          STM Financial — Executive Portal
+          STM Financial · Executive Portal
         </p>
       </div>
     </div>

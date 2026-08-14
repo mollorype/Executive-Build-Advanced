@@ -164,7 +164,7 @@ export default function Dashboard() {
                   </div>
                   <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest">Total Sales Today</p>
                 </div>
-                <p className="text-slate-500 text-[11px] mt-1 ml-10">Fuel, pipa & jelly can sales</p>
+                <p className="text-slate-500 text-[11px] mt-1 ml-10">Fuel, Pipa & Jelly Can sales</p>
               </div>
               <div className="text-right shrink-0">
                 <p className="text-3xl font-black tabular-nums text-emerald-300 tracking-tight">{mmkFmt(totalSalesToday)}</p>

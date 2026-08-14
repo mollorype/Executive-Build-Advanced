@@ -130,7 +130,7 @@ export default function ManageAccess() {
             <div>
               <p className="text-blue-300 font-semibold text-sm">Email Allowlist</p>
               <p className="text-blue-400/70 text-xs mt-0.5">
-                Only emails added here can log into the STM Daily worker app. Add each employee's real email address.
+                Only emails added here can log into the STM Daily app. Add each employee's real email address.
               </p>
             </div>
           </div>
@@ -158,7 +158,7 @@ export default function ManageAccess() {
                   required
                   disabled={tableError}
                   className="flex-1 bg-[#0d1527] px-4 py-3 text-white placeholder-slate-500 focus:outline-none disabled:opacity-40"
-                  placeholder="worker@gmail.com"
+                  placeholder="name@company.com"
                   autoComplete="off"
                 />
               </div>
@@ -207,6 +207,7 @@ export default function ManageAccess() {
               <button
                 onClick={fetchEmployees}
                 disabled={fetching}
+                aria-label="Refresh employee list"
                 className="text-slate-500 hover:text-slate-300 transition-colors"
               >
                 <RefreshCw className={`w-4 h-4 ${fetching ? "animate-spin" : ""}`} />

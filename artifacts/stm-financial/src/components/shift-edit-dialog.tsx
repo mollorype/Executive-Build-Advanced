@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Save, AlertTriangle, CalendarDays } from "lucide-react";
+import { X, Save, AlertTriangle, CalendarDays, Plus } from "lucide-react";
 import { Shift, ExpenseItem, updateShift, updateDebtTransactionDates } from "@/lib/supabase";
 
 type Props = {
@@ -179,7 +179,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
             <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-0.5">Edit Shift</p>
             <h2 className="text-white font-bold text-base font-mono">#{String(shift.id).slice(0, 8).toUpperCase()}</h2>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors">
+          <button onClick={onClose} aria-label="Close panel" className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700/50 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -254,7 +254,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
                     className="w-28 rounded-lg border bg-slate-900 border-slate-600 text-white text-sm pl-7 pr-2 py-2.5 outline-none tabular-nums focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 placeholder:text-slate-600"
                   />
                 </div>
-                <button type="button" onClick={() => removeExpense(i)} className="text-slate-600 hover:text-red-400 transition-colors p-1">
+                <button type="button" onClick={() => removeExpense(i)} aria-label={`Remove expense ${i + 1}`} className="text-slate-600 hover:text-red-400 transition-colors p-1">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -262,9 +262,9 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
             <button
               type="button"
               onClick={addExpense}
-              className="text-xs font-semibold text-blue-400 hover:text-blue-300 border border-slate-700 hover:border-blue-500/40 rounded-lg px-3 py-1.5 transition-all"
+              className="text-xs font-semibold text-blue-400 hover:text-blue-300 border border-slate-700 hover:border-blue-500/40 rounded-lg px-3 py-1.5 transition-all flex items-center gap-1"
             >
-              + Add Expense
+              <Plus className="w-3.5 h-3.5" /> Add Expense
             </button>
           </div>
 
@@ -279,12 +279,12 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
               <span className="text-amber-300 font-medium tabular-nums">{fmt(totalExp)}</span>
             </div>
             <div className="px-4 py-2.5 flex justify-between text-sm font-semibold">
-              <span className="text-slate-300">Net Expected</span>
+              <span className="text-slate-300">Expected Total</span>
               <span className="text-white tabular-nums">{fmt(netExpected)}</span>
             </div>
           </div>
 
-          <Field label="Actual Cash Collected" value={actualCash} onChange={setActualCash} prefix="K" />
+          <Field label="Actual Collected" value={actualCash} onChange={setActualCash} prefix="K" />
 
           {/* Difference preview */}
           <div className={`mt-3 rounded-xl px-4 py-3 flex justify-between items-center text-sm font-bold border ${

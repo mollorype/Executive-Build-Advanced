@@ -88,6 +88,7 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
           </div>
           <button
             onClick={onClose}
+            aria-label="Close panel"
             className="text-slate-500 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-slate-700/50 mt-0.5"
           >
             <X className="w-5 h-5" />
@@ -220,14 +221,14 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
                 </div>
                 {/* Total row */}
                 <div className="px-4 py-3 border-t border-slate-700/50 bg-slate-800/60 flex justify-between text-sm">
-                  <span className="text-slate-400 font-semibold">Total Deductions</span>
+                  <span className="text-slate-400 font-semibold">Total Expenses</span>
                   <span className="text-amber-400 font-bold tabular-nums">{mmk(shift.expenses)}</span>
                 </div>
               </div>
             ) : (
               <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Total Deductions</span>
+                  <span className="text-slate-400">Total Expenses</span>
                   <span className={`font-semibold tabular-nums ${shift.expenses ? "text-amber-400" : "text-slate-600"}`}>
                     {shift.expenses ? mmk(shift.expenses) : "None recorded"}
                   </span>

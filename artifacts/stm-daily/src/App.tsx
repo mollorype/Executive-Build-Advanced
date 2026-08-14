@@ -64,14 +64,12 @@ const STRINGS = {
   actualCash:           { en: "Actual Cash Collected",     my: "ငွေသားပမာဏ" },
   difference:           { en: "Difference",                my: "ကွာခြားချက်" },
   reviewSubmit:         { en: "Review & Submit →",         my: "ပေးပို့မည် →" },
-  totalExpenses:        { en: "Total Expenses",            my: "စုစုပေါင်း ထွက်ငွေ" },
   netExpected:          { en: "Net Expected",              my: "ရှိရမည့်ငွေ" },
   grandTotalShort:      { en: "Grand Total",               my: "စုစုပေါင်းငွေပမာဏ" },
   actualCollected:      { en: "Actual Collected",          my: "ငွေသားပမာဏ" },
-  additionalCashLabel:  { en: "Additional Cash",           my: "နောက်ထပ်ငွေ" },
-  addCashEntry:         { en: "Add Entry",                 my: "ထည့်ရန်" },
-  cashName:             { en: "Description",               my: "အကြောင်းအရာ" },
-  totalAdditional:      { en: "Total Additional",          my: "စုစုပေါင်း နောက်ထပ်ငွေ" },
+  syncedLabel:          { en: "Synced",                    my: "ပေးပို့ပြီး" },
+  pendingSyncLabel:     { en: "Pending sync",               my: "ပေးပို့ရန် စောင့်ဆိုင်းနေသည်" },
+  offlineLabel:         { en: "Offline",                    my: "အင်တာနက် မရှိပါ" },
 } as const;
 
 function t(lang: Lang, key: keyof typeof STRINGS): string {
@@ -89,11 +87,11 @@ function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void 
         setLang(next);
         localStorage.setItem(LANG_KEY, next);
       }}
-      className="flex items-center gap-1 bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] rounded-lg px-2 py-1 transition-colors"
+      aria-label={`Switch language (currently ${lang === "en" ? "English" : "Burmese"})`}
+      className="flex items-center gap-0.5 bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] rounded-lg p-0.5 transition-colors"
     >
-      <span className={`text-[11px] font-bold ${lang === "en" ? "text-white" : "text-gray-600"}`}>EN</span>
-      <span className="text-gray-700 text-[10px]">|</span>
-      <span className={`text-[11px] font-bold ${lang === "my" ? "text-white" : "text-gray-600"}`}>မြ</span>
+      <span className={`text-[11px] font-bold rounded px-1.5 py-0.5 ${lang === "en" ? "bg-blue-600 text-white" : "text-gray-600"}`}>EN</span>
+      <span className={`text-[11px] font-bold rounded px-1.5 py-0.5 ${lang === "my" ? "bg-blue-600 text-white" : "text-gray-600"}`}>မြ</span>
     </button>
   );
 }
@@ -188,6 +186,7 @@ function PipaPanel({ items, onChange, lang }: {
               <button
                 type="button"
                 onClick={() => remove(i)}
+                aria-label={`Remove ${t(lang, "pipa")} entry ${i + 1}`}
                 className="ml-auto text-gray-600 hover:text-red-400 transition-colors p-0.5"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -279,7 +278,7 @@ function JellyCanPanel({ items, onChange }: {
     <div className="bg-[#161b22] rounded-2xl border border-[#30363d] overflow-hidden">
       <div className="px-4 py-2.5 flex items-center gap-2 bg-[#1c2433] border-b border-[#30363d]">
         <span className="text-xs font-bold text-teal-400 uppercase tracking-widest">Jelly Can · ပုံးဝါ</span>
-        <span className="ml-auto text-[10px] text-gray-600">Manual L entry</span>
+        <span className="ml-auto text-[10px] text-gray-600">Enter liters manually</span>
       </div>
 
       {items.length === 0 && (
@@ -300,6 +299,7 @@ function JellyCanPanel({ items, onChange }: {
               </span>
               <span className="text-xs font-semibold text-gray-500">Entry {i + 1}</span>
               <button type="button" onClick={() => remove(i)}
+                aria-label={`Remove jelly can entry ${i + 1}`}
                 className="ml-auto text-gray-600 hover:text-red-400 transition-colors p-0.5">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -331,7 +331,7 @@ function JellyCanPanel({ items, onChange }: {
             {/* Row 2: Liters per can + Price */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">ပါရှိသောလီတာ (L/can)</label>
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Liters / Can (ပါရှိသောလီတာ)</label>
                 <input type="number" value={item.liters}
                   onChange={e => update(i, "liters", e.target.value)}
                   placeholder="0"
@@ -342,7 +342,7 @@ function JellyCanPanel({ items, onChange }: {
                 )}
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Price / Can (K)</label>
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Price / Can</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
                   <input type="number" value={item.price}
@@ -483,7 +483,7 @@ function ExpensesPanel({ items, onChange, lang }: {
               onChange={e => handleNameChange(e.target.value)}
               onKeyDown={e => e.key === "Enter" && addItem()}
               onFocus={() => { if (hits.length > 0) setShowDrop(true); }}
-              placeholder="Search profile or free-type…"
+              placeholder="Search a profile or type a new name…"
               className={`w-full rounded-xl border px-3 py-3 text-sm font-medium outline-none bg-[#0d1117] text-white placeholder:text-gray-700 transition-colors ${
                 profileId
                   ? "border-blue-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
@@ -537,13 +537,16 @@ function ExpensesPanel({ items, onChange, lang }: {
 
         {/* Add button */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-bold text-transparent uppercase tracking-widest select-none">Add</label>
+          <label aria-hidden="true" className="text-[11px] font-bold text-transparent uppercase tracking-widest select-none">Add</label>
           <button
             type="button"
             onClick={addItem}
-            className="h-[50px] px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition-all active:scale-95"
+            className="h-[50px] px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition-all active:scale-95 flex items-center gap-1.5"
           >
-            + Add
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Add
           </button>
         </div>
       </div>
@@ -601,9 +604,12 @@ function ExpensesPanel({ items, onChange, lang }: {
                 <button
                   type="button"
                   onClick={() => removeItem(idx)}
-                  className="w-6 h-6 flex items-center justify-center rounded-full bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors text-xs font-bold"
+                  aria-label={`Remove ${item.name}`}
+                  className="w-6 h-6 flex items-center justify-center rounded-full bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
                 >
-                  ✕
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -668,7 +674,7 @@ function LoginScreen({ onLogin, lang, setLang }: {
           type="email"
           value={email}
           onChange={e => { setEmail(e.target.value); setError(""); }}
-          placeholder="you@gmail.com"
+          placeholder="you@company.com"
           className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-gray-700"
           autoFocus
           required
@@ -677,12 +683,12 @@ function LoginScreen({ onLogin, lang, setLang }: {
 
         <button
           type="submit"
-          className="mt-5 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl py-3 text-sm transition-all active:scale-[0.98]"
+          className="mt-5 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98]"
         >
           Continue →
         </button>
       </form>
-      <p className="text-xs text-gray-700 mt-6">STM Financial Systems · Confidential</p>
+      <p className="text-xs text-gray-700 mt-6">STM Daily · Confidential</p>
     </div>
   );
 }
@@ -708,7 +714,7 @@ function DeniedScreen({ email, onBack }: { email: string; onBack: () => void }) 
           <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
         </svg>
       </div>
-      <h2 className="text-2xl font-bold text-white mb-2">Access Not Granted</h2>
+      <h1 className="text-3xl font-bold text-white mb-2">Access Not Granted</h1>
       <p className="text-gray-500 text-sm mb-1">
         <span className="font-semibold text-gray-300">{email}</span> is not on the approved list.
       </p>
@@ -813,6 +819,7 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
             type="datetime-local"
             value={form.shiftDate}
             onChange={e => setForm(f => ({ ...f, shiftDate: e.target.value }))}
+            aria-label="Shift date and time"
             className="text-xs text-gray-400 bg-[#161b22] border border-[#30363d] hover:border-gray-500 focus:border-blue-500 focus:outline-none rounded-lg px-2 py-1 cursor-pointer"
           />
           <LangToggle lang={lang} setLang={setLang} />
@@ -821,7 +828,7 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
             onClick={onBack}
             className="text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1 transition-colors"
           >
-            ← Modes
+            ← Switch Mode
           </button>
           <button
             type="button"
@@ -835,9 +842,7 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
 
       <form onSubmit={handleSubmit} className="max-w-2xl mx-auto px-4 py-6 space-y-4">
         <div>
-          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-            <span className="flex-1 h-px bg-[#30363d] block" />{t(lang, "fuelProducts")}<span className="flex-1 h-px bg-[#30363d] block" />
-          </h3>
+          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">{t(lang, "fuelProducts")}</h3>
           {/* Fuel rows — full-width vertical stack */}
           <div className="space-y-3">
             <ProductCard label="Fuel 92" badge="92" accentText="text-blue-400" accentBorder="border-l-blue-500"
@@ -903,7 +908,7 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
           )}
 
           <div className="flex items-center justify-between bg-[#1c2433] rounded-xl px-4 py-2.5 border border-[#30363d]">
-            <span className="text-xs font-semibold text-gray-400">Net Expected Cash</span>
+            <span className="text-xs font-semibold text-gray-400">{t(lang, "netExpected")}</span>
             <span className="text-sm font-bold text-white tabular-nums">{fmt(netExpected)} MMK</span>
           </div>
           <GoldInput label={t(lang, "actualCash")} value={form.actualCash} onChange={v => setForm(f => ({ ...f, actualCash: v }))} placeholder="0" prefix="K" />
@@ -961,7 +966,7 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
         <div className="w-14" />
       </div>
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
-        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-4 flex items-center gap-3">
+        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center">
             <span className="text-lg font-bold text-blue-400">{employeeName[0].toUpperCase()}</span>
           </div>
@@ -1065,19 +1070,15 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
             <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "netExpected")}</span><span className="font-bold text-white tabular-nums">{fmt(grandTotal - tPipa - tJelly - totalDeductions + totalIncome)} MMK</span></div>
             <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "actualCollected")}</span><span className="font-bold text-white tabular-nums">{fmt(actualCash)} MMK</span></div>
             <div className={["px-4 py-3 flex justify-between text-sm font-bold", difference === 0 ? "bg-[#1c2433]" : difference > 0 ? "bg-emerald-500/10" : "bg-red-500/10"].join(" ")}>
-              <span className={difference >= 0 ? "text-emerald-400" : "text-red-400"}>{t(lang, "difference")}</span>
-              <span className={["tabular-nums", difference >= 0 ? "text-emerald-400" : "text-red-400"].join(" ")}>{fmtSigned(difference)}</span>
+              <span className={difference === 0 ? "text-gray-400" : difference > 0 ? "text-emerald-400" : "text-red-400"}>{t(lang, "difference")}</span>
+              <span className={["text-base tabular-nums", difference === 0 ? "text-gray-400" : difference > 0 ? "text-emerald-400" : "text-red-400"].join(" ")}>{fmtSigned(difference)}</span>
             </div>
           </div>
         </div>
 
         <button onClick={onConfirm} disabled={submitting}
           className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98]">
-          {submitting ? "Submitting…" : "Confirm & Submit ✓"}
-        </button>
-        <button onClick={onBack} disabled={submitting}
-          className="w-full text-gray-500 font-semibold py-2 text-sm hover:text-white transition-colors">
-          ← Go back and edit
+          {submitting ? "Submitting…" : "✓ Confirm & Submit"}
         </button>
       </div>
     </div>
@@ -1085,42 +1086,42 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
 }
 
 // ─── Success screen ───────────────────────────────────────────────────────────
-function SuccessScreen({ employeeName, onNewShift, queuedItemId }: { employeeName: string; onNewShift: () => void; queuedItemId: string | null }) {
+function SuccessScreen({ employeeName, onNewShift, queuedItemId, lang }: { employeeName: string; onNewShift: () => void; queuedItemId: string | null; lang: Lang }) {
   const status = useQueueItemStatus(queuedItemId);
   return (
     <div className="min-h-screen bg-[#0f111a] flex flex-col items-center justify-center px-4 text-center">
-      <div className="relative mb-8">
-        <div className="success-ring w-28 h-28 rounded-full bg-blue-600/20 border-2 border-blue-500/30 flex items-center justify-center">
-          <svg className="w-14 h-14 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        {["top-0 right-0", "bottom-2 left-0", "top-4 -left-4", "-top-2 left-8"].map((pos, i) => (
-          <div key={i} className={`absolute ${pos} w-3 h-3 bg-blue-400/60 rounded-full float-up float-up-${i + 1}`} style={{ animationDelay: `${i * 0.1 + 0.3}s` }} />
-        ))}
+      <div className="success-ring w-28 h-28 rounded-full bg-blue-600/20 border-2 border-blue-500/30 flex items-center justify-center mb-6">
+        <svg className="w-14 h-14 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
       </div>
-      <h1 className="text-3xl font-bold text-white mb-2 float-up float-up-1">Shift <span className="text-blue-400">Submitted!</span></h1>
-      <p className="text-gray-400 mb-1 float-up float-up-2 capitalize">Great work, <strong className="text-white">{employeeName}</strong>.</p>
-      <p className="text-sm text-gray-400 mb-4 float-up float-up-3">Your shift report has been recorded successfully.</p>
+      <h1 className="text-3xl font-bold text-white mb-2">Shift Report Submitted</h1>
+      <p className="text-sm text-gray-400 mb-4 capitalize">Saved for <strong className="text-white">{employeeName}</strong>.</p>
       {status && (
-        <div className="float-up float-up-3 mb-8">
+        <div className="mb-8">
           {status === "synced" ? (
             <span className="inline-flex items-center gap-1.5 text-xs font-bold rounded-full px-3 py-1.5 bg-emerald-500/15 text-emerald-400">
-              ✓ Synced to server
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              {t(lang, "syncedLabel")}
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 text-xs font-bold rounded-full px-3 py-1.5 bg-amber-500/15 text-amber-400">
-              ⏳ Waiting to sync — saved on this device
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2M12 2a10 10 0 100 20A10 10 0 0012 2z" />
+              </svg>
+              {t(lang, "pendingSyncLabel")} — saved on this device
             </span>
           )}
         </div>
       )}
-      <div className="float-up float-up-4 space-y-3 w-full max-w-xs">
+      <div className="space-y-3 w-full max-w-xs">
         <button onClick={onNewShift}
-          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl py-3.5 transition-all active:scale-[0.98]">
+          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98]">
           Submit Another Shift
         </button>
-        <p className="text-xs text-gray-400">STM Financial Systems · {new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</p>
+        <p className="text-xs text-gray-400">STM Daily · {new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</p>
       </div>
     </div>
   );
@@ -1160,7 +1161,7 @@ function ModeSelectScreen({ employeeName, onShift, onReceipt, onSettings, onLogo
           <LangToggle lang={lang} setLang={setLang} />
           <button type="button" onClick={onSettings}
             className="w-8 h-8 flex items-center justify-center rounded-xl bg-[#161b22] border border-[#30363d] hover:border-gray-500 text-gray-400 hover:text-white transition-colors"
-            title="App Settings">
+            title="App Settings" aria-label="Open app settings">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1175,7 +1176,7 @@ function ModeSelectScreen({ employeeName, onShift, onReceipt, onSettings, onLogo
 
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 gap-5 max-w-sm mx-auto w-full">
         <div className="text-center mb-2">
-          <h2 className="text-2xl font-bold text-white">Select Mode</h2>
+          <h1 className="text-3xl font-bold text-white">Select Mode</h1>
           <p className="text-sm text-gray-500 mt-1">What would you like to do?</p>
         </div>
 
@@ -1255,10 +1256,10 @@ function AppSettingsScreen({ onBack }: { onBack: () => void }) {
       <div className="max-w-sm mx-auto px-4 py-8 space-y-5">
         <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Default Prices Per Liter (MMK)</p>
-          <PriceField label="92 RON" field="price92" placeholder="1200" />
-          <PriceField label="PD (Premium Diesel)" field="pricePD" placeholder="1400" />
-          <PriceField label="95 RON" field="price95" placeholder="1350" />
-          <PriceField label="HSD (Diesel)" field="priceHSD" placeholder="1100" />
+          <PriceField label="Fuel 92" field="price92" placeholder="1200" />
+          <PriceField label="Premium Diesel" field="pricePD" placeholder="1400" />
+          <PriceField label="Fuel 95" field="price95" placeholder="1350" />
+          <PriceField label="Diesel" field="priceHSD" placeholder="1100" />
           <p className="text-xs text-gray-600">Auto-filled in the Customer Receipt form per product</p>
         </div>
         <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
@@ -1292,7 +1293,7 @@ type CalcMode = "liters" | "amount";
 type ProductType = "92 RON" | "PD" | "95" | "HSD";
 
 const PRODUCT_LABELS: Record<ProductType, string> = {
-  "92 RON": "92 RON", "PD": "PD (Premium Diesel)", "95": "95 RON", "HSD": "HSD (Diesel)",
+  "92 RON": "Fuel 92", "PD": "Premium Diesel", "95": "Fuel 95", "HSD": "Diesel",
 };
 const PRODUCT_PRICE_KEYS: Record<ProductType, keyof AppConfig> = {
   "92 RON": "price92", "PD": "pricePD", "95": "price95", "HSD": "priceHSD",
@@ -1397,7 +1398,7 @@ function CustomerReceiptScreen({ employeeName, onBack }: { employeeName: string;
             Print
           </button>
           <button onClick={onBack} className="text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1.5 transition-colors">
-            Switch Mode
+            ← Switch Mode
           </button>
         </div>
 
@@ -1473,7 +1474,7 @@ function CustomerReceiptScreen({ employeeName, onBack }: { employeeName: string;
 
             {/* Footer */}
             <div className="px-5 py-4 text-center text-xs space-y-1">
-              <p className="text-gray-500">📞 {receipt.stationPhone}</p>
+              <p className="text-gray-500">Tel: {receipt.stationPhone}</p>
               <p className="font-semibold text-gray-700">{receipt.receiptMotto}</p>
             </div>
           </div>
@@ -1552,9 +1553,10 @@ function CustomerReceiptScreen({ employeeName, onBack }: { employeeName: string;
                   <span className="text-[10px] font-bold text-gray-500 uppercase">Item {idx + 1}</span>
                   {cart.length > 1 && (
                     <button type="button" onClick={() => removeRow(item.id)}
+                      aria-label={`Remove item ${idx + 1}`}
                       className="ml-auto text-gray-600 hover:text-red-400 transition-colors p-0.5">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
                   )}
@@ -1574,7 +1576,7 @@ function CustomerReceiptScreen({ employeeName, onBack }: { employeeName: string;
 
                 {/* Price per liter */}
                 <div>
-                  <label className={labelCls}>Price Per Liter (MMK)</label>
+                  <label className={labelCls}>Price Per Liter</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
                     <input type="number" value={item.pricePerLiter}
@@ -1644,27 +1646,50 @@ function CustomerReceiptScreen({ employeeName, onBack }: { employeeName: string;
 }
 
 // ─── Sync status banner ─────────────────────────────────────────────────────
-function SyncStatusBanner({ isOnline, pendingCount, justSynced }: { isOnline: boolean; pendingCount: number; justSynced: boolean }) {
+const OfflineIcon = () => (
+  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 16.5a5 5 0 017 0M5 12.5a10 10 0 0114 0M2 8.5a15 15 0 0120 0" />
+    <circle cx="12" cy="20" r="1" fill="currentColor" stroke="none" />
+    <path strokeLinecap="round" d="M2 2l20 20" />
+  </svg>
+);
+const SyncingIcon = () => (
+  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2M12 2a10 10 0 100 20A10 10 0 0012 2z" />
+  </svg>
+);
+const SyncedIcon = () => (
+  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+  </svg>
+);
+
+function SyncStatusBanner({ isOnline, pendingCount, justSynced, lang }: { isOnline: boolean; pendingCount: number; justSynced: boolean; lang: Lang }) {
   if (isOnline && pendingCount === 0 && !justSynced) return null;
 
+  let icon: React.ReactNode;
   let label: string;
   let className: string;
   if (!isOnline) {
+    icon = <OfflineIcon />;
     label = pendingCount > 0
-      ? `📴 Offline — ${pendingCount} shift${pendingCount === 1 ? "" : "s"} saved, will sync automatically`
-      : "📴 Offline Mode";
+      ? `${t(lang, "offlineLabel")} — ${pendingCount} shift${pendingCount === 1 ? "" : "s"} saved, will sync automatically`
+      : t(lang, "offlineLabel");
     className = "bg-amber-500/15 text-amber-400 border border-amber-500/30";
   } else if (pendingCount > 0) {
-    label = `⏳ Syncing ${pendingCount} shift${pendingCount === 1 ? "" : "s"}…`;
+    icon = <SyncingIcon />;
+    label = `${t(lang, "pendingSyncLabel")} — ${pendingCount} shift${pendingCount === 1 ? "" : "s"}`;
     className = "bg-blue-500/15 text-blue-400 border border-blue-500/30";
   } else {
-    label = "✓ Synced";
+    icon = <SyncedIcon />;
+    label = t(lang, "syncedLabel");
     className = "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30";
   }
 
   return (
     <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50">
-      <div className={`text-xs font-bold rounded-full px-3.5 py-1.5 shadow-lg ${className}`}>
+      <div className={`flex items-center gap-1.5 text-xs font-bold rounded-full px-3.5 py-1.5 shadow-lg ${className}`}>
+        {icon}
         {label}
       </div>
     </div>
@@ -1932,16 +1957,16 @@ export default function App() {
           />
           {submitError && (
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-red-600 text-white text-sm font-semibold rounded-xl px-5 py-3 shadow-xl z-50">
-              ⚠ {submitError}
+              {submitError}
             </div>
           )}
         </>
       )}
-      {screen === "success"  && <SuccessScreen employeeName={employeeName} onNewShift={handleNewShift} queuedItemId={lastQueuedId} />}
+      {screen === "success"  && <SuccessScreen employeeName={employeeName} onNewShift={handleNewShift} queuedItemId={lastQueuedId} lang={lang} />}
       {screen === "receipt"  && <CustomerReceiptScreen employeeName={employeeName} onBack={() => setScreen("mode-select")} />}
       {screen === "settings" && <AppSettingsScreen onBack={() => setScreen("mode-select")} />}
 
-      <SyncStatusBanner isOnline={isOnline} pendingCount={pendingCount} justSynced={justSynced} />
+      <SyncStatusBanner isOnline={isOnline} pendingCount={pendingCount} justSynced={justSynced} lang={lang} />
     </>
   );
 }

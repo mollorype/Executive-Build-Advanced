@@ -114,7 +114,7 @@ export default function Login() {
               {loading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Authenticating...
+                  Authenticating…
                 </>
               ) : (
                 <>
@@ -127,7 +127,7 @@ export default function Login() {
         </div>
 
         <p className="text-center text-slate-600 text-xs mt-6">
-          Unauthorized access is strictly prohibited · STM Financial Systems
+          Unauthorized access is strictly prohibited · STM Financial
         </p>
       </div>
     </div>
