@@ -743,7 +743,16 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
     const localDt = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    return { ...EMPTY, shiftDate: localDt };
+    // Pre-fill prices from App Settings defaults — staff can still edit every field.
+    const cfg = loadConfig();
+    return {
+      ...EMPTY,
+      shiftDate: localDt,
+      fuel92: { ...EMPTY.fuel92, price: cfg.price92 },
+      fuel95: { ...EMPTY.fuel95, price: cfg.price95 },
+      premiumDiesel: { ...EMPTY.premiumDiesel, price: cfg.pricePD },
+      diesel: { ...EMPTY.diesel, price: cfg.priceHSD },
+    };
   });
 
   // Helper to format auto-calculated numbers nicely (no trailing zeros)
