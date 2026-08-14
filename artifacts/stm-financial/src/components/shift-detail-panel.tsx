@@ -16,6 +16,76 @@ function liters(val: number | null | undefined) {
   return val.toLocaleString() + " L";
 }
 
+function fmt0(val: number): string {
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(val);
+}
+
+function pricePerLiter(total: number, totalLiters: number): string {
+  if (!totalLiters) return "—";
+  return `${fmt0(total / totalLiters)} MMK/L`;
+}
+
+// A Pipa container holds a fixed 215 L — matches the conversion used on the
+// STM Daily submission form (Pipa entries only ever record container count,
+// never liters directly), so receipts can derive Price/L consistently.
+const PIPA_LITERS_PER_CONTAINER = 215;
+
+function fuelProductLabel(code: string): string {
+  return code === "92" ? "Fuel 92" : code === "95" ? "Fuel 95" : code === "PD" ? "Premium Diesel" : "Diesel";
+}
+
+type ItemizedEntry = {
+  key: string | number;
+  product: string;
+  unitCount: number;
+  unitNoun: string;
+  litersPerUnit: number;
+  totalLiters: number;
+  unitPrice: number;
+  unitPriceNoun: string;
+  total: number;
+};
+
+function ItemizedBreakdown({ title, entries }: { title: string; entries: ItemizedEntry[] }) {
+  if (entries.length === 0) return null;
+  const grandTotal = entries.reduce((s, e) => s + e.total, 0);
+  const grandLiters = entries.reduce((s, e) => s + e.totalLiters, 0);
+  return (
+    <div className="mt-3">
+      <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-2 flex items-center gap-2">
+        <span className="flex-1 h-px bg-slate-700/60 block" />
+        {title}
+        <span className="flex-1 h-px bg-slate-700/60 block" />
+      </p>
+      <div className="bg-slate-800/40 border border-blue-700/30 rounded-xl overflow-hidden">
+        <div className="divide-y divide-slate-700/30">
+          {entries.map(item => (
+            <div key={item.key} className="px-4 py-3 flex items-start justify-between gap-3 text-sm">
+              <div className="min-w-0">
+                <span className="text-blue-300 font-semibold">{item.product}</span>
+                <p className="text-slate-500 text-xs mt-0.5 tabular-nums">
+                  {item.unitCount} {item.unitNoun} &nbsp;·&nbsp; {item.litersPerUnit.toLocaleString("en-US", { maximumFractionDigits: 1 })} L/{item.unitPriceNoun} &nbsp;·&nbsp; {item.totalLiters.toLocaleString("en-US", { maximumFractionDigits: 1 })} L total
+                </p>
+                <p className="text-slate-600 text-xs mt-0.5 tabular-nums">
+                  {fmt0(item.unitPrice)} MMK/{item.unitPriceNoun} &nbsp;·&nbsp; <span className="text-slate-500">{pricePerLiter(item.total, item.totalLiters)}</span>
+                </p>
+              </div>
+              <span className="text-blue-300 font-bold tabular-nums shrink-0">{fmt0(item.total)} MMK</span>
+            </div>
+          ))}
+        </div>
+        <div className="px-4 py-3 border-t border-slate-700/50 bg-slate-800/60 flex items-center justify-between text-sm">
+          <span className="text-slate-400 font-semibold">Total {title.replace(" — Itemized", "")}</span>
+          <div className="text-right">
+            <span className="text-blue-400 font-bold tabular-nums block">{mmk(grandTotal)}</span>
+            <span className="text-slate-500 text-xs tabular-nums">{pricePerLiter(grandTotal, grandLiters)} avg</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <div className="flex items-center gap-2 mb-3">
@@ -74,6 +144,45 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
     : "—";
 
   const hasBreakdown = Array.isArray(shift.expenses_breakdown) && shift.expenses_breakdown.length > 0;
+
+  const pipaEntries: ItemizedEntry[] = Array.isArray(shift.pipa_items) && shift.pipa_items.length > 0
+    ? shift.pipa_items.map((item, i) => ({
+        key: i,
+        product: fuelProductLabel(item.product),
+        unitCount: item.containers,
+        unitNoun: "containers",
+        litersPerUnit: PIPA_LITERS_PER_CONTAINER,
+        totalLiters: item.containers * PIPA_LITERS_PER_CONTAINER,
+        unitPrice: item.price,
+        unitPriceNoun: "pipa",
+        total: item.total,
+      }))
+    // Older shifts recorded only the blended pipa_amount/price/total, with no per-product breakdown.
+    : shift.pipa_amount
+    ? [{
+        key: "legacy",
+        product: "Pipa",
+        unitCount: shift.pipa_amount,
+        unitNoun: "containers",
+        litersPerUnit: PIPA_LITERS_PER_CONTAINER,
+        totalLiters: shift.pipa_amount * PIPA_LITERS_PER_CONTAINER,
+        unitPrice: shift.pipa_price ?? 0,
+        unitPriceNoun: "pipa",
+        total: shift.pipa_total ?? 0,
+      }]
+    : [];
+
+  const jellyEntries: ItemizedEntry[] = (shift.jelly_can_items ?? []).map((item, i) => ({
+    key: i,
+    product: fuelProductLabel(item.product),
+    unitCount: item.pieces,
+    unitNoun: "cans",
+    litersPerUnit: item.liters_per_can,
+    totalLiters: item.total_liters,
+    unitPrice: item.price,
+    unitPriceNoun: "can",
+    total: item.total,
+  }));
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -148,55 +257,13 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
               total={shift.premium_diesel_total}
             />
             <ProductRow
-              label="Pipa"
-              litersVal={shift.pipa_amount}
-              price={shift.pipa_price}
-              total={shift.pipa_total}
-            />
-            <ProductRow
               label="Diesel"
               total={shift.diesel_cash}
               isCashOnly
             />
 
-            {/* Jelly Can — itemized */}
-            {Array.isArray(shift.jelly_can_items) && shift.jelly_can_items.length > 0 && (
-              <div className="mt-3">
-                <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-2 flex items-center gap-2">
-                  <span className="flex-1 h-px bg-slate-700/60 block" />
-                  Jelly Can — Itemized
-                  <span className="flex-1 h-px bg-slate-700/60 block" />
-                </p>
-                <div className="bg-slate-800/40 border border-blue-700/30 rounded-xl overflow-hidden">
-                  <div className="divide-y divide-slate-700/30">
-                    {shift.jelly_can_items.map((item, i) => (
-                      <div key={i} className="px-4 py-3 flex items-start justify-between gap-3 text-sm">
-                        <div className="min-w-0">
-                          <span className="text-blue-300 font-semibold">
-                            {item.product === "92" ? "Fuel 92" : item.product === "95" ? "Fuel 95" : item.product === "PD" ? "Premium Diesel" : "Diesel"}
-                          </span>
-                          <p className="text-slate-500 text-xs mt-0.5 tabular-nums">
-                            {item.pieces} cans &nbsp;·&nbsp; {item.liters_per_can} L/can &nbsp;·&nbsp; {item.total_liters.toLocaleString("en-US", { maximumFractionDigits: 1 })} L total
-                          </p>
-                          <p className="text-slate-600 text-xs mt-0.5 tabular-nums">
-                            {new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(item.price)} MMK/can
-                          </p>
-                        </div>
-                        <span className="text-blue-300 font-bold tabular-nums shrink-0">
-                          {new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(item.total)} MMK
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="px-4 py-3 border-t border-slate-700/50 bg-slate-800/60 flex justify-between text-sm">
-                    <span className="text-slate-400 font-semibold">Total Jelly Can</span>
-                    <span className="text-blue-400 font-bold tabular-nums">
-                      {mmk(shift.jelly_can_items.reduce((s, i) => s + i.total, 0))}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
+            <ItemizedBreakdown title="Pipa — Itemized" entries={pipaEntries} />
+            <ItemizedBreakdown title="Jelly Can — Itemized" entries={jellyEntries} />
           </div>
 
           {/* Operational Expenses */}
