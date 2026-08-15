@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { supabase, FuelPurchaseOrder } from "@/lib/supabase";
 import { runFIFOEngine, forceClosePO, verifyPO, calcNetProfit, FIFORunResult } from "@/lib/fifo-engine";
+import PipaRemainingCard from "@/components/pipa-remaining-card";
 
 const PAGE_SIZE = 20;
 
@@ -674,6 +675,9 @@ export default function PORegistry() {
       <div className="p-6 space-y-6">
         {/* Create New PO */}
         <CreatePOForm onCreated={() => fetchPOs(page)} />
+
+        {/* Pipa Remaining */}
+        <PipaRemainingCard />
 
         {/* Active PO Cards */}
         {activePOs.length > 0 && (
