@@ -1232,27 +1232,37 @@ function ModeSelectScreen({ employeeName, onShift, onReceipt, onSettings, onLogo
 }
 
 // ─── App Settings Screen ───────────────────────────────────────────────────────
+const SETTINGS_FIELD_CLS = "w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-gray-700";
+const SETTINGS_LABEL_CLS = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5";
+
+// Hoisted to module scope so it keeps a stable component identity across
+// re-renders — defining it inside AppSettingsScreen made React remount the
+// <input> (and drop focus) on every keystroke, so only one digit could be
+// typed before you had to click back into the field.
+function PriceField({ label, value, onChange, placeholder }: {
+  label: string; value: string; onChange: (val: string) => void; placeholder: string;
+}) {
+  return (
+    <div>
+      <label className={SETTINGS_LABEL_CLS}>{label}</label>
+      <div className="relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
+        <input type="number" value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder} className={"pl-8 " + SETTINGS_FIELD_CLS} />
+      </div>
+    </div>
+  );
+}
+
 function AppSettingsScreen({ onBack }: { onBack: () => void }) {
   const [cfg, setCfg] = useState<AppConfig>(loadConfig);
   const [saved, setSaved] = useState(false);
 
   function handleSave() { saveConfig(cfg); setSaved(true); setTimeout(() => setSaved(false), 2000); }
 
-  const fieldCls = "w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-gray-700";
-  const labelCls = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5";
-
-  function PriceField({ label, field, placeholder }: { label: string; field: keyof AppConfig; placeholder: string }) {
-    return (
-      <div>
-        <label className={labelCls}>{label}</label>
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
-          <input type="number" value={cfg[field] as string}
-            onChange={e => setCfg(c => ({ ...c, [field]: e.target.value }))}
-            placeholder={placeholder} className={"pl-8 " + fieldCls} />
-        </div>
-      </div>
-    );
+  function setField(field: keyof AppConfig, value: string) {
+    setCfg(c => ({ ...c, [field]: value }));
   }
 
   return (
@@ -1265,25 +1275,25 @@ function AppSettingsScreen({ onBack }: { onBack: () => void }) {
       <div className="max-w-sm mx-auto px-4 py-8 space-y-5">
         <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Default Prices Per Liter (MMK)</p>
-          <PriceField label="Fuel 92" field="price92" placeholder="1200" />
-          <PriceField label="Premium Diesel" field="pricePD" placeholder="1400" />
-          <PriceField label="Fuel 95" field="price95" placeholder="1350" />
-          <PriceField label="Diesel" field="priceHSD" placeholder="1100" />
+          <PriceField label="Fuel 92" value={cfg.price92} onChange={v => setField("price92", v)} placeholder="1200" />
+          <PriceField label="Premium Diesel" value={cfg.pricePD} onChange={v => setField("pricePD", v)} placeholder="1400" />
+          <PriceField label="Fuel 95" value={cfg.price95} onChange={v => setField("price95", v)} placeholder="1350" />
+          <PriceField label="Diesel" value={cfg.priceHSD} onChange={v => setField("priceHSD", v)} placeholder="1100" />
           <p className="text-xs text-gray-600">Auto-filled in the Customer Receipt form per product</p>
         </div>
         <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Receipt Footer</p>
           <div>
-            <label className={labelCls}>Station Phone Number</label>
+            <label className={SETTINGS_LABEL_CLS}>Station Phone Number</label>
             <input type="text" value={cfg.stationPhone}
-              onChange={e => setCfg(c => ({ ...c, stationPhone: e.target.value }))}
-              placeholder="09-3339777" className={fieldCls} />
+              onChange={e => setField("stationPhone", e.target.value)}
+              placeholder="09-3339777" className={SETTINGS_FIELD_CLS} />
           </div>
           <div>
-            <label className={labelCls}>Receipt Motto</label>
+            <label className={SETTINGS_LABEL_CLS}>Receipt Motto</label>
             <input type="text" value={cfg.receiptMotto}
-              onChange={e => setCfg(c => ({ ...c, receiptMotto: e.target.value }))}
-              placeholder="Thank You For Your Purchase!" className={fieldCls} />
+              onChange={e => setField("receiptMotto", e.target.value)}
+              placeholder="Thank You For Your Purchase!" className={SETTINGS_FIELD_CLS} />
           </div>
         </div>
         <button type="button" onClick={handleSave}
