@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase, DebtProfile, DebtTransaction, DEBT_TABLES, mmkFmt, getDisplayPhones } from "@/lib/debt-supabase";
 import { buildLedger, exportLedgerExcel } from "@/lib/ledger";
-import { X, Download, Loader2, FileSpreadsheet, Calendar } from "lucide-react";
+import { cacheDebtTransactions, getCachedDebtTransactions, useOnlineStatus } from "@/lib/offlineCache";
+import { X, Download, Loader2, FileSpreadsheet, Calendar, WifiOff } from "lucide-react";
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -14,22 +15,27 @@ export default function DebtLedgerModal({ profile, onClose }: { profile: DebtPro
   const [to, setTo] = useState(todayStr());
   const [exporting, setExporting] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const { data } = await supabase
-        .from(DEBT_TABLES.TRANSACTIONS)
-        .select("*")
-        .eq("profile_id", profile.id)
-        .order("date", { ascending: true });
-      if (!cancelled) {
-        setTransactions((data ?? []) as DebtTransaction[]);
-        setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+  const fetchTransactions = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from(DEBT_TABLES.TRANSACTIONS)
+      .select("*")
+      .eq("profile_id", profile.id)
+      .order("date", { ascending: true });
+    if (data) {
+      setTransactions(data as DebtTransaction[]);
+      cacheDebtTransactions(profile.id, data as DebtTransaction[]);
+    } else if (error) {
+      setTransactions(getCachedDebtTransactions(profile.id));
+    }
+    setLoading(false);
   }, [profile.id]);
+
+  const isOnline = useOnlineStatus(fetchTransactions);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
 
   const phones = getDisplayPhones(profile);
   const ledger = useMemo(() => buildLedger(transactions, from || null, to || null), [transactions, from, to]);
@@ -62,6 +68,13 @@ export default function DebtLedgerModal({ profile, onClose }: { profile: DebtPro
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {!isOnline && (
+          <div className="mx-6 mt-3 flex items-center gap-2 bg-pale-gold border border-amber-100 rounded-lg px-3 py-2 text-xs text-pale-gold-foreground font-medium shrink-0">
+            <WifiOff className="w-3.5 h-3.5 shrink-0" />
+            Offline — showing the last loaded transactions for this profile.
+          </div>
+        )}
 
         {/* Date range */}
         <div className="px-6 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2 shrink-0">

@@ -6,11 +6,12 @@ import {
   getDisplayPhones, combineDateWithCurrentTime,
 } from "@/lib/debt-supabase";
 import { sortTransactionsChronological, describeTransaction } from "@/lib/ledger";
+import { cacheDebtTransactions, getCachedDebtTransactions, useOnlineStatus } from "@/lib/offlineCache";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import {
   X, Plus, Trash2, Clock, User, Phone, CreditCard,
   AlertTriangle, CheckCircle, Loader2, Calendar, Pencil, ShieldAlert, BadgeAlert,
-  Bookmark, MessageSquarePlus, TrendingDown, TrendingUp,
+  Bookmark, MessageSquarePlus, TrendingDown, TrendingUp, WifiOff,
 } from "lucide-react";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -306,13 +307,21 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   const [editError, setEditError] = useState("");
 
   async function fetchTransactions() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from(DEBT_TABLES.TRANSACTIONS)
       .select("*")
       .eq("profile_id", profile.id)
       .order("date", { ascending: false });
-    if (data) setTransactions(data as DebtTransaction[]);
+    if (data) {
+      setTransactions(data as DebtTransaction[]);
+      cacheDebtTransactions(profile.id, data as DebtTransaction[]);
+    } else if (error) {
+      // Offline or request failed — fall back to whatever was last cached for this profile.
+      setTransactions(getCachedDebtTransactions(profile.id));
+    }
   }
+
+  const isOnline = useOnlineStatus(fetchTransactions);
 
   useEffect(() => {
     setLoadingTxn(true);
@@ -539,6 +548,13 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
         </div>
 
         <div className="p-6 space-y-6">
+          {!isOnline && (
+            <div className="flex items-center gap-2 bg-pale-gold border border-amber-100 rounded-xl px-4 py-2.5 text-sm text-pale-gold-foreground font-medium">
+              <WifiOff className="w-4 h-4 shrink-0" />
+              Offline — showing the last loaded data for this profile.
+            </div>
+          )}
+
           {/* Status banners */}
           {isCleared ? (
             <div className="flex items-center gap-3 bg-pale-green border border-emerald-100 rounded-xl px-4 py-3">

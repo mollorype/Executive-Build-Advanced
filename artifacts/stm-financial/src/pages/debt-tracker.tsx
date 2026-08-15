@@ -9,10 +9,11 @@ import {
 import DebtProfileDetail from "@/components/debt-profile-detail";
 import DebtLedgerModal from "@/components/debt-ledger-modal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { cacheDebtProfiles, getCachedDebtProfiles, useOnlineStatus } from "@/lib/offlineCache";
 import {
   Plus, Search, SortAsc, User, Phone, X, Calendar, CreditCard,
   AlertTriangle, CheckCircle, TrendingDown, Loader2, Trash2, ShieldCheck,
-  Banknote, ArrowUpDown, ChevronRight, FileSpreadsheet,
+  Banknote, ArrowUpDown, ChevronRight, FileSpreadsheet, WifiOff,
 } from "lucide-react";
 
 const RELATION_COLORS: Record<DebtRelation, string> = {
@@ -122,12 +123,21 @@ export default function DebtTracker() {
   }
 
   const fetchProfiles = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from(DEBT_TABLES.PROFILES)
       .select("*")
       .order("created_at", { ascending: false });
-    if (data) setProfiles(data as DebtProfile[]);
+    if (data) {
+      setProfiles(data as DebtProfile[]);
+      cacheDebtProfiles(data as DebtProfile[]);
+    } else if (error) {
+      // Offline or request failed — fall back to the last successfully loaded snapshot
+      // so profile links keep working instead of showing an empty list.
+      setProfiles(getCachedDebtProfiles());
+    }
   }, []);
+
+  const isOnline = useOnlineStatus(fetchProfiles);
 
   useEffect(() => {
     setLoading(true);
@@ -255,6 +265,13 @@ export default function DebtTracker() {
       </div>
 
       <div className="p-6 space-y-5">
+
+        {!isOnline && (
+          <div className="flex items-center gap-2 bg-pale-gold border border-amber-100 rounded-xl px-4 py-2.5 text-sm text-pale-gold-foreground font-medium">
+            <WifiOff className="w-4 h-4 shrink-0" />
+            Offline — showing the last loaded data. Changes will sync automatically once you're back online.
+          </div>
+        )}
 
         {/* ── External Receivables Widget ── */}
         <div className="relative overflow-hidden rounded-xl border border-amber-500/20 bg-card shadow-sm p-5">
