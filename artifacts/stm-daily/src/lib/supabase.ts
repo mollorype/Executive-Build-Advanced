@@ -45,18 +45,26 @@ export interface ShiftPayload {
   client_submission_id?: string;
 }
 
-export async function submitShift(payload: ShiftPayload) {
-  const { error } = await supabase.from("daily_sales_reports").insert(payload);
+// Columns that may not exist yet on older/unmigrated `daily_sales_reports`
+// tables. If Supabase rejects the insert because one of these is missing,
+// drop it and retry rather than leaving the shift stuck unsynced forever.
+const OPTIONAL_COLUMNS = ["client_submission_id", "expenses_breakdown"] as const;
 
-  // Graceful fallback: if the expenses_breakdown column doesn't exist yet,
-  // retry without it so the shift still saves.
-  if (error && error.message?.includes("expenses_breakdown")) {
-    const { expenses_breakdown: _omit, ...fallbackPayload } = payload;
-    const { error: fallbackError } = await supabase
-      .from("daily_sales_reports")
-      .insert(fallbackPayload);
-    return { error: fallbackError };
+export async function submitShift(payload: ShiftPayload) {
+  let attempt: Partial<ShiftPayload> = payload;
+
+  for (let i = 0; i <= OPTIONAL_COLUMNS.length; i++) {
+    const { error } = await supabase.from("daily_sales_reports").insert(attempt);
+    if (!error) return { error: null };
+
+    const missingColumn = OPTIONAL_COLUMNS.find(
+      col => col in attempt && error.message?.includes(col)
+    );
+    if (!missingColumn) return { error };
+
+    const { [missingColumn]: _omit, ...rest } = attempt;
+    attempt = rest;
   }
 
-  return { error };
+  return { error: new Error("Unable to submit shift after removing optional columns") };
 }
