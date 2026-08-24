@@ -1,5 +1,5 @@
 import type ExcelJS from "exceljs";
-import { HOME_EXPENSE_CATEGORY_LABELS, type HomeExpense, type IncomeDeduction } from "./home-expenses";
+import { HOME_EXPENSE_CATEGORY_LABELS, type HomeExpense, type IncomeDeduction, type IncomeEntry } from "./home-expenses";
 
 const HEADER_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
 const THIN_BORDER: Partial<ExcelJS.Borders> = {
@@ -64,12 +64,13 @@ export interface HomeFinanceExportData {
   to: string;
   totalSale: number;
   shiftCount: number;
+  manualIncome: IncomeEntry[];
   deductions: IncomeDeduction[];
   expenses: HomeExpense[];
 }
 
 export async function exportHomeFinanceExcel(data: HomeFinanceExportData): Promise<void> {
-  const { from, to, totalSale, shiftCount, deductions, expenses } = data;
+  const { from, to, totalSale, shiftCount, manualIncome, deductions, expenses } = data;
   const period = `${from} to ${to}`;
 
   const { default: ExcelJS } = await import("exceljs");
@@ -77,9 +78,12 @@ export async function exportHomeFinanceExcel(data: HomeFinanceExportData): Promi
   wb.creator = "STM Financial";
   wb.created = new Date();
 
+  const sortedManualIncome = chronological(manualIncome, i => i.income_date);
+  const totalManualIncome = sortedManualIncome.reduce((s, i) => s + i.amount, 0);
+
   const sortedDeductions = chronological(deductions, d => d.deduction_date);
   const totalDeductions = sortedDeductions.reduce((s, d) => s + d.amount, 0);
-  const netActualIncome = totalSale - totalDeductions;
+  const netActualIncome = totalSale + totalManualIncome - totalDeductions;
 
   const sortedExpenses = chronological(expenses, e => e.expense_date);
   const totalExpenses = sortedExpenses.reduce((s, e) => s + e.amount, 0);
@@ -93,6 +97,7 @@ export async function exportHomeFinanceExcel(data: HomeFinanceExportData): Promi
 
   const summaryRows: [string, number, boolean][] = [
     [`Total Sale (${shiftCount} shift${shiftCount === 1 ? "" : "s"})`, totalSale, false],
+    ["Manual Income", totalManualIncome, false],
     ["Total Deductions", -totalDeductions, false],
     ["Net Actual Income", netActualIncome, true],
     ["Total Home Expenses", -totalExpenses, false],
@@ -128,8 +133,43 @@ export async function exportHomeFinanceExcel(data: HomeFinanceExportData): Promi
   saleCell.value = `Total Sale (auto-detected, ${shiftCount} shift${shiftCount === 1 ? "" : "s"}): ${totalSale.toLocaleString("en-US")} MMK`;
   saleCell.font = { bold: true, size: 10, color: { argb: "FF111827" } };
 
-  headerRow(income, 7, ["Date", "Deduction", "Note", "Amount (MMK)"]);
-  let iRow = 8;
+  let iRow = 7;
+  income.getCell(`A${iRow}`).value = "Manual Income";
+  income.getCell(`A${iRow}`).font = { bold: true, size: 11, color: { argb: "FF111827" } };
+  iRow++;
+  headerRow(income, iRow, ["Date", "Source", "Note", "Amount (MMK)"]);
+  iRow++;
+  for (const inc of sortedManualIncome) {
+    const row = income.getRow(iRow);
+    row.getCell(1).value = excelDate(inc.income_date);
+    row.getCell(1).numFmt = "d-mmm-yyyy";
+    row.getCell(2).value = inc.name;
+    row.getCell(3).value = inc.note ?? "";
+    row.getCell(4).value = inc.amount;
+    row.getCell(4).numFmt = MMK_FMT;
+    row.eachCell(cell => { cell.border = THIN_BORDER; });
+    if (iRow % 2 === 1) row.eachCell(cell => { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF9FAFB" } }; });
+    iRow++;
+  }
+  if (sortedManualIncome.length === 0) {
+    income.mergeCells(`A${iRow}:D${iRow}`);
+    const empty = income.getCell(`A${iRow}`);
+    empty.value = "No manual income entries in this period";
+    empty.font = { italic: true, color: { argb: "FF9CA3AF" } };
+    empty.alignment = { horizontal: "center" };
+    iRow++;
+  }
+  const manualTotalRow = income.getRow(iRow);
+  manualTotalRow.values = ["", "", "Total Manual Income", totalManualIncome];
+  manualTotalRow.eachCell(cell => { cell.font = { bold: true, color: { argb: "FF111827" } }; cell.border = { top: { style: "thin", color: { argb: "FF111827" } } }; });
+  manualTotalRow.getCell(4).numFmt = MMK_FMT;
+  iRow += 2;
+
+  income.getCell(`A${iRow}`).value = "Deductions";
+  income.getCell(`A${iRow}`).font = { bold: true, size: 11, color: { argb: "FF111827" } };
+  iRow++;
+  headerRow(income, iRow, ["Date", "Deduction", "Note", "Amount (MMK)"]);
+  iRow++;
   for (const d of sortedDeductions) {
     const row = income.getRow(iRow);
     row.getCell(1).value = excelDate(d.deduction_date);

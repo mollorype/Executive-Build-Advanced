@@ -1,6 +1,7 @@
 export const HOME_FAMILY_TABLE = "home_family_members";
 export const HOME_EXPENSES_TABLE = "home_expenses";
 export const HOME_INCOME_DEDUCTIONS_TABLE = "home_income_deductions";
+export const HOME_INCOME_ENTRIES_TABLE = "home_income_entries";
 
 export type HomeExpenseCategory = "food" | "transport" | "health" | "education" | "utilities" | "other";
 
@@ -40,6 +41,15 @@ export type IncomeDeduction = {
   amount: number;
   note: string | null;
   deduction_date: string; // "YYYY-MM-DD"
+  created_at: string;
+};
+
+export type IncomeEntry = {
+  id: string;
+  name: string;
+  amount: number;
+  note: string | null;
+  income_date: string; // "YYYY-MM-DD"
   created_at: string;
 };
 
@@ -119,4 +129,16 @@ CREATE TABLE IF NOT EXISTS home_income_deductions (
 );
 ALTER TABLE home_income_deductions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "anon_read" ON home_income_deductions FOR SELECT TO anon USING (true);
-CREATE POLICY "auth_manage" ON home_income_deductions FOR ALL TO authenticated USING (true);`;
+CREATE POLICY "auth_manage" ON home_income_deductions FOR ALL TO authenticated USING (true);
+
+CREATE TABLE IF NOT EXISTS home_income_entries (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  name text NOT NULL,
+  amount numeric NOT NULL,
+  note text,
+  income_date date NOT NULL DEFAULT CURRENT_DATE,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE home_income_entries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "anon_read" ON home_income_entries FOR SELECT TO anon USING (true);
+CREATE POLICY "auth_manage" ON home_income_entries FOR ALL TO authenticated USING (true);`;

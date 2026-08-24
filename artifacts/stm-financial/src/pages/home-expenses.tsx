@@ -2,16 +2,16 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase, TABLES, COLS, mapRowToShift, shiftTotalSales } from "@/lib/supabase";
 import { mmkFmt } from "@/lib/debt-supabase";
 import {
-  HOME_FAMILY_TABLE, HOME_EXPENSES_TABLE, HOME_INCOME_DEDUCTIONS_TABLE, HOME_EXPENSE_SETUP_SQL,
+  HOME_FAMILY_TABLE, HOME_EXPENSES_TABLE, HOME_INCOME_DEDUCTIONS_TABLE, HOME_INCOME_ENTRIES_TABLE, HOME_EXPENSE_SETUP_SQL,
   HOME_EXPENSE_CATEGORIES, HOME_EXPENSE_CATEGORY_LABELS,
   todayStr, monthStartStr, weekStartStr, yearStartStr, lastMonthRange, dateRangeToTimestampBounds,
-  type FamilyMember, type HomeExpense, type HomeExpenseCategory, type IncomeDeduction,
+  type FamilyMember, type HomeExpense, type HomeExpenseCategory, type IncomeDeduction, type IncomeEntry,
 } from "@/lib/home-expenses";
 import { exportHomeFinanceExcel } from "@/lib/home-expense-export";
 import {
   Home, Users, Plus, X, Trash2, AlertCircle, Copy, Loader2, UserRound,
   Utensils, Car, HeartPulse, GraduationCap, Zap, MoreHorizontal, Wallet, CalendarDays, Receipt, Download,
-  TrendingUp, TrendingDown, Scale, MinusCircle,
+  TrendingUp, TrendingDown, Scale, MinusCircle, PlusCircle,
 } from "lucide-react";
 
 const CATEGORY_ICONS: Record<HomeExpenseCategory, typeof Utensils> = {
@@ -50,6 +50,7 @@ export default function HomeExpenses() {
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [expenses, setExpenses] = useState<HomeExpense[]>([]);
   const [deductions, setDeductions] = useState<IncomeDeduction[]>([]);
+  const [manualIncome, setManualIncome] = useState<IncomeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [tableError, setTableError] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -79,6 +80,15 @@ export default function HomeExpenses() {
   const [deductionError, setDeductionError] = useState("");
   const [deletingDeductionId, setDeletingDeductionId] = useState<string | null>(null);
 
+  // Manual income form
+  const [incName, setIncName] = useState("");
+  const [incAmount, setIncAmount] = useState("");
+  const [incNote, setIncNote] = useState("");
+  const [incDate, setIncDate] = useState(todayStr());
+  const [addingIncome, setAddingIncome] = useState(false);
+  const [incomeError, setIncomeError] = useState("");
+  const [deletingIncomeId, setDeletingIncomeId] = useState<string | null>(null);
+
   // Shared time frame + auto-detected sales + export
   const [rangeFrom, setRangeFrom] = useState(monthStartStr());
   const [rangeTo, setRangeTo] = useState(todayStr());
@@ -88,22 +98,24 @@ export default function HomeExpenses() {
   const [exporting, setExporting] = useState(false);
 
   const fetchAll = useCallback(async () => {
-    const [membersRes, expensesRes, deductionsRes] = await Promise.all([
+    const [membersRes, expensesRes, deductionsRes, incomeRes] = await Promise.all([
       supabase.from(HOME_FAMILY_TABLE).select("*").order("created_at", { ascending: true }),
       supabase.from(HOME_EXPENSES_TABLE).select("*").order("expense_date", { ascending: false }).order("created_at", { ascending: false }),
       supabase.from(HOME_INCOME_DEDUCTIONS_TABLE).select("*").order("deduction_date", { ascending: false }).order("created_at", { ascending: false }),
+      supabase.from(HOME_INCOME_ENTRIES_TABLE).select("*").order("income_date", { ascending: false }).order("created_at", { ascending: false }),
     ]);
 
     const missing = (e: { code?: string; message?: string } | null) =>
       !!e && (e.code === "42P01" || e.code === "PGRST116" || (e.message?.includes("does not exist") ?? false));
 
-    if (missing(membersRes.error) || missing(expensesRes.error) || missing(deductionsRes.error)) {
+    if (missing(membersRes.error) || missing(expensesRes.error) || missing(deductionsRes.error) || missing(incomeRes.error)) {
       setTableError(true);
     } else {
       setTableError(false);
       if (membersRes.data) setMembers(membersRes.data as FamilyMember[]);
       if (expensesRes.data) setExpenses(expensesRes.data as HomeExpense[]);
       if (deductionsRes.data) setDeductions(deductionsRes.data as IncomeDeduction[]);
+      if (incomeRes.data) setManualIncome(incomeRes.data as IncomeEntry[]);
     }
     setLoading(false);
   }, []);
@@ -253,6 +265,47 @@ export default function HomeExpenses() {
     fetchAll();
   }
 
+  async function handleAddIncome(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmedName = incName.trim();
+    if (!trimmedName) {
+      setIncomeError("Enter a source for this income.");
+      return;
+    }
+    const amt = n(incAmount);
+    if (amt <= 0) {
+      setIncomeError("Enter an amount greater than zero.");
+      return;
+    }
+
+    setAddingIncome(true);
+    setIncomeError("");
+    const { error } = await supabase.from(HOME_INCOME_ENTRIES_TABLE).insert({
+      name: trimmedName,
+      amount: amt,
+      note: incNote.trim() || null,
+      income_date: incDate,
+    });
+    setAddingIncome(false);
+
+    if (error) {
+      setIncomeError(error.message);
+      return;
+    }
+    setIncName("");
+    setIncAmount("");
+    setIncNote("");
+    fetchAll();
+  }
+
+  async function handleDeleteIncome(entry: IncomeEntry) {
+    if (!window.confirm(`Delete income "${entry.name}" of ${mmkFmt(entry.amount)}?`)) return;
+    setDeletingIncomeId(entry.id);
+    await supabase.from(HOME_INCOME_ENTRIES_TABLE).delete().eq("id", entry.id);
+    setDeletingIncomeId(null);
+    fetchAll();
+  }
+
   const totalToday = useMemo(
     () => expenses.filter(e => e.expense_date === todayStr()).reduce((s, e) => s + e.amount, 0),
     [expenses]
@@ -283,7 +336,14 @@ export default function HomeExpenses() {
     [deductions, rangeFrom, rangeTo]
   );
   const totalDeductions = useMemo(() => rangeDeductions.reduce((s, d) => s + d.amount, 0), [rangeDeductions]);
-  const netActualIncome = totalSale - totalDeductions;
+
+  const rangeManualIncome = useMemo(
+    () => manualIncome.filter(i => i.income_date >= rangeFrom && i.income_date <= rangeTo),
+    [manualIncome, rangeFrom, rangeTo]
+  );
+  const totalManualIncome = useMemo(() => rangeManualIncome.reduce((s, i) => s + i.amount, 0), [rangeManualIncome]);
+
+  const netActualIncome = totalSale + totalManualIncome - totalDeductions;
   const netPosition = netActualIncome - rangeTotal;
 
   const groupedExpenses = useMemo(() => {
@@ -302,6 +362,7 @@ export default function HomeExpenses() {
       await exportHomeFinanceExcel({
         from: rangeFrom, to: rangeTo,
         totalSale, shiftCount,
+        manualIncome: rangeManualIncome,
         deductions: rangeDeductions,
         expenses: rangeExpenses,
       });
@@ -424,7 +485,7 @@ export default function HomeExpenses() {
                 />
                 <button
                   onClick={handleExport}
-                  disabled={exporting || (rangeExpenses.length === 0 && rangeDeductions.length === 0 && totalSale === 0)}
+                  disabled={exporting || (rangeExpenses.length === 0 && rangeDeductions.length === 0 && rangeManualIncome.length === 0 && totalSale === 0)}
                   className="ml-auto flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs rounded-lg px-3.5 py-2 transition-all"
                 >
                   {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
@@ -477,6 +538,92 @@ export default function HomeExpenses() {
                   </div>
                   <p className="text-lg font-bold text-slate-900 tabular-nums">{loadingIncome ? <Loader2 className="w-4 h-4 animate-spin text-slate-400" /> : mmkFmt(totalSale)}</p>
                 </div>
+
+                <form onSubmit={handleAddIncome} className="space-y-3">
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Add Income Manually</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      value={incName}
+                      onChange={e => setIncName(e.target.value)}
+                      placeholder="e.g. Extra cash sale"
+                      className="bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-slate-400"
+                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-semibold select-none">K</span>
+                      <input
+                        type="number"
+                        value={incAmount}
+                        onChange={e => setIncAmount(e.target.value)}
+                        placeholder="0"
+                        className="w-full bg-white border border-slate-100 text-slate-900 text-sm font-semibold rounded-xl pl-8 pr-3.5 py-2.5 outline-none tabular-nums focus:ring-1 focus:ring-blue-500 placeholder:text-slate-400"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] text-slate-400 mb-1 flex items-center gap-1">
+                        <CalendarDays className="w-3 h-3" /> Day
+                      </label>
+                      <input
+                        type="date"
+                        value={incDate}
+                        onChange={e => setIncDate(e.target.value)}
+                        className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-slate-400 mb-1 block">Note (optional)</label>
+                      <input
+                        type="text"
+                        value={incNote}
+                        onChange={e => setIncNote(e.target.value)}
+                        placeholder="Note"
+                        className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-slate-400"
+                      />
+                    </div>
+                  </div>
+                  {incomeError && (
+                    <div className="flex items-start gap-2 bg-pale-red border border-red-100 rounded-xl px-4 py-3 text-xs text-pale-red-foreground">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span>{incomeError}</span>
+                    </div>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={addingIncome}
+                    className="w-full flex items-center justify-center gap-2 bg-white hover:bg-slate-50 disabled:opacity-40 border border-slate-200 text-slate-700 font-semibold rounded-xl py-2.5 text-sm transition-all"
+                  >
+                    {addingIncome ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
+                    Add Income
+                  </button>
+                </form>
+
+                {rangeManualIncome.length > 0 && (
+                  <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
+                    {rangeManualIncome.map(inc => (
+                      <div key={inc.id} className="px-4 py-2.5 flex items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-slate-900 font-medium truncate">{inc.name}</p>
+                          <p className="text-xs text-slate-400 truncate">
+                            {dateLabel(inc.income_date)}{inc.note ? ` · ${inc.note}` : ""}
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold text-pale-green-foreground tabular-nums shrink-0">+{mmkFmt(inc.amount)}</span>
+                        <button
+                          onClick={() => handleDeleteIncome(inc)}
+                          disabled={deletingIncomeId === inc.id}
+                          aria-label="Delete income entry"
+                          className="shrink-0 text-slate-300 hover:text-red-500 disabled:opacity-40 transition-colors p-1"
+                        >
+                          {deletingIncomeId === inc.id
+                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                            : <Trash2 className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <form onSubmit={handleAddDeduction} className="space-y-3">
                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Add a Deduction</label>
