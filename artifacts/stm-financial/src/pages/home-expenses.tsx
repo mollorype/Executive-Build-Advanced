@@ -7,9 +7,10 @@ import {
   todayStr, monthStartStr,
   type FamilyMember, type HomeExpense, type HomeExpenseCategory,
 } from "@/lib/home-expenses";
+import { exportHomeExpensesExcel } from "@/lib/home-expense-export";
 import {
   Home, Users, Plus, X, Trash2, AlertCircle, Copy, Loader2, UserRound,
-  Utensils, Car, HeartPulse, GraduationCap, Zap, MoreHorizontal, Wallet, CalendarDays, Receipt,
+  Utensils, Car, HeartPulse, GraduationCap, Zap, MoreHorizontal, Wallet, CalendarDays, Receipt, Download,
 } from "lucide-react";
 
 const CATEGORY_ICONS: Record<HomeExpenseCategory, typeof Utensils> = {
@@ -58,6 +59,11 @@ export default function HomeExpenses() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null);
+
+  // History time frame + export
+  const [rangeFrom, setRangeFrom] = useState(monthStartStr());
+  const [rangeTo, setRangeTo] = useState(todayStr());
+  const [exporting, setExporting] = useState(false);
 
   const fetchAll = useCallback(async () => {
     const [membersRes, expensesRes] = await Promise.all([
@@ -178,15 +184,30 @@ export default function HomeExpenses() {
       .sort((a, b) => b.total - a.total);
   }, [monthExpenses]);
 
+  const rangeExpenses = useMemo(
+    () => expenses.filter(e => e.expense_date >= rangeFrom && e.expense_date <= rangeTo),
+    [expenses, rangeFrom, rangeTo]
+  );
+  const rangeTotal = useMemo(() => rangeExpenses.reduce((s, e) => s + e.amount, 0), [rangeExpenses]);
+
   const groupedExpenses = useMemo(() => {
     const groups: { date: string; items: HomeExpense[] }[] = [];
-    for (const e of expenses) {
+    for (const e of rangeExpenses) {
       const last = groups[groups.length - 1];
       if (last && last.date === e.expense_date) last.items.push(e);
       else groups.push({ date: e.expense_date, items: [e] });
     }
     return groups;
-  }, [expenses]);
+  }, [rangeExpenses]);
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await exportHomeExpensesExcel(rangeExpenses, rangeFrom, rangeTo);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -441,15 +462,45 @@ export default function HomeExpenses() {
 
             {/* Expense list */}
             <div className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-pale-blue-foreground" />
-                <h2 className="text-slate-900 font-semibold text-sm">Expense History</h2>
+              <div className="px-5 py-4 border-b border-slate-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <Receipt className="w-4 h-4 text-pale-blue-foreground" />
+                  <h2 className="text-slate-900 font-semibold text-sm">Expense History</h2>
+                  <span className="ml-auto text-xs font-semibold text-slate-500 tabular-nums">{mmkFmt(rangeTotal)}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="date"
+                    value={rangeFrom}
+                    onChange={e => setRangeFrom(e.target.value)}
+                    aria-label="From date"
+                    className="bg-white border border-slate-100 text-slate-900 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <span className="text-slate-400 text-xs">→</span>
+                  <input
+                    type="date"
+                    value={rangeTo}
+                    onChange={e => setRangeTo(e.target.value)}
+                    aria-label="To date"
+                    className="bg-white border border-slate-100 text-slate-900 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={handleExport}
+                    disabled={exporting || rangeExpenses.length === 0}
+                    className="ml-auto flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs rounded-lg px-3.5 py-2 transition-all"
+                  >
+                    {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                    {exporting ? "Preparing…" : "Export Excel"}
+                  </button>
+                </div>
               </div>
 
               {groupedExpenses.length === 0 ? (
                 <div className="px-6 py-10 text-center">
                   <Receipt className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-                  <p className="text-slate-400 text-sm">No expenses logged yet.</p>
+                  <p className="text-slate-400 text-sm">
+                    {expenses.length === 0 ? "No expenses logged yet." : "No expenses in this date range."}
+                  </p>
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
