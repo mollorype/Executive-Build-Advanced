@@ -1,16 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, TABLES, COLS, mapRowToShift, shiftTotalSales } from "@/lib/supabase";
 import { mmkFmt } from "@/lib/debt-supabase";
 import {
-  HOME_FAMILY_TABLE, HOME_EXPENSES_TABLE, HOME_EXPENSE_SETUP_SQL,
+  HOME_FAMILY_TABLE, HOME_EXPENSES_TABLE, HOME_INCOME_DEDUCTIONS_TABLE, HOME_EXPENSE_SETUP_SQL,
   HOME_EXPENSE_CATEGORIES, HOME_EXPENSE_CATEGORY_LABELS,
-  todayStr, monthStartStr, weekStartStr, yearStartStr, lastMonthRange,
-  type FamilyMember, type HomeExpense, type HomeExpenseCategory,
+  todayStr, monthStartStr, weekStartStr, yearStartStr, lastMonthRange, dateRangeToTimestampBounds,
+  type FamilyMember, type HomeExpense, type HomeExpenseCategory, type IncomeDeduction,
 } from "@/lib/home-expenses";
-import { exportHomeExpensesExcel } from "@/lib/home-expense-export";
+import { exportHomeFinanceExcel } from "@/lib/home-expense-export";
 import {
   Home, Users, Plus, X, Trash2, AlertCircle, Copy, Loader2, UserRound,
   Utensils, Car, HeartPulse, GraduationCap, Zap, MoreHorizontal, Wallet, CalendarDays, Receipt, Download,
+  TrendingUp, TrendingDown, Scale, MinusCircle,
 } from "lucide-react";
 
 const CATEGORY_ICONS: Record<HomeExpenseCategory, typeof Utensils> = {
@@ -48,6 +49,7 @@ function dateLabel(dateStr: string): string {
 export default function HomeExpenses() {
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [expenses, setExpenses] = useState<HomeExpense[]>([]);
+  const [deductions, setDeductions] = useState<IncomeDeduction[]>([]);
   const [loading, setLoading] = useState(true);
   const [tableError, setTableError] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -68,26 +70,40 @@ export default function HomeExpenses() {
   const [formError, setFormError] = useState("");
   const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null);
 
-  // History time frame + export
+  // Deduction form
+  const [dedName, setDedName] = useState("");
+  const [dedAmount, setDedAmount] = useState("");
+  const [dedNote, setDedNote] = useState("");
+  const [dedDate, setDedDate] = useState(todayStr());
+  const [addingDeduction, setAddingDeduction] = useState(false);
+  const [deductionError, setDeductionError] = useState("");
+  const [deletingDeductionId, setDeletingDeductionId] = useState<string | null>(null);
+
+  // Shared time frame + auto-detected sales + export
   const [rangeFrom, setRangeFrom] = useState(monthStartStr());
   const [rangeTo, setRangeTo] = useState(todayStr());
+  const [totalSale, setTotalSale] = useState(0);
+  const [shiftCount, setShiftCount] = useState(0);
+  const [loadingIncome, setLoadingIncome] = useState(true);
   const [exporting, setExporting] = useState(false);
 
   const fetchAll = useCallback(async () => {
-    const [membersRes, expensesRes] = await Promise.all([
+    const [membersRes, expensesRes, deductionsRes] = await Promise.all([
       supabase.from(HOME_FAMILY_TABLE).select("*").order("created_at", { ascending: true }),
       supabase.from(HOME_EXPENSES_TABLE).select("*").order("expense_date", { ascending: false }).order("created_at", { ascending: false }),
+      supabase.from(HOME_INCOME_DEDUCTIONS_TABLE).select("*").order("deduction_date", { ascending: false }).order("created_at", { ascending: false }),
     ]);
 
     const missing = (e: { code?: string; message?: string } | null) =>
       !!e && (e.code === "42P01" || e.code === "PGRST116" || (e.message?.includes("does not exist") ?? false));
 
-    if (missing(membersRes.error) || missing(expensesRes.error)) {
+    if (missing(membersRes.error) || missing(expensesRes.error) || missing(deductionsRes.error)) {
       setTableError(true);
     } else {
       setTableError(false);
       if (membersRes.data) setMembers(membersRes.data as FamilyMember[]);
       if (expensesRes.data) setExpenses(expensesRes.data as HomeExpense[]);
+      if (deductionsRes.data) setDeductions(deductionsRes.data as IncomeDeduction[]);
     }
     setLoading(false);
   }, []);
@@ -97,6 +113,29 @@ export default function HomeExpenses() {
   useEffect(() => {
     if (!selectedMemberId && members.length > 0) setSelectedMemberId(members[0].id);
   }, [members, selectedMemberId]);
+
+  // Auto-detect total sales from shifts for the selected time frame.
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      setLoadingIncome(true);
+      const { fromISO, toISO } = dateRangeToTimestampBounds(rangeFrom, rangeTo);
+      const { data, error } = await supabase
+        .from(TABLES.SHIFTS)
+        .select("*")
+        .gte(COLS.TIMESTAMP, fromISO)
+        .lte(COLS.TIMESTAMP, toISO);
+      if (cancelled) return;
+      if (!error && data) {
+        const shifts = (data as Record<string, unknown>[]).map(mapRowToShift);
+        setTotalSale(shifts.reduce((s, sh) => s + shiftTotalSales(sh), 0));
+        setShiftCount(shifts.length);
+      }
+      setLoadingIncome(false);
+    }
+    run();
+    return () => { cancelled = true; };
+  }, [rangeFrom, rangeTo]);
 
   function handleCopy() {
     navigator.clipboard.writeText(HOME_EXPENSE_SETUP_SQL);
@@ -173,6 +212,47 @@ export default function HomeExpenses() {
     fetchAll();
   }
 
+  async function handleAddDeduction(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmedName = dedName.trim();
+    if (!trimmedName) {
+      setDeductionError("Enter a name for this deduction.");
+      return;
+    }
+    const amt = n(dedAmount);
+    if (amt <= 0) {
+      setDeductionError("Enter an amount greater than zero.");
+      return;
+    }
+
+    setAddingDeduction(true);
+    setDeductionError("");
+    const { error } = await supabase.from(HOME_INCOME_DEDUCTIONS_TABLE).insert({
+      name: trimmedName,
+      amount: amt,
+      note: dedNote.trim() || null,
+      deduction_date: dedDate,
+    });
+    setAddingDeduction(false);
+
+    if (error) {
+      setDeductionError(error.message);
+      return;
+    }
+    setDedName("");
+    setDedAmount("");
+    setDedNote("");
+    fetchAll();
+  }
+
+  async function handleDeleteDeduction(deduction: IncomeDeduction) {
+    if (!window.confirm(`Delete deduction "${deduction.name}" of ${mmkFmt(deduction.amount)}?`)) return;
+    setDeletingDeductionId(deduction.id);
+    await supabase.from(HOME_INCOME_DEDUCTIONS_TABLE).delete().eq("id", deduction.id);
+    setDeletingDeductionId(null);
+    fetchAll();
+  }
+
   const totalToday = useMemo(
     () => expenses.filter(e => e.expense_date === todayStr()).reduce((s, e) => s + e.amount, 0),
     [expenses]
@@ -198,6 +278,14 @@ export default function HomeExpenses() {
   );
   const rangeTotal = useMemo(() => rangeExpenses.reduce((s, e) => s + e.amount, 0), [rangeExpenses]);
 
+  const rangeDeductions = useMemo(
+    () => deductions.filter(d => d.deduction_date >= rangeFrom && d.deduction_date <= rangeTo),
+    [deductions, rangeFrom, rangeTo]
+  );
+  const totalDeductions = useMemo(() => rangeDeductions.reduce((s, d) => s + d.amount, 0), [rangeDeductions]);
+  const netActualIncome = totalSale - totalDeductions;
+  const netPosition = netActualIncome - rangeTotal;
+
   const groupedExpenses = useMemo(() => {
     const groups: { date: string; items: HomeExpense[] }[] = [];
     for (const e of rangeExpenses) {
@@ -211,7 +299,12 @@ export default function HomeExpenses() {
   async function handleExport() {
     setExporting(true);
     try {
-      await exportHomeExpensesExcel(rangeExpenses, rangeFrom, rangeTo);
+      await exportHomeFinanceExcel({
+        from: rangeFrom, to: rangeTo,
+        totalSale, shiftCount,
+        deductions: rangeDeductions,
+        expenses: rangeExpenses,
+      });
     } finally {
       setExporting(false);
     }
@@ -229,7 +322,7 @@ export default function HomeExpenses() {
     <div className="flex-1 overflow-auto bg-slate-50">
       <div className="px-6 py-5 border-b border-slate-100 bg-white">
         <h1 className="text-2xl font-bold text-slate-900">Home Expense</h1>
-        <p className="text-slate-400 text-sm mt-0.5">Track your family's day-to-day spending</p>
+        <p className="text-slate-400 text-sm mt-0.5">Track your family's income & day-to-day spending</p>
       </div>
 
       <div className="p-6 max-w-3xl space-y-5">
@@ -262,7 +355,7 @@ export default function HomeExpenses() {
                   <div className="w-8 h-8 rounded-lg bg-pale-blue flex items-center justify-center">
                     <Wallet className="w-4 h-4 text-pale-blue-foreground" />
                   </div>
-                  <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Today</span>
+                  <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Expenses Today</span>
                 </div>
                 <p className="text-xl font-bold text-slate-900 tabular-nums">{mmkFmt(totalToday)}</p>
               </div>
@@ -271,7 +364,7 @@ export default function HomeExpenses() {
                   <div className="w-8 h-8 rounded-lg bg-pale-gold flex items-center justify-center">
                     <Receipt className="w-4 h-4 text-pale-gold-foreground" />
                   </div>
-                  <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">This Month</span>
+                  <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Expenses This Month</span>
                 </div>
                 <p className="text-xl font-bold text-slate-900 tabular-nums">{mmkFmt(totalThisMonth)}</p>
               </div>
@@ -283,6 +376,193 @@ export default function HomeExpenses() {
                   <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Family Members</span>
                 </div>
                 <p className="text-xl font-bold text-slate-900 tabular-nums">{members.length}</p>
+              </div>
+            </div>
+
+            {/* Shared time frame + export */}
+            <div className="bg-white border border-slate-100 shadow-sm rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <CalendarDays className="w-4 h-4 text-pale-blue-foreground" />
+                <h2 className="text-slate-900 font-semibold text-sm">Time Frame</h2>
+                <span className="ml-auto text-xs text-slate-400">Applies to Actual Income, Expense History & export</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                {RANGE_PRESETS.map(preset => {
+                  const { from, to } = preset.range();
+                  const active = rangeFrom === from && rangeTo === to;
+                  return (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => { setRangeFrom(from); setRangeTo(to); }}
+                      className={`text-xs font-semibold rounded-full px-3 py-1 border transition-all ${
+                        active
+                          ? "bg-pale-blue border-blue-200 text-pale-blue-foreground"
+                          : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="date"
+                  value={rangeFrom}
+                  onChange={e => setRangeFrom(e.target.value)}
+                  aria-label="From date"
+                  className="bg-white border border-slate-100 text-slate-900 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <span className="text-slate-400 text-xs">→</span>
+                <input
+                  type="date"
+                  value={rangeTo}
+                  onChange={e => setRangeTo(e.target.value)}
+                  aria-label="To date"
+                  className="bg-white border border-slate-100 text-slate-900 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <button
+                  onClick={handleExport}
+                  disabled={exporting || (rangeExpenses.length === 0 && rangeDeductions.length === 0 && totalSale === 0)}
+                  className="ml-auto flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs rounded-lg px-3.5 py-2 transition-all"
+                >
+                  {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                  {exporting ? "Preparing…" : "Export Excel (Income + Expenses)"}
+                </button>
+              </div>
+            </div>
+
+            {/* Net position */}
+            <div className="bg-white border border-slate-100 shadow-sm rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Scale className="w-4 h-4 text-pale-blue-foreground" />
+                <h2 className="text-slate-900 font-semibold text-sm">Net Position</h2>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Total Sale</p>
+                  <p className="text-base font-bold text-slate-900 tabular-nums">{loadingIncome ? "…" : mmkFmt(totalSale)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Net Actual Income</p>
+                  <p className="text-base font-bold text-pale-blue-foreground tabular-nums">{loadingIncome ? "…" : mmkFmt(netActualIncome)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Home Expenses</p>
+                  <p className="text-base font-bold text-pale-gold-foreground tabular-nums">{mmkFmt(rangeTotal)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Net Position</p>
+                  <p className={`text-base font-bold tabular-nums ${netPosition >= 0 ? "text-pale-green-foreground" : "text-pale-red-foreground"}`}>
+                    {loadingIncome ? "…" : mmkFmt(netPosition)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Actual Income */}
+            <div className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-pale-blue-foreground" />
+                <h2 className="text-slate-900 font-semibold text-sm">Actual Income</h2>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-slate-500 font-medium">Total Sale (auto-detected)</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      {loadingIncome ? "Calculating…" : `From ${shiftCount} shift${shiftCount === 1 ? "" : "s"} in this time frame`}
+                    </p>
+                  </div>
+                  <p className="text-lg font-bold text-slate-900 tabular-nums">{loadingIncome ? <Loader2 className="w-4 h-4 animate-spin text-slate-400" /> : mmkFmt(totalSale)}</p>
+                </div>
+
+                <form onSubmit={handleAddDeduction} className="space-y-3">
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Add a Deduction</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      value={dedName}
+                      onChange={e => setDedName(e.target.value)}
+                      placeholder="e.g. Fuel supplier payment"
+                      className="bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-slate-400"
+                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-semibold select-none">K</span>
+                      <input
+                        type="number"
+                        value={dedAmount}
+                        onChange={e => setDedAmount(e.target.value)}
+                        placeholder="0"
+                        className="w-full bg-white border border-slate-100 text-slate-900 text-sm font-semibold rounded-xl pl-8 pr-3.5 py-2.5 outline-none tabular-nums focus:ring-1 focus:ring-blue-500 placeholder:text-slate-400"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="date"
+                      value={dedDate}
+                      onChange={e => setDedDate(e.target.value)}
+                      className="bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <input
+                      type="text"
+                      value={dedNote}
+                      onChange={e => setDedNote(e.target.value)}
+                      placeholder="Note (optional)"
+                      className="bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-slate-400"
+                    />
+                  </div>
+                  {deductionError && (
+                    <div className="flex items-start gap-2 bg-pale-red border border-red-100 rounded-xl px-4 py-3 text-xs text-pale-red-foreground">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span>{deductionError}</span>
+                    </div>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={addingDeduction}
+                    className="w-full flex items-center justify-center gap-2 bg-white hover:bg-slate-50 disabled:opacity-40 border border-slate-200 text-slate-700 font-semibold rounded-xl py-2.5 text-sm transition-all"
+                  >
+                    {addingDeduction ? <Loader2 className="w-4 h-4 animate-spin" /> : <MinusCircle className="w-4 h-4" />}
+                    Add Deduction
+                  </button>
+                </form>
+
+                {rangeDeductions.length > 0 && (
+                  <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
+                    {rangeDeductions.map(d => (
+                      <div key={d.id} className="px-4 py-2.5 flex items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-slate-900 font-medium truncate">{d.name}</p>
+                          <p className="text-xs text-slate-400 truncate">
+                            {dateLabel(d.deduction_date)}{d.note ? ` · ${d.note}` : ""}
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold text-pale-red-foreground tabular-nums shrink-0">-{mmkFmt(d.amount)}</span>
+                        <button
+                          onClick={() => handleDeleteDeduction(d)}
+                          disabled={deletingDeductionId === d.id}
+                          aria-label="Delete deduction"
+                          className="shrink-0 text-slate-300 hover:text-red-500 disabled:opacity-40 transition-colors p-1"
+                        >
+                          {deletingDeductionId === d.id
+                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                            : <Trash2 className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                  <span className="text-sm font-semibold text-slate-700">Net Actual Income</span>
+                  <span className="text-lg font-bold text-pale-blue-foreground tabular-nums flex items-center gap-1.5">
+                    {netActualIncome >= totalSale ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                    {loadingIncome ? "…" : mmkFmt(netActualIncome)}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -470,57 +750,10 @@ export default function HomeExpenses() {
 
             {/* Expense list */}
             <div className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100">
-                <div className="flex items-center gap-2 mb-3">
-                  <Receipt className="w-4 h-4 text-pale-blue-foreground" />
-                  <h2 className="text-slate-900 font-semibold text-sm">Expense History</h2>
-                  <span className="ml-auto text-xs font-semibold text-slate-500 tabular-nums">{mmkFmt(rangeTotal)}</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
-                  {RANGE_PRESETS.map(preset => {
-                    const { from, to } = preset.range();
-                    const active = rangeFrom === from && rangeTo === to;
-                    return (
-                      <button
-                        key={preset.label}
-                        type="button"
-                        onClick={() => { setRangeFrom(from); setRangeTo(to); }}
-                        className={`text-xs font-semibold rounded-full px-3 py-1 border transition-all ${
-                          active
-                            ? "bg-pale-blue border-blue-200 text-pale-blue-foreground"
-                            : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
-                        }`}
-                      >
-                        {preset.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="date"
-                    value={rangeFrom}
-                    onChange={e => setRangeFrom(e.target.value)}
-                    aria-label="From date"
-                    className="bg-white border border-slate-100 text-slate-900 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                  <span className="text-slate-400 text-xs">→</span>
-                  <input
-                    type="date"
-                    value={rangeTo}
-                    onChange={e => setRangeTo(e.target.value)}
-                    aria-label="To date"
-                    className="bg-white border border-slate-100 text-slate-900 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                  <button
-                    onClick={handleExport}
-                    disabled={exporting || rangeExpenses.length === 0}
-                    className="ml-auto flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs rounded-lg px-3.5 py-2 transition-all"
-                  >
-                    {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                    {exporting ? "Preparing…" : "Export Excel"}
-                  </button>
-                </div>
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-pale-blue-foreground" />
+                <h2 className="text-slate-900 font-semibold text-sm">Expense History</h2>
+                <span className="ml-auto text-xs font-semibold text-slate-500 tabular-nums">{mmkFmt(rangeTotal)}</span>
               </div>
 
               {groupedExpenses.length === 0 ? (

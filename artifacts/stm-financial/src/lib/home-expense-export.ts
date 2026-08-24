@@ -1,5 +1,5 @@
 import type ExcelJS from "exceljs";
-import { HOME_EXPENSE_CATEGORY_LABELS, type HomeExpense } from "./home-expenses";
+import { HOME_EXPENSE_CATEGORY_LABELS, type HomeExpense, type IncomeDeduction } from "./home-expenses";
 
 const HEADER_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
 const THIN_BORDER: Partial<ExcelJS.Borders> = {
@@ -14,79 +14,164 @@ function excelDate(iso: string): Date {
   return new Date(`${iso}T00:00:00`);
 }
 
-/** Oldest-first, matching how a report reads top to bottom. */
-function sortChronological(expenses: HomeExpense[]): HomeExpense[] {
-  return [...expenses].sort((a, b) => {
-    const dateDiff = a.expense_date.localeCompare(b.expense_date);
+function chronological<T extends { created_at: string }>(rows: T[], dateOf: (r: T) => string): T[] {
+  return [...rows].sort((a, b) => {
+    const dateDiff = dateOf(a).localeCompare(dateOf(b));
     if (dateDiff !== 0) return dateDiff;
     return a.created_at.localeCompare(b.created_at);
   });
 }
 
-function sumBy<T extends string>(expenses: HomeExpense[], key: (e: HomeExpense) => T): Map<T, number> {
-  const sums = new Map<T, number>();
-  for (const e of expenses) sums.set(key(e), (sums.get(key(e)) ?? 0) + e.amount);
+function sumBy<T>(rows: T[], amountOf: (r: T) => number, key: (r: T) => string): Map<string, number> {
+  const sums = new Map<string, number>();
+  for (const r of rows) sums.set(key(r), (sums.get(key(r)) ?? 0) + amountOf(r));
   return sums;
 }
 
-export async function exportHomeExpensesExcel(
-  expenses: HomeExpense[],
-  from: string,
-  to: string
-): Promise<void> {
-  const { default: ExcelJS } = await import("exceljs");
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "STM Financial";
-  wb.created = new Date();
+function sheetHeader(ws: ExcelJS.Worksheet, title: string, subtitle: string, period: string, lastCol: string) {
+  ws.mergeCells(`A1:${lastCol}1`);
+  const t = ws.getCell("A1");
+  t.value = title;
+  t.font = { size: 16, bold: true, color: { argb: "FF111827" } };
+  t.alignment = { horizontal: "center" };
 
-  const ws = wb.addWorksheet("Home Expenses", {
-    pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1 },
-    views: [{ showGridLines: false }],
-  });
+  ws.mergeCells(`A2:${lastCol}2`);
+  const s = ws.getCell("A2");
+  s.value = subtitle;
+  s.font = { size: 10, color: { argb: "FF6B7280" } };
+  s.alignment = { horizontal: "center" };
 
-  ws.columns = [
-    { width: 14 },
-    { width: 20 },
-    { width: 16 },
-    { width: 34 },
-    { width: 18 },
-  ];
+  ws.mergeCells(`A4:${lastCol}4`);
+  const p = ws.getCell("A4");
+  p.value = `Period: ${period}`;
+  p.font = { bold: true, size: 10, color: { argb: "FF374151" } };
+}
 
-  ws.mergeCells("A1:E1");
-  const title = ws.getCell("A1");
-  title.value = "HOME EXPENSE REPORT";
-  title.font = { size: 16, bold: true, color: { argb: "FF111827" } };
-  title.alignment = { horizontal: "center" };
-
-  ws.mergeCells("A2:E2");
-  const subtitle = ws.getCell("A2");
-  subtitle.value = "STM Financial — Family Expense Tracking";
-  subtitle.font = { size: 10, color: { argb: "FF6B7280" } };
-  subtitle.alignment = { horizontal: "center" };
-
-  ws.mergeCells("A4:E4");
-  const period = ws.getCell("A4");
-  period.value = `Period: ${from} to ${to}`;
-  period.font = { bold: true, size: 10, color: { argb: "FF374151" } };
-
-  const sorted = sortChronological(expenses);
-  const total = sorted.reduce((s, e) => s + e.amount, 0);
-
-  const headerRowIdx = 6;
-  const header = ws.getRow(headerRowIdx);
-  header.values = ["Date", "Family Member", "Category", "Note", "Amount (MMK)"];
-  header.eachCell(cell => {
+function headerRow(ws: ExcelJS.Worksheet, rowIdx: number, values: string[]) {
+  const row = ws.getRow(rowIdx);
+  row.values = values;
+  row.eachCell(cell => {
     cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
     cell.fill = HEADER_FILL;
     cell.alignment = { horizontal: "center", vertical: "middle" };
     cell.border = THIN_BORDER;
   });
-  header.height = 20;
+  row.height = 20;
+}
 
-  let rowIdx = headerRowIdx + 1;
+export interface HomeFinanceExportData {
+  from: string;
+  to: string;
+  totalSale: number;
+  shiftCount: number;
+  deductions: IncomeDeduction[];
+  expenses: HomeExpense[];
+}
 
-  for (const e of sorted) {
-    const row = ws.getRow(rowIdx);
+export async function exportHomeFinanceExcel(data: HomeFinanceExportData): Promise<void> {
+  const { from, to, totalSale, shiftCount, deductions, expenses } = data;
+  const period = `${from} to ${to}`;
+
+  const { default: ExcelJS } = await import("exceljs");
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "STM Financial";
+  wb.created = new Date();
+
+  const sortedDeductions = chronological(deductions, d => d.deduction_date);
+  const totalDeductions = sortedDeductions.reduce((s, d) => s + d.amount, 0);
+  const netActualIncome = totalSale - totalDeductions;
+
+  const sortedExpenses = chronological(expenses, e => e.expense_date);
+  const totalExpenses = sortedExpenses.reduce((s, e) => s + e.amount, 0);
+
+  const netPosition = netActualIncome - totalExpenses;
+
+  // ── Summary sheet ──────────────────────────────────────────────
+  const summary = wb.addWorksheet("Summary", { views: [{ showGridLines: false }] });
+  summary.columns = [{ width: 32 }, { width: 20 }];
+  sheetHeader(summary, "HOME FINANCE SUMMARY", "STM Financial — Income & Expense", period, "B");
+
+  const summaryRows: [string, number, boolean][] = [
+    [`Total Sale (${shiftCount} shift${shiftCount === 1 ? "" : "s"})`, totalSale, false],
+    ["Total Deductions", -totalDeductions, false],
+    ["Net Actual Income", netActualIncome, true],
+    ["Total Home Expenses", -totalExpenses, false],
+    ["Net Position", netPosition, true],
+  ];
+  let sRow = 6;
+  for (const [label, amt, bold] of summaryRows) {
+    const row = summary.getRow(sRow);
+    row.getCell(1).value = label;
+    row.getCell(2).value = amt;
+    row.getCell(2).numFmt = MMK_FMT;
+    if (bold) {
+      row.eachCell(cell => {
+        cell.font = { bold: true, color: { argb: "FF111827" } };
+        cell.border = { top: { style: "double", color: { argb: "FF111827" } } };
+      });
+    } else {
+      row.getCell(1).font = { color: { argb: "FF4B5563" } };
+    }
+    sRow++;
+  }
+
+  // ── Actual Income sheet ─────────────────────────────────────────
+  const income = wb.addWorksheet("Actual Income", {
+    pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1 },
+    views: [{ showGridLines: false }],
+  });
+  income.columns = [{ width: 14 }, { width: 28 }, { width: 34 }, { width: 18 }];
+  sheetHeader(income, "ACTUAL INCOME REPORT", "STM Financial — Auto-detected from Shifts", period, "D");
+
+  income.mergeCells("A5:D5");
+  const saleCell = income.getCell("A5");
+  saleCell.value = `Total Sale (auto-detected, ${shiftCount} shift${shiftCount === 1 ? "" : "s"}): ${totalSale.toLocaleString("en-US")} MMK`;
+  saleCell.font = { bold: true, size: 10, color: { argb: "FF111827" } };
+
+  headerRow(income, 7, ["Date", "Deduction", "Note", "Amount (MMK)"]);
+  let iRow = 8;
+  for (const d of sortedDeductions) {
+    const row = income.getRow(iRow);
+    row.getCell(1).value = excelDate(d.deduction_date);
+    row.getCell(1).numFmt = "d-mmm-yyyy";
+    row.getCell(2).value = d.name;
+    row.getCell(3).value = d.note ?? "";
+    row.getCell(4).value = d.amount;
+    row.getCell(4).numFmt = MMK_FMT;
+    row.eachCell(cell => { cell.border = THIN_BORDER; });
+    if (iRow % 2 === 1) row.eachCell(cell => { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF9FAFB" } }; });
+    iRow++;
+  }
+  if (sortedDeductions.length === 0) {
+    income.mergeCells(`A${iRow}:D${iRow}`);
+    const empty = income.getCell(`A${iRow}`);
+    empty.value = "No deductions in this period";
+    empty.font = { italic: true, color: { argb: "FF9CA3AF" } };
+    empty.alignment = { horizontal: "center" };
+    iRow++;
+  }
+  const dedTotalRow = income.getRow(iRow);
+  dedTotalRow.values = ["", "", "Total Deductions", totalDeductions];
+  dedTotalRow.eachCell(cell => { cell.font = { bold: true, color: { argb: "FF111827" } }; cell.border = { top: { style: "thin", color: { argb: "FF111827" } } }; });
+  dedTotalRow.getCell(4).numFmt = MMK_FMT;
+  iRow++;
+  const netIncomeRow = income.getRow(iRow);
+  netIncomeRow.values = ["", "", "Net Actual Income", netActualIncome];
+  netIncomeRow.eachCell(cell => { cell.font = { bold: true, color: { argb: "FF111827" } }; cell.border = { top: { style: "double", color: { argb: "FF111827" } } }; });
+  netIncomeRow.getCell(4).numFmt = MMK_FMT;
+
+  // ── Home Expenses sheet ─────────────────────────────────────────
+  const exp = wb.addWorksheet("Home Expenses", {
+    pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1 },
+    views: [{ showGridLines: false }],
+  });
+  exp.columns = [{ width: 14 }, { width: 20 }, { width: 16 }, { width: 34 }, { width: 18 }];
+  sheetHeader(exp, "HOME EXPENSE REPORT", "STM Financial — Family Expense Tracking", period, "E");
+
+  headerRow(exp, 6, ["Date", "Family Member", "Category", "Note", "Amount (MMK)"]);
+  let eRow = 7;
+  for (const e of sortedExpenses) {
+    const row = exp.getRow(eRow);
     row.getCell(1).value = excelDate(e.expense_date);
     row.getCell(1).numFmt = "d-mmm-yyyy";
     row.getCell(2).value = e.member_name;
@@ -95,60 +180,47 @@ export async function exportHomeExpensesExcel(
     row.getCell(5).value = e.amount;
     row.getCell(5).numFmt = MMK_FMT;
     row.eachCell(cell => { cell.border = THIN_BORDER; });
-    if (rowIdx % 2 === 0) {
-      row.eachCell(cell => { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF9FAFB" } }; });
-    }
-    rowIdx++;
+    if (eRow % 2 === 1) row.eachCell(cell => { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF9FAFB" } }; });
+    eRow++;
   }
-
-  if (sorted.length === 0) {
-    ws.mergeCells(`A${rowIdx}:E${rowIdx}`);
-    const emptyCell = ws.getCell(`A${rowIdx}`);
-    emptyCell.value = "No expenses in this period";
-    emptyCell.font = { italic: true, color: { argb: "FF9CA3AF" } };
-    emptyCell.alignment = { horizontal: "center" };
-    rowIdx++;
+  if (sortedExpenses.length === 0) {
+    exp.mergeCells(`A${eRow}:E${eRow}`);
+    const empty = exp.getCell(`A${eRow}`);
+    empty.value = "No expenses in this period";
+    empty.font = { italic: true, color: { argb: "FF9CA3AF" } };
+    empty.alignment = { horizontal: "center" };
+    eRow++;
   }
+  const expTotalRow = exp.getRow(eRow);
+  expTotalRow.values = ["", "", "", "Period Total", totalExpenses];
+  expTotalRow.eachCell(cell => { cell.font = { bold: true, color: { argb: "FF111827" } }; cell.border = { top: { style: "double", color: { argb: "FF111827" } } }; });
+  expTotalRow.getCell(5).numFmt = MMK_FMT;
+  eRow += 3;
 
-  const totalRow = ws.getRow(rowIdx);
-  totalRow.values = ["", "", "", "Period Total", total];
-  totalRow.eachCell(cell => {
-    cell.font = { bold: true, color: { argb: "FF111827" } };
-    cell.border = { top: { style: "double", color: { argb: "FF111827" } } };
-  });
-  totalRow.getCell(5).numFmt = MMK_FMT;
-  rowIdx += 3;
-
-  // Breakdown by family member
-  const byMember = sumBy(sorted, e => e.member_name);
+  const byMember = sumBy(sortedExpenses, e => e.amount, e => e.member_name);
   if (byMember.size > 0) {
-    const memberHeaderRow = ws.getCell(`A${rowIdx}`);
-    memberHeaderRow.value = "By Family Member";
-    memberHeaderRow.font = { bold: true, size: 11, color: { argb: "FF111827" } };
-    rowIdx++;
+    exp.getCell(`A${eRow}`).value = "By Family Member";
+    exp.getCell(`A${eRow}`).font = { bold: true, size: 11, color: { argb: "FF111827" } };
+    eRow++;
     for (const [name, amt] of [...byMember.entries()].sort((a, b) => b[1] - a[1])) {
-      const row = ws.getRow(rowIdx);
-      row.getCell(1).value = name;
-      row.getCell(2).value = amt;
-      row.getCell(2).numFmt = MMK_FMT;
-      rowIdx++;
+      exp.getRow(eRow).getCell(1).value = name;
+      exp.getRow(eRow).getCell(2).value = amt;
+      exp.getRow(eRow).getCell(2).numFmt = MMK_FMT;
+      eRow++;
     }
-    rowIdx++;
+    eRow++;
   }
 
-  // Breakdown by category
-  const byCategory = sumBy(sorted, e => HOME_EXPENSE_CATEGORY_LABELS[e.category]);
+  const byCategory = sumBy(sortedExpenses, e => e.amount, e => HOME_EXPENSE_CATEGORY_LABELS[e.category]);
   if (byCategory.size > 0) {
-    const categoryHeaderRow = ws.getCell(`A${rowIdx}`);
-    categoryHeaderRow.value = "By Category";
-    categoryHeaderRow.font = { bold: true, size: 11, color: { argb: "FF111827" } };
-    rowIdx++;
+    exp.getCell(`A${eRow}`).value = "By Category";
+    exp.getCell(`A${eRow}`).font = { bold: true, size: 11, color: { argb: "FF111827" } };
+    eRow++;
     for (const [label, amt] of [...byCategory.entries()].sort((a, b) => b[1] - a[1])) {
-      const row = ws.getRow(rowIdx);
-      row.getCell(1).value = label;
-      row.getCell(2).value = amt;
-      row.getCell(2).numFmt = MMK_FMT;
-      rowIdx++;
+      exp.getRow(eRow).getCell(1).value = label;
+      exp.getRow(eRow).getCell(2).value = amt;
+      exp.getRow(eRow).getCell(2).numFmt = MMK_FMT;
+      eRow++;
     }
   }
 
@@ -157,7 +229,7 @@ export async function exportHomeExpensesExcel(
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `Home_Expenses_${from}_to_${to}.xlsx`;
+  a.download = `Home_Finance_${from}_to_${to}.xlsx`;
   document.body.appendChild(a);
   a.click();
   a.remove();
