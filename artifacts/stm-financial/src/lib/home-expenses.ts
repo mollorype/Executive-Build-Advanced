@@ -33,12 +33,36 @@ export type HomeExpense = {
   created_at: string;
 };
 
+function toDateStr(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
 export function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toDateStr(new Date());
 }
 
 export function monthStartStr(): string {
   return todayStr().slice(0, 7) + "-01";
+}
+
+export function weekStartStr(): string {
+  const d = new Date();
+  const day = d.getDay(); // 0 = Sunday
+  const sinceMonday = day === 0 ? 6 : day - 1;
+  d.setDate(d.getDate() - sinceMonday);
+  return toDateStr(d);
+}
+
+export function yearStartStr(): string {
+  return todayStr().slice(0, 4) + "-01-01";
+}
+
+export function lastMonthRange(): { from: string; to: string } {
+  const now = new Date();
+  const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastOfPrevMonth = new Date(firstOfThisMonth.getTime() - 1);
+  const firstOfPrevMonth = new Date(lastOfPrevMonth.getFullYear(), lastOfPrevMonth.getMonth(), 1);
+  return { from: toDateStr(firstOfPrevMonth), to: toDateStr(lastOfPrevMonth) };
 }
 
 export const HOME_EXPENSE_SETUP_SQL = `-- Run this once in your Supabase SQL Editor:

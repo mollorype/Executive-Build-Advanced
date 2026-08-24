@@ -4,7 +4,7 @@ import { mmkFmt } from "@/lib/debt-supabase";
 import {
   HOME_FAMILY_TABLE, HOME_EXPENSES_TABLE, HOME_EXPENSE_SETUP_SQL,
   HOME_EXPENSE_CATEGORIES, HOME_EXPENSE_CATEGORY_LABELS,
-  todayStr, monthStartStr,
+  todayStr, monthStartStr, weekStartStr, yearStartStr, lastMonthRange,
   type FamilyMember, type HomeExpense, type HomeExpenseCategory,
 } from "@/lib/home-expenses";
 import { exportHomeExpensesExcel } from "@/lib/home-expense-export";
@@ -21,6 +21,14 @@ const CATEGORY_ICONS: Record<HomeExpenseCategory, typeof Utensils> = {
   utilities: Zap,
   other: MoreHorizontal,
 };
+
+const RANGE_PRESETS: { label: string; range: () => { from: string; to: string } }[] = [
+  { label: "Today", range: () => ({ from: todayStr(), to: todayStr() }) },
+  { label: "This Week", range: () => ({ from: weekStartStr(), to: todayStr() }) },
+  { label: "This Month", range: () => ({ from: monthStartStr(), to: todayStr() }) },
+  { label: "Last Month", range: () => lastMonthRange() },
+  { label: "This Year", range: () => ({ from: yearStartStr(), to: todayStr() }) },
+];
 
 function n(v: string): number {
   const x = parseFloat(v.replace(/,/g, ""));
@@ -467,6 +475,26 @@ export default function HomeExpenses() {
                   <Receipt className="w-4 h-4 text-pale-blue-foreground" />
                   <h2 className="text-slate-900 font-semibold text-sm">Expense History</h2>
                   <span className="ml-auto text-xs font-semibold text-slate-500 tabular-nums">{mmkFmt(rangeTotal)}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                  {RANGE_PRESETS.map(preset => {
+                    const { from, to } = preset.range();
+                    const active = rangeFrom === from && rangeTo === to;
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => { setRangeFrom(from); setRangeTo(to); }}
+                        className={`text-xs font-semibold rounded-full px-3 py-1 border transition-all ${
+                          active
+                            ? "bg-pale-blue border-blue-200 text-pale-blue-foreground"
+                            : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <input
