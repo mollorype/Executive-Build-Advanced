@@ -1,26 +1,27 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { supabase, TABLES, COLS, mapRowToShift, shiftTotalSales } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { mmkFmt } from "@/lib/debt-supabase";
 import {
-  HOME_FAMILY_TABLE, HOME_EXPENSES_TABLE, HOME_INCOME_DEDUCTIONS_TABLE, HOME_INCOME_ENTRIES_TABLE, HOME_EXPENSE_SETUP_SQL,
-  HOME_EXPENSE_CATEGORIES, HOME_EXPENSE_CATEGORY_LABELS,
-  todayStr, monthStartStr, weekStartStr, yearStartStr, lastMonthRange, dateRangeToTimestampBounds,
-  type FamilyMember, type HomeExpense, type HomeExpenseCategory, type IncomeDeduction, type IncomeEntry,
+  HOME_IC_LEDGER_TABLE, HOME_IC_SETUP_SQL,
+  IC_ROLES, IC_ROLE_LABELS, IC_NON_EXPENSE_ROLES,
+  todayStr, monthStartStr, weekStartStr, yearStartStr, lastMonthRange,
+  type IcLedgerEntry, type IcEntryType, type IcRole,
 } from "@/lib/home-expenses";
-import { exportHomeFinanceExcel } from "@/lib/home-expense-export";
+import { buildIcLedger, exportIcLedgerExcel } from "@/lib/home-expense-export";
 import {
-  Home, Users, Plus, X, Trash2, AlertCircle, Copy, Loader2, UserRound,
-  Utensils, Car, HeartPulse, GraduationCap, Zap, MoreHorizontal, Wallet, CalendarDays, Receipt, Download,
-  TrendingUp, TrendingDown, Scale, MinusCircle, PlusCircle,
+  Plus, Trash2, AlertCircle, Copy, Loader2, CalendarDays, Download,
+  TrendingUp, TrendingDown, Scale, PiggyBank, ChefHat, User, Users, UserCircle2, UserRound, Contact, Landmark, ListChecks,
 } from "lucide-react";
 
-const CATEGORY_ICONS: Record<HomeExpenseCategory, typeof Utensils> = {
-  food: Utensils,
-  transport: Car,
-  health: HeartPulse,
-  education: GraduationCap,
-  utilities: Zap,
-  other: MoreHorizontal,
+const ROLE_ICONS: Record<IcRole, typeof User> = {
+  mom: UserRound,
+  kitchen: ChefHat,
+  dad: User,
+  bro: Users,
+  me: UserCircle2,
+  am: Contact,
+  bank_transfer: Landmark,
+  saving: PiggyBank,
 };
 
 const RANGE_PRESETS: { label: string; range: () => { from: string; to: string } }[] = [
@@ -36,159 +37,61 @@ function n(v: string): number {
   return isNaN(x) ? 0 : x;
 }
 
-function dateLabel(dateStr: string): string {
-  const today = todayStr();
-  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-  if (dateStr === today) return "Today";
-  if (dateStr === yesterday) return "Yesterday";
+function fmtDate(dateStr: string): string {
   return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
-    weekday: "short", month: "short", day: "numeric", year: "numeric",
+    month: "short", day: "numeric", year: "numeric",
   });
 }
 
 export default function HomeExpenses() {
-  const [members, setMembers] = useState<FamilyMember[]>([]);
-  const [expenses, setExpenses] = useState<HomeExpense[]>([]);
-  const [deductions, setDeductions] = useState<IncomeDeduction[]>([]);
-  const [manualIncome, setManualIncome] = useState<IncomeEntry[]>([]);
+  const [entries, setEntries] = useState<IcLedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [tableError, setTableError] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Family member management
-  const [newMemberName, setNewMemberName] = useState("");
-  const [addingMember, setAddingMember] = useState(false);
-  const [memberError, setMemberError] = useState("");
-  const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null);
-
-  // Expense form
-  const [selectedMemberId, setSelectedMemberId] = useState("");
-  const [category, setCategory] = useState<HomeExpenseCategory>("food");
+  // Add entry form
+  const [entryType, setEntryType] = useState<IcEntryType>("expense");
+  const [role, setRole] = useState<IcRole>("mom");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const [expenseDate, setExpenseDate] = useState(todayStr());
+  const [entryDate, setEntryDate] = useState(todayStr());
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
-  const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Deduction form
-  const [dedName, setDedName] = useState("");
-  const [dedAmount, setDedAmount] = useState("");
-  const [dedNote, setDedNote] = useState("");
-  const [dedDate, setDedDate] = useState(todayStr());
-  const [addingDeduction, setAddingDeduction] = useState(false);
-  const [deductionError, setDeductionError] = useState("");
-  const [deletingDeductionId, setDeletingDeductionId] = useState<string | null>(null);
-
-  // Manual income form
-  const [incName, setIncName] = useState("");
-  const [incAmount, setIncAmount] = useState("");
-  const [incNote, setIncNote] = useState("");
-  const [incDate, setIncDate] = useState(todayStr());
-  const [addingIncome, setAddingIncome] = useState(false);
-  const [incomeError, setIncomeError] = useState("");
-  const [deletingIncomeId, setDeletingIncomeId] = useState<string | null>(null);
-
-  // Shared time frame + auto-detected sales + export
+  // Shared time frame + export
   const [rangeFrom, setRangeFrom] = useState(monthStartStr());
   const [rangeTo, setRangeTo] = useState(todayStr());
-  const [totalSale, setTotalSale] = useState(0);
-  const [shiftCount, setShiftCount] = useState(0);
-  const [loadingIncome, setLoadingIncome] = useState(true);
   const [exporting, setExporting] = useState(false);
 
   const fetchAll = useCallback(async () => {
-    const [membersRes, expensesRes, deductionsRes, incomeRes] = await Promise.all([
-      supabase.from(HOME_FAMILY_TABLE).select("*").order("created_at", { ascending: true }),
-      supabase.from(HOME_EXPENSES_TABLE).select("*").order("expense_date", { ascending: false }).order("created_at", { ascending: false }),
-      supabase.from(HOME_INCOME_DEDUCTIONS_TABLE).select("*").order("deduction_date", { ascending: false }).order("created_at", { ascending: false }),
-      supabase.from(HOME_INCOME_ENTRIES_TABLE).select("*").order("income_date", { ascending: false }).order("created_at", { ascending: false }),
-    ]);
+    const { data, error } = await supabase
+      .from(HOME_IC_LEDGER_TABLE)
+      .select("*")
+      .order("entry_date", { ascending: true })
+      .order("created_at", { ascending: true });
 
-    const missing = (e: { code?: string; message?: string } | null) =>
-      !!e && (e.code === "42P01" || e.code === "PGRST116" || (e.message?.includes("does not exist") ?? false));
-
-    if (missing(membersRes.error) || missing(expensesRes.error) || missing(deductionsRes.error) || missing(incomeRes.error)) {
-      setTableError(true);
+    if (error) {
+      if (error.code === "42P01" || error.code === "PGRST116" || error.message.includes("does not exist")) {
+        setTableError(true);
+      }
     } else {
       setTableError(false);
-      if (membersRes.data) setMembers(membersRes.data as FamilyMember[]);
-      if (expensesRes.data) setExpenses(expensesRes.data as HomeExpense[]);
-      if (deductionsRes.data) setDeductions(deductionsRes.data as IncomeDeduction[]);
-      if (incomeRes.data) setManualIncome(incomeRes.data as IncomeEntry[]);
+      setEntries((data ?? []) as IcLedgerEntry[]);
     }
     setLoading(false);
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  useEffect(() => {
-    if (!selectedMemberId && members.length > 0) setSelectedMemberId(members[0].id);
-  }, [members, selectedMemberId]);
-
-  // Auto-detect total sales from shifts for the selected time frame.
-  useEffect(() => {
-    let cancelled = false;
-    async function run() {
-      setLoadingIncome(true);
-      const { fromISO, toISO } = dateRangeToTimestampBounds(rangeFrom, rangeTo);
-      const { data, error } = await supabase
-        .from(TABLES.SHIFTS)
-        .select("*")
-        .gte(COLS.TIMESTAMP, fromISO)
-        .lte(COLS.TIMESTAMP, toISO);
-      if (cancelled) return;
-      if (!error && data) {
-        const shifts = (data as Record<string, unknown>[]).map(mapRowToShift);
-        setTotalSale(shifts.reduce((s, sh) => s + shiftTotalSales(sh), 0));
-        setShiftCount(shifts.length);
-      }
-      setLoadingIncome(false);
-    }
-    run();
-    return () => { cancelled = true; };
-  }, [rangeFrom, rangeTo]);
-
   function handleCopy() {
-    navigator.clipboard.writeText(HOME_EXPENSE_SETUP_SQL);
+    navigator.clipboard.writeText(HOME_IC_SETUP_SQL);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
-  async function handleAddMember(e: React.FormEvent) {
+  async function handleAddEntry(e: React.FormEvent) {
     e.preventDefault();
-    const trimmed = newMemberName.trim();
-    if (!trimmed) return;
-
-    setAddingMember(true);
-    setMemberError("");
-    const { error } = await supabase.from(HOME_FAMILY_TABLE).insert({ name: trimmed });
-    setAddingMember(false);
-
-    if (error) {
-      setMemberError(error.code === "23505" ? `${trimmed} is already on the list.` : error.message);
-      return;
-    }
-    setNewMemberName("");
-    fetchAll();
-  }
-
-  async function handleDeleteMember(member: FamilyMember) {
-    if (!window.confirm(`Remove ${member.name} from family members?\nPast expenses logged for them are kept, just unlinked.`)) return;
-    setDeletingMemberId(member.id);
-    await supabase.from(HOME_FAMILY_TABLE).delete().eq("id", member.id);
-    setDeletingMemberId(null);
-    if (selectedMemberId === member.id) setSelectedMemberId("");
-    fetchAll();
-  }
-
-  async function handleAddExpense(e: React.FormEvent) {
-    e.preventDefault();
-    const member = members.find(m => m.id === selectedMemberId);
-    if (!member) {
-      setFormError("Add a family member first.");
-      return;
-    }
     const amt = n(amount);
     if (amt <= 0) {
       setFormError("Enter an amount greater than zero.");
@@ -197,13 +100,12 @@ export default function HomeExpenses() {
 
     setSubmitting(true);
     setFormError("");
-    const { error } = await supabase.from(HOME_EXPENSES_TABLE).insert({
-      member_id: member.id,
-      member_name: member.name,
-      category,
+    const { error } = await supabase.from(HOME_IC_LEDGER_TABLE).insert({
+      entry_type: entryType,
+      role,
       amount: amt,
       note: note.trim() || null,
-      expense_date: expenseDate,
+      entry_date: entryDate,
     });
     setSubmitting(false);
 
@@ -216,156 +118,50 @@ export default function HomeExpenses() {
     fetchAll();
   }
 
-  async function handleDeleteExpense(expense: HomeExpense) {
-    if (!window.confirm(`Delete this ${HOME_EXPENSE_CATEGORY_LABELS[expense.category]} expense of ${mmkFmt(expense.amount)}?`)) return;
-    setDeletingExpenseId(expense.id);
-    await supabase.from(HOME_EXPENSES_TABLE).delete().eq("id", expense.id);
-    setDeletingExpenseId(null);
+  async function handleDeleteEntry(entry: IcLedgerEntry) {
+    if (!window.confirm(`Delete this ${IC_ROLE_LABELS[entry.role]} ${entry.entry_type} of ${mmkFmt(entry.amount)}?`)) return;
+    setDeletingId(entry.id);
+    await supabase.from(HOME_IC_LEDGER_TABLE).delete().eq("id", entry.id);
+    setDeletingId(null);
     fetchAll();
   }
 
-  async function handleAddDeduction(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmedName = dedName.trim();
-    if (!trimmedName) {
-      setDeductionError("Enter a name for this deduction.");
-      return;
-    }
-    const amt = n(dedAmount);
-    if (amt <= 0) {
-      setDeductionError("Enter an amount greater than zero.");
-      return;
-    }
-
-    setAddingDeduction(true);
-    setDeductionError("");
-    const { error } = await supabase.from(HOME_INCOME_DEDUCTIONS_TABLE).insert({
-      name: trimmedName,
-      amount: amt,
-      note: dedNote.trim() || null,
-      deduction_date: dedDate,
-    });
-    setAddingDeduction(false);
-
-    if (error) {
-      setDeductionError(error.message);
-      return;
-    }
-    setDedName("");
-    setDedAmount("");
-    setDedNote("");
-    fetchAll();
-  }
-
-  async function handleDeleteDeduction(deduction: IncomeDeduction) {
-    if (!window.confirm(`Delete deduction "${deduction.name}" of ${mmkFmt(deduction.amount)}?`)) return;
-    setDeletingDeductionId(deduction.id);
-    await supabase.from(HOME_INCOME_DEDUCTIONS_TABLE).delete().eq("id", deduction.id);
-    setDeletingDeductionId(null);
-    fetchAll();
-  }
-
-  async function handleAddIncome(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmedName = incName.trim();
-    if (!trimmedName) {
-      setIncomeError("Enter a source for this income.");
-      return;
-    }
-    const amt = n(incAmount);
-    if (amt <= 0) {
-      setIncomeError("Enter an amount greater than zero.");
-      return;
-    }
-
-    setAddingIncome(true);
-    setIncomeError("");
-    const { error } = await supabase.from(HOME_INCOME_ENTRIES_TABLE).insert({
-      name: trimmedName,
-      amount: amt,
-      note: incNote.trim() || null,
-      income_date: incDate,
-    });
-    setAddingIncome(false);
-
-    if (error) {
-      setIncomeError(error.message);
-      return;
-    }
-    setIncName("");
-    setIncAmount("");
-    setIncNote("");
-    fetchAll();
-  }
-
-  async function handleDeleteIncome(entry: IncomeEntry) {
-    if (!window.confirm(`Delete income "${entry.name}" of ${mmkFmt(entry.amount)}?`)) return;
-    setDeletingIncomeId(entry.id);
-    await supabase.from(HOME_INCOME_ENTRIES_TABLE).delete().eq("id", entry.id);
-    setDeletingIncomeId(null);
-    fetchAll();
-  }
-
-  const totalToday = useMemo(
-    () => expenses.filter(e => e.expense_date === todayStr()).reduce((s, e) => s + e.amount, 0),
-    [expenses]
+  const rangeEntries = useMemo(
+    () => entries.filter(e => e.entry_date >= rangeFrom && e.entry_date <= rangeTo),
+    [entries, rangeFrom, rangeTo]
   );
-  const monthExpenses = useMemo(
-    () => expenses.filter(e => e.expense_date >= monthStartStr()),
-    [expenses]
-  );
-  const totalThisMonth = useMemo(() => monthExpenses.reduce((s, e) => s + e.amount, 0), [monthExpenses]);
 
-  const categoryBreakdown = useMemo(() => {
-    const sums = new Map<HomeExpenseCategory, number>();
-    for (const e of monthExpenses) sums.set(e.category, (sums.get(e.category) ?? 0) + e.amount);
-    return HOME_EXPENSE_CATEGORIES
-      .map(c => ({ category: c, total: sums.get(c) ?? 0 }))
+  const ledger = useMemo(() => buildIcLedger(entries, rangeFrom, rangeTo), [entries, rangeFrom, rangeTo]);
+
+  const totalIncome = useMemo(
+    () => rangeEntries.filter(e => e.entry_type === "income").reduce((s, e) => s + e.amount, 0),
+    [rangeEntries]
+  );
+  const totalSaved = useMemo(
+    () => rangeEntries.filter(e => e.entry_type === "expense" && IC_NON_EXPENSE_ROLES.has(e.role)).reduce((s, e) => s + e.amount, 0),
+    [rangeEntries]
+  );
+  const totalExpenses = useMemo(
+    () => rangeEntries.filter(e => e.entry_type === "expense" && !IC_NON_EXPENSE_ROLES.has(e.role)).reduce((s, e) => s + e.amount, 0),
+    [rangeEntries]
+  );
+
+  const roleBreakdown = useMemo(() => {
+    const sums = new Map<IcRole, number>();
+    for (const e of rangeEntries) {
+      if (e.entry_type !== "expense" || IC_NON_EXPENSE_ROLES.has(e.role)) continue;
+      sums.set(e.role, (sums.get(e.role) ?? 0) + e.amount);
+    }
+    return IC_ROLES
+      .map(r => ({ role: r, total: sums.get(r) ?? 0 }))
       .filter(row => row.total > 0)
       .sort((a, b) => b.total - a.total);
-  }, [monthExpenses]);
-
-  const rangeExpenses = useMemo(
-    () => expenses.filter(e => e.expense_date >= rangeFrom && e.expense_date <= rangeTo),
-    [expenses, rangeFrom, rangeTo]
-  );
-  const rangeTotal = useMemo(() => rangeExpenses.reduce((s, e) => s + e.amount, 0), [rangeExpenses]);
-
-  const rangeDeductions = useMemo(
-    () => deductions.filter(d => d.deduction_date >= rangeFrom && d.deduction_date <= rangeTo),
-    [deductions, rangeFrom, rangeTo]
-  );
-  const totalDeductions = useMemo(() => rangeDeductions.reduce((s, d) => s + d.amount, 0), [rangeDeductions]);
-
-  const rangeManualIncome = useMemo(
-    () => manualIncome.filter(i => i.income_date >= rangeFrom && i.income_date <= rangeTo),
-    [manualIncome, rangeFrom, rangeTo]
-  );
-  const totalManualIncome = useMemo(() => rangeManualIncome.reduce((s, i) => s + i.amount, 0), [rangeManualIncome]);
-
-  const netActualIncome = totalSale + totalManualIncome - totalDeductions;
-  const netPosition = netActualIncome - rangeTotal;
-
-  const groupedExpenses = useMemo(() => {
-    const groups: { date: string; items: HomeExpense[] }[] = [];
-    for (const e of rangeExpenses) {
-      const last = groups[groups.length - 1];
-      if (last && last.date === e.expense_date) last.items.push(e);
-      else groups.push({ date: e.expense_date, items: [e] });
-    }
-    return groups;
-  }, [rangeExpenses]);
+  }, [rangeEntries]);
 
   async function handleExport() {
     setExporting(true);
     try {
-      await exportHomeFinanceExcel({
-        from: rangeFrom, to: rangeTo,
-        totalSale, shiftCount,
-        manualIncome: rangeManualIncome,
-        deductions: rangeDeductions,
-        expenses: rangeExpenses,
-      });
+      await exportIcLedgerExcel(rangeFrom, rangeTo, ledger);
     } finally {
       setExporting(false);
     }
@@ -382,8 +178,8 @@ export default function HomeExpenses() {
   return (
     <div className="flex-1 overflow-auto bg-slate-50">
       <div className="px-6 py-5 border-b border-slate-100 bg-white">
-        <h1 className="text-2xl font-bold text-slate-900">Home Expense</h1>
-        <p className="text-slate-400 text-sm mt-0.5">Track your family's income & day-to-day spending</p>
+        <h1 className="text-2xl font-bold text-slate-900">I/C</h1>
+        <p className="text-slate-400 text-sm mt-0.5">Income & Cost ledger</p>
       </div>
 
       <div className="p-6 max-w-3xl space-y-5">
@@ -394,10 +190,10 @@ export default function HomeExpenses() {
               <p className="text-pale-gold-foreground font-semibold text-sm">One-time setup required</p>
             </div>
             <p className="text-pale-gold-foreground/80 text-xs mb-3">
-              Run this SQL once in your Supabase SQL Editor to enable Home Expense tracking:
+              Run this SQL once in your Supabase SQL Editor to enable the I/C ledger:
             </p>
             <pre className="bg-slate-900 rounded-lg p-3 text-xs text-slate-100 font-mono overflow-x-auto whitespace-pre-wrap mb-3">
-              {HOME_EXPENSE_SETUP_SQL}
+              {HOME_IC_SETUP_SQL}
             </pre>
             <button
               onClick={handleCopy}
@@ -410,33 +206,44 @@ export default function HomeExpenses() {
         ) : (
           <>
             {/* Summary row */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-white border border-slate-100 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-pale-blue flex items-center justify-center">
-                    <Wallet className="w-4 h-4 text-pale-blue-foreground" />
+                  <div className="w-8 h-8 rounded-lg bg-pale-green flex items-center justify-center">
+                    <TrendingUp className="w-4 h-4 text-pale-green-foreground" />
                   </div>
-                  <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Expenses Today</span>
+                  <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Income</span>
                 </div>
-                <p className="text-xl font-bold text-slate-900 tabular-nums">{mmkFmt(totalToday)}</p>
+                <p className="text-xl font-bold text-slate-900 tabular-nums">{mmkFmt(totalIncome)}</p>
+              </div>
+              <div className="bg-white border border-slate-100 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-pale-red flex items-center justify-center">
+                    <TrendingDown className="w-4 h-4 text-pale-red-foreground" />
+                  </div>
+                  <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Expenses</span>
+                </div>
+                <p className="text-xl font-bold text-slate-900 tabular-nums">{mmkFmt(totalExpenses)}</p>
               </div>
               <div className="bg-white border border-slate-100 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-8 h-8 rounded-lg bg-pale-gold flex items-center justify-center">
-                    <Receipt className="w-4 h-4 text-pale-gold-foreground" />
+                    <PiggyBank className="w-4 h-4 text-pale-gold-foreground" />
                   </div>
-                  <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Expenses This Month</span>
+                  <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Saved</span>
                 </div>
-                <p className="text-xl font-bold text-slate-900 tabular-nums">{mmkFmt(totalThisMonth)}</p>
+                <p className="text-xl font-bold text-slate-900 tabular-nums">{mmkFmt(totalSaved)}</p>
               </div>
               <div className="bg-white border border-slate-100 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-pale-green flex items-center justify-center">
-                    <Users className="w-4 h-4 text-pale-green-foreground" />
+                  <div className="w-8 h-8 rounded-lg bg-pale-blue flex items-center justify-center">
+                    <Scale className="w-4 h-4 text-pale-blue-foreground" />
                   </div>
-                  <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Family Members</span>
+                  <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Balance</span>
                 </div>
-                <p className="text-xl font-bold text-slate-900 tabular-nums">{members.length}</p>
+                <p className={`text-xl font-bold tabular-nums ${ledger.closingBalance >= 0 ? "text-slate-900" : "text-pale-red-foreground"}`}>
+                  {mmkFmt(ledger.closingBalance)}
+                </p>
               </div>
             </div>
 
@@ -445,7 +252,6 @@ export default function HomeExpenses() {
               <div className="flex items-center gap-2 mb-3">
                 <CalendarDays className="w-4 h-4 text-pale-blue-foreground" />
                 <h2 className="text-slate-900 font-semibold text-sm">Time Frame</h2>
-                <span className="ml-auto text-xs text-slate-400">Applies to Actual Income, Expense History & export</span>
               </div>
               <div className="flex flex-wrap items-center gap-1.5 mb-3">
                 {RANGE_PRESETS.map(preset => {
@@ -485,248 +291,29 @@ export default function HomeExpenses() {
                 />
                 <button
                   onClick={handleExport}
-                  disabled={exporting || (rangeExpenses.length === 0 && rangeDeductions.length === 0 && rangeManualIncome.length === 0 && totalSale === 0)}
+                  disabled={exporting || ledger.rows.length === 0}
                   className="ml-auto flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs rounded-lg px-3.5 py-2 transition-all"
                 >
                   {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                  {exporting ? "Preparing…" : "Export Excel (Income + Expenses)"}
+                  {exporting ? "Preparing…" : "Export Excel"}
                 </button>
               </div>
             </div>
 
-            {/* Net position */}
-            <div className="bg-white border border-slate-100 shadow-sm rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Scale className="w-4 h-4 text-pale-blue-foreground" />
-                <h2 className="text-slate-900 font-semibold text-sm">Net Position</h2>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                <div>
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Total Sale</p>
-                  <p className="text-base font-bold text-slate-900 tabular-nums">{loadingIncome ? "…" : mmkFmt(totalSale)}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Net Actual Income</p>
-                  <p className="text-base font-bold text-pale-blue-foreground tabular-nums">{loadingIncome ? "…" : mmkFmt(netActualIncome)}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Home Expenses</p>
-                  <p className="text-base font-bold text-pale-gold-foreground tabular-nums">{mmkFmt(rangeTotal)}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Net Position</p>
-                  <p className={`text-base font-bold tabular-nums ${netPosition >= 0 ? "text-pale-green-foreground" : "text-pale-red-foreground"}`}>
-                    {loadingIncome ? "…" : mmkFmt(netPosition)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Actual Income */}
-            <div className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-pale-blue-foreground" />
-                <h2 className="text-slate-900 font-semibold text-sm">Actual Income</h2>
-              </div>
-              <div className="p-5 space-y-4">
-                <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-slate-500 font-medium">Total Sale (auto-detected)</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      {loadingIncome ? "Calculating…" : `From ${shiftCount} shift${shiftCount === 1 ? "" : "s"} in this time frame`}
-                    </p>
-                  </div>
-                  <p className="text-lg font-bold text-slate-900 tabular-nums">{loadingIncome ? <Loader2 className="w-4 h-4 animate-spin text-slate-400" /> : mmkFmt(totalSale)}</p>
-                </div>
-
-                <form onSubmit={handleAddIncome} className="space-y-3">
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Add Income Manually</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      value={incName}
-                      onChange={e => setIncName(e.target.value)}
-                      placeholder="e.g. Extra cash sale"
-                      className="bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-slate-400"
-                    />
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-semibold select-none">K</span>
-                      <input
-                        type="number"
-                        value={incAmount}
-                        onChange={e => setIncAmount(e.target.value)}
-                        placeholder="0"
-                        className="w-full bg-white border border-slate-100 text-slate-900 text-sm font-semibold rounded-xl pl-8 pr-3.5 py-2.5 outline-none tabular-nums focus:ring-1 focus:ring-blue-500 placeholder:text-slate-400"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[11px] text-slate-400 mb-1 flex items-center gap-1">
-                        <CalendarDays className="w-3 h-3" /> Day
-                      </label>
-                      <input
-                        type="date"
-                        value={incDate}
-                        onChange={e => setIncDate(e.target.value)}
-                        className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] text-slate-400 mb-1 block">Note (optional)</label>
-                      <input
-                        type="text"
-                        value={incNote}
-                        onChange={e => setIncNote(e.target.value)}
-                        placeholder="Note"
-                        className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-slate-400"
-                      />
-                    </div>
-                  </div>
-                  {incomeError && (
-                    <div className="flex items-start gap-2 bg-pale-red border border-red-100 rounded-xl px-4 py-3 text-xs text-pale-red-foreground">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                      <span>{incomeError}</span>
-                    </div>
-                  )}
-                  <button
-                    type="submit"
-                    disabled={addingIncome}
-                    className="w-full flex items-center justify-center gap-2 bg-white hover:bg-slate-50 disabled:opacity-40 border border-slate-200 text-slate-700 font-semibold rounded-xl py-2.5 text-sm transition-all"
-                  >
-                    {addingIncome ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
-                    Add Income
-                  </button>
-                </form>
-
-                {rangeManualIncome.length > 0 && (
-                  <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
-                    {rangeManualIncome.map(inc => (
-                      <div key={inc.id} className="px-4 py-2.5 flex items-center gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm text-slate-900 font-medium truncate">{inc.name}</p>
-                          <p className="text-xs text-slate-400 truncate">
-                            {dateLabel(inc.income_date)}{inc.note ? ` · ${inc.note}` : ""}
-                          </p>
-                        </div>
-                        <span className="text-sm font-semibold text-pale-green-foreground tabular-nums shrink-0">+{mmkFmt(inc.amount)}</span>
-                        <button
-                          onClick={() => handleDeleteIncome(inc)}
-                          disabled={deletingIncomeId === inc.id}
-                          aria-label="Delete income entry"
-                          className="shrink-0 text-slate-300 hover:text-red-500 disabled:opacity-40 transition-colors p-1"
-                        >
-                          {deletingIncomeId === inc.id
-                            ? <Loader2 className="w-4 h-4 animate-spin" />
-                            : <Trash2 className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <form onSubmit={handleAddDeduction} className="space-y-3">
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Add a Deduction</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      value={dedName}
-                      onChange={e => setDedName(e.target.value)}
-                      placeholder="e.g. Fuel supplier payment"
-                      className="bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-slate-400"
-                    />
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-semibold select-none">K</span>
-                      <input
-                        type="number"
-                        value={dedAmount}
-                        onChange={e => setDedAmount(e.target.value)}
-                        placeholder="0"
-                        className="w-full bg-white border border-slate-100 text-slate-900 text-sm font-semibold rounded-xl pl-8 pr-3.5 py-2.5 outline-none tabular-nums focus:ring-1 focus:ring-blue-500 placeholder:text-slate-400"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="date"
-                      value={dedDate}
-                      onChange={e => setDedDate(e.target.value)}
-                      className="bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                    <input
-                      type="text"
-                      value={dedNote}
-                      onChange={e => setDedNote(e.target.value)}
-                      placeholder="Note (optional)"
-                      className="bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-slate-400"
-                    />
-                  </div>
-                  {deductionError && (
-                    <div className="flex items-start gap-2 bg-pale-red border border-red-100 rounded-xl px-4 py-3 text-xs text-pale-red-foreground">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                      <span>{deductionError}</span>
-                    </div>
-                  )}
-                  <button
-                    type="submit"
-                    disabled={addingDeduction}
-                    className="w-full flex items-center justify-center gap-2 bg-white hover:bg-slate-50 disabled:opacity-40 border border-slate-200 text-slate-700 font-semibold rounded-xl py-2.5 text-sm transition-all"
-                  >
-                    {addingDeduction ? <Loader2 className="w-4 h-4 animate-spin" /> : <MinusCircle className="w-4 h-4" />}
-                    Add Deduction
-                  </button>
-                </form>
-
-                {rangeDeductions.length > 0 && (
-                  <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
-                    {rangeDeductions.map(d => (
-                      <div key={d.id} className="px-4 py-2.5 flex items-center gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm text-slate-900 font-medium truncate">{d.name}</p>
-                          <p className="text-xs text-slate-400 truncate">
-                            {dateLabel(d.deduction_date)}{d.note ? ` · ${d.note}` : ""}
-                          </p>
-                        </div>
-                        <span className="text-sm font-semibold text-pale-red-foreground tabular-nums shrink-0">-{mmkFmt(d.amount)}</span>
-                        <button
-                          onClick={() => handleDeleteDeduction(d)}
-                          disabled={deletingDeductionId === d.id}
-                          aria-label="Delete deduction"
-                          className="shrink-0 text-slate-300 hover:text-red-500 disabled:opacity-40 transition-colors p-1"
-                        >
-                          {deletingDeductionId === d.id
-                            ? <Loader2 className="w-4 h-4 animate-spin" />
-                            : <Trash2 className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                  <span className="text-sm font-semibold text-slate-700">Net Actual Income</span>
-                  <span className="text-lg font-bold text-pale-blue-foreground tabular-nums flex items-center gap-1.5">
-                    {netActualIncome >= totalSale ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                    {loadingIncome ? "…" : mmkFmt(netActualIncome)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Category breakdown */}
-            {categoryBreakdown.length > 0 && (
+            {/* Role breakdown */}
+            {roleBreakdown.length > 0 && (
               <div className="bg-white border border-slate-100 shadow-sm rounded-2xl p-5">
-                <p className="text-slate-900 font-semibold text-sm mb-4">This Month by Category</p>
+                <p className="text-slate-900 font-semibold text-sm mb-4">Expenses This Period by Role</p>
                 <div className="space-y-3">
-                  {categoryBreakdown.map(row => {
-                    const Icon = CATEGORY_ICONS[row.category];
-                    const pct = totalThisMonth > 0 ? (row.total / totalThisMonth) * 100 : 0;
+                  {roleBreakdown.map(row => {
+                    const Icon = ROLE_ICONS[row.role];
+                    const pct = totalExpenses > 0 ? (row.total / totalExpenses) * 100 : 0;
                     return (
-                      <div key={row.category}>
+                      <div key={row.role}>
                         <div className="flex items-center justify-between text-xs mb-1">
                           <span className="flex items-center gap-1.5 text-slate-600 font-medium">
                             <Icon className="w-3.5 h-3.5 text-slate-400" />
-                            {HOME_EXPENSE_CATEGORY_LABELS[row.category]}
+                            {IC_ROLE_LABELS[row.role]}
                           </span>
                           <span className="text-slate-500 tabular-nums">{mmkFmt(row.total)}</span>
                         </div>
@@ -740,91 +327,52 @@ export default function HomeExpenses() {
               </div>
             )}
 
-            {/* Family members */}
+            {/* Add entry */}
             <div className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-                <Users className="w-4 h-4 text-pale-blue-foreground" />
-                <h2 className="text-slate-900 font-semibold text-sm">Family Members</h2>
+                <ListChecks className="w-4 h-4 text-pale-blue-foreground" />
+                <h2 className="text-slate-900 font-semibold text-sm">Add Entry</h2>
               </div>
-              <div className="p-5 space-y-3">
-                {members.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {members.map(member => (
-                      <span key={member.id} className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-full pl-1 pr-2 py-1">
-                        <span className="w-6 h-6 rounded-full bg-pale-blue flex items-center justify-center text-[11px] font-bold text-pale-blue-foreground uppercase shrink-0">
-                          {member.name[0]}
-                        </span>
-                        <span className="text-sm text-slate-700 font-medium">{member.name}</span>
-                        <button
-                          onClick={() => handleDeleteMember(member)}
-                          disabled={deletingMemberId === member.id}
-                          aria-label={`Remove ${member.name}`}
-                          className="text-slate-300 hover:text-red-500 disabled:opacity-40 transition-colors ml-0.5"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {members.length === 0 && (
-                  <div className="text-center py-4">
-                    <UserRound className="w-7 h-7 text-slate-200 mx-auto mb-2" />
-                    <p className="text-slate-400 text-sm">No family members yet. Add one below to start logging expenses.</p>
-                  </div>
-                )}
-                <form onSubmit={handleAddMember} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={newMemberName}
-                    onChange={e => setNewMemberName(e.target.value)}
-                    placeholder="Family member name"
-                    className="flex-1 bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-slate-400"
-                  />
-                  <button
-                    type="submit"
-                    disabled={addingMember || !newMemberName.trim()}
-                    className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed text-primary-foreground font-semibold text-sm rounded-xl px-4 py-2.5 transition-all shrink-0"
-                  >
-                    {addingMember ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                    Add
-                  </button>
-                </form>
-                {memberError && <p className="text-pale-red-foreground text-xs">{memberError}</p>}
-              </div>
-            </div>
-
-            {/* Log an expense */}
-            <div className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-                <Home className="w-4 h-4 text-pale-blue-foreground" />
-                <h2 className="text-slate-900 font-semibold text-sm">Log an Expense</h2>
-              </div>
-              <form onSubmit={handleAddExpense} className="p-5 space-y-4">
+              <form onSubmit={handleAddEntry} className="p-5 space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Family Member</label>
-                  <select
-                    value={selectedMemberId}
-                    onChange={e => setSelectedMemberId(e.target.value)}
-                    disabled={members.length === 0}
-                    className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-40"
-                  >
-                    {members.length === 0 && <option value="">Add a family member first</option>}
-                    {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                  </select>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Type</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEntryType("income")}
+                      className={`flex items-center justify-center gap-1.5 text-sm font-semibold rounded-xl py-2.5 border transition-all ${
+                        entryType === "income"
+                          ? "bg-pale-green border-emerald-200 text-pale-green-foreground"
+                          : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+                      }`}
+                    >
+                      <TrendingUp className="w-4 h-4" /> Income
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEntryType("expense")}
+                      className={`flex items-center justify-center gap-1.5 text-sm font-semibold rounded-xl py-2.5 border transition-all ${
+                        entryType === "expense"
+                          ? "bg-pale-red border-red-200 text-pale-red-foreground"
+                          : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+                      }`}
+                    >
+                      <TrendingDown className="w-4 h-4" /> Expense
+                    </button>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Category</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Role</label>
                   <div className="flex flex-wrap gap-2">
-                    {HOME_EXPENSE_CATEGORIES.map(c => {
-                      const Icon = CATEGORY_ICONS[c];
-                      const active = category === c;
+                    {IC_ROLES.map(r => {
+                      const Icon = ROLE_ICONS[r];
+                      const active = role === r;
                       return (
                         <button
-                          key={c}
+                          key={r}
                           type="button"
-                          onClick={() => setCategory(c)}
+                          onClick={() => setRole(r)}
                           className={`flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1.5 border transition-all ${
                             active
                               ? "bg-pale-blue border-blue-200 text-pale-blue-foreground"
@@ -832,11 +380,14 @@ export default function HomeExpenses() {
                           }`}
                         >
                           <Icon className="w-3.5 h-3.5" />
-                          {HOME_EXPENSE_CATEGORY_LABELS[c]}
+                          {IC_ROLE_LABELS[r]}
                         </button>
                       );
                     })}
                   </div>
+                  {role === "saving" && (
+                    <p className="text-[11px] text-slate-400 mt-1.5">Deducted from the balance, but not counted as an expense.</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -855,12 +406,12 @@ export default function HomeExpenses() {
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      <CalendarDays className="w-3.5 h-3.5" /> Date
+                      <CalendarDays className="w-3.5 h-3.5" /> Day
                     </label>
                     <input
                       type="date"
-                      value={expenseDate}
-                      onChange={e => setExpenseDate(e.target.value)}
+                      value={entryDate}
+                      onChange={e => setEntryDate(e.target.value)}
                       className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
@@ -872,7 +423,7 @@ export default function HomeExpenses() {
                     type="text"
                     value={note}
                     onChange={e => setNote(e.target.value)}
-                    placeholder="e.g. Groceries at the market"
+                    placeholder="e.g. Weekly groceries"
                     className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-slate-400"
                   />
                 </div>
@@ -886,73 +437,92 @@ export default function HomeExpenses() {
 
                 <button
                   type="submit"
-                  disabled={submitting || members.length === 0}
+                  disabled={submitting}
                   className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl py-3 text-sm transition-all"
                 >
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  {submitting ? "Saving…" : "Add Expense"}
+                  {submitting ? "Saving…" : "Add Entry"}
                 </button>
               </form>
             </div>
 
-            {/* Expense list */}
+            {/* Ledger */}
             <div className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-pale-blue-foreground" />
-                <h2 className="text-slate-900 font-semibold text-sm">Expense History</h2>
-                <span className="ml-auto text-xs font-semibold text-slate-500 tabular-nums">{mmkFmt(rangeTotal)}</span>
+                <ListChecks className="w-4 h-4 text-pale-blue-foreground" />
+                <h2 className="text-slate-900 font-semibold text-sm">Ledger</h2>
               </div>
-
-              {groupedExpenses.length === 0 ? (
-                <div className="px-6 py-10 text-center">
-                  <Receipt className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-                  <p className="text-slate-400 text-sm">
-                    {expenses.length === 0 ? "No expenses logged yet." : "No expenses in this date range."}
-                  </p>
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {groupedExpenses.map(group => {
-                    const dayTotal = group.items.reduce((s, e) => s + e.amount, 0);
-                    return (
-                      <div key={group.date}>
-                        <div className="px-5 py-2.5 bg-slate-50 flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{dateLabel(group.date)}</span>
-                          <span className="text-xs font-semibold text-slate-500 tabular-nums">{mmkFmt(dayTotal)}</span>
-                        </div>
-                        {group.items.map(expense => {
-                          const Icon = CATEGORY_ICONS[expense.category];
-                          return (
-                            <div key={expense.id} className="px-5 py-3 flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                                <Icon className="w-4 h-4 text-slate-500" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm text-slate-900 font-medium truncate">
-                                  {expense.member_name}
-                                  <span className="text-slate-400 font-normal"> · {HOME_EXPENSE_CATEGORY_LABELS[expense.category]}</span>
-                                </p>
-                                {expense.note && <p className="text-xs text-slate-400 truncate mt-0.5">{expense.note}</p>}
-                              </div>
-                              <span className="text-sm font-semibold text-slate-900 tabular-nums shrink-0">{mmkFmt(expense.amount)}</span>
-                              <button
-                                onClick={() => handleDeleteExpense(expense)}
-                                disabled={deletingExpenseId === expense.id}
-                                aria-label="Delete expense"
-                                className="shrink-0 text-slate-300 hover:text-red-500 disabled:opacity-40 transition-colors p-1"
-                              >
-                                {deletingExpenseId === expense.id
-                                  ? <Loader2 className="w-4 h-4 animate-spin" />
-                                  : <Trash2 className="w-4 h-4" />}
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-900">
+                      <th className="px-4 py-2.5 text-left font-semibold whitespace-nowrap">Date</th>
+                      <th className="px-4 py-2.5 text-left font-semibold">Description</th>
+                      <th className="px-4 py-2.5 text-right font-semibold whitespace-nowrap">Debit (MMK)</th>
+                      <th className="px-4 py-2.5 text-right font-semibold whitespace-nowrap">Credit (MMK)</th>
+                      <th className="px-4 py-2.5 text-right font-semibold whitespace-nowrap">Balance (MMK)</th>
+                      <th className="px-4 py-2.5" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    <tr className="italic text-slate-500 bg-slate-50">
+                      <td className="px-4 py-2" />
+                      <td className="px-4 py-2">Opening Balance</td>
+                      <td className="px-4 py-2 text-right" />
+                      <td className="px-4 py-2 text-right" />
+                      <td className="px-4 py-2 text-right font-semibold tabular-nums">{mmkFmt(ledger.openingBalance)}</td>
+                      <td className="px-4 py-2" />
+                    </tr>
+                    {ledger.rows.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-slate-400 italic">No entries in this period</td>
+                      </tr>
+                    ) : (
+                      ledger.rows.map(r => {
+                        const entry = entries.find(e => e.id === r.id) ?? null;
+                        return (
+                          <tr key={r.id} className="text-slate-800">
+                            <td className="px-4 py-2.5 whitespace-nowrap tabular-nums">{fmtDate(r.date)}</td>
+                            <td className="px-4 py-2.5">{r.description}</td>
+                            <td className="px-4 py-2.5 text-right tabular-nums text-pale-red-foreground">{r.debit ? mmkFmt(r.debit) : ""}</td>
+                            <td className="px-4 py-2.5 text-right tabular-nums text-pale-green-foreground">{r.credit ? mmkFmt(r.credit) : ""}</td>
+                            <td className="px-4 py-2.5 text-right tabular-nums font-medium">{mmkFmt(r.balance)}</td>
+                            <td className="px-4 py-2.5 text-right">
+                              {entry && (
+                                <button
+                                  onClick={() => handleDeleteEntry(entry)}
+                                  disabled={deletingId === entry.id}
+                                  aria-label="Delete entry"
+                                  className="text-slate-300 hover:text-red-500 disabled:opacity-40 transition-colors p-1"
+                                >
+                                  {deletingId === entry.id
+                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    : <Trash2 className="w-3.5 h-3.5" />}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                    <tr className="italic text-slate-500 bg-slate-50">
+                      <td className="px-4 py-2" />
+                      <td className="px-4 py-2">Period Totals</td>
+                      <td className="px-4 py-2 text-right tabular-nums text-pale-red-foreground">{ledger.totalDebit ? mmkFmt(ledger.totalDebit) : ""}</td>
+                      <td className="px-4 py-2 text-right tabular-nums text-pale-green-foreground">{ledger.totalCredit ? mmkFmt(ledger.totalCredit) : ""}</td>
+                      <td className="px-4 py-2 text-right" />
+                      <td className="px-4 py-2" />
+                    </tr>
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-800">
+                      <td className="px-4 py-2.5" colSpan={4}>Closing Balance</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">{mmkFmt(ledger.closingBalance)}</td>
+                      <td className="px-4 py-2.5" />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
             </div>
           </>
         )}

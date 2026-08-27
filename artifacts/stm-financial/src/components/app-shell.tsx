@@ -13,7 +13,7 @@ const navItems: { path: string; label: string; icon: typeof LayoutDashboard; rol
   { path: "/shifts", label: "Shifts", icon: Receipt, roles: ["ceo"] },
   { path: "/po-registry", label: "PO Registry", icon: PackageSearch, roles: ["ceo"] },
   { path: "/debt-tracker", label: "Debt Tracker", icon: CreditCard, roles: ["ceo", "accountant"] },
-  { path: "/home-expenses", label: "Home Expense", icon: Home, roles: ["ceo"] },
+  { path: "/home-expenses", label: "I/C", icon: Home, roles: ["ceo"] },
   { path: "/manage-access", label: "Staff Access", icon: Users, roles: ["ceo"] },
 ];
 

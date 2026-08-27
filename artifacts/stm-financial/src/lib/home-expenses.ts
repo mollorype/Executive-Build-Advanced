@@ -1,55 +1,33 @@
-export const HOME_FAMILY_TABLE = "home_family_members";
-export const HOME_EXPENSES_TABLE = "home_expenses";
-export const HOME_INCOME_DEDUCTIONS_TABLE = "home_income_deductions";
-export const HOME_INCOME_ENTRIES_TABLE = "home_income_entries";
+export const HOME_IC_LEDGER_TABLE = "home_ic_ledger";
 
-export type HomeExpenseCategory = "food" | "transport" | "health" | "education" | "utilities" | "other";
+export type IcEntryType = "income" | "expense";
 
-export const HOME_EXPENSE_CATEGORIES: HomeExpenseCategory[] = [
-  "food", "transport", "health", "education", "utilities", "other",
-];
+export type IcRole = "mom" | "kitchen" | "dad" | "bro" | "me" | "am" | "bank_transfer" | "saving";
 
-export const HOME_EXPENSE_CATEGORY_LABELS: Record<HomeExpenseCategory, string> = {
-  food: "Food",
-  transport: "Transport",
-  health: "Health",
-  education: "Education",
-  utilities: "Utilities",
-  other: "Other",
+export const IC_ROLES: IcRole[] = ["mom", "kitchen", "dad", "bro", "me", "am", "bank_transfer", "saving"];
+
+export const IC_ROLE_LABELS: Record<IcRole, string> = {
+  mom: "Mom",
+  kitchen: "Kitchen",
+  dad: "Dad",
+  bro: "Bro",
+  me: "Me",
+  am: "AM",
+  bank_transfer: "Bank Transfer",
+  saving: "Saving",
 };
 
-export type FamilyMember = {
-  id: string;
-  name: string;
-  created_at: string;
-};
+/** Saving entries are still deducted from the running balance (money set
+ * aside is no longer on hand), but aren't counted as spending. */
+export const IC_NON_EXPENSE_ROLES = new Set<IcRole>(["saving"]);
 
-export type HomeExpense = {
+export type IcLedgerEntry = {
   id: string;
-  member_id: string | null;
-  member_name: string;
-  category: HomeExpenseCategory;
+  entry_type: IcEntryType;
+  role: IcRole;
   amount: number;
   note: string | null;
-  expense_date: string; // "YYYY-MM-DD"
-  created_at: string;
-};
-
-export type IncomeDeduction = {
-  id: string;
-  name: string;
-  amount: number;
-  note: string | null;
-  deduction_date: string; // "YYYY-MM-DD"
-  created_at: string;
-};
-
-export type IncomeEntry = {
-  id: string;
-  name: string;
-  amount: number;
-  note: string | null;
-  income_date: string; // "YYYY-MM-DD"
+  entry_date: string; // "YYYY-MM-DD"
   created_at: string;
 };
 
@@ -85,69 +63,18 @@ export function lastMonthRange(): { from: string; to: string } {
   return { from: toDateStr(firstOfPrevMonth), to: toDateStr(lastOfPrevMonth) };
 }
 
-/** Converts a "YYYY-MM-DD" date range into local start-of-day/end-of-day
- * timestamp bounds, for querying a timestamptz column (e.g. shifts). */
-export function dateRangeToTimestampBounds(from: string, to: string): { fromISO: string; toISO: string } {
-  const [fy, fm, fd] = from.split("-").map(Number);
-  const [ty, tm, td] = to.split("-").map(Number);
-  const fromDate = new Date(fy, fm - 1, fd, 0, 0, 0, 0);
-  const toDate = new Date(ty, tm - 1, td, 23, 59, 59, 999);
-  return { fromISO: fromDate.toISOString(), toISO: toDate.toISOString() };
-}
-
-export const HOME_EXPENSE_SETUP_SQL = `-- Safe to run more than once (e.g. after this app adds a new table) —
--- existing tables/policies are left as-is, only what's missing is created.
-CREATE TABLE IF NOT EXISTS home_family_members (
+export const HOME_IC_SETUP_SQL = `-- Safe to run more than once — existing tables/policies are left as-is.
+CREATE TABLE IF NOT EXISTS home_ic_ledger (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  name text UNIQUE NOT NULL,
-  created_at timestamptz DEFAULT now()
-);
-ALTER TABLE home_family_members ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "anon_read" ON home_family_members;
-CREATE POLICY "anon_read" ON home_family_members FOR SELECT TO anon USING (true);
-DROP POLICY IF EXISTS "auth_manage" ON home_family_members;
-CREATE POLICY "auth_manage" ON home_family_members FOR ALL TO authenticated USING (true);
-
-CREATE TABLE IF NOT EXISTS home_expenses (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  member_id uuid REFERENCES home_family_members(id) ON DELETE SET NULL,
-  member_name text NOT NULL,
-  category text NOT NULL,
+  entry_type text NOT NULL CHECK (entry_type IN ('income', 'expense')),
+  role text NOT NULL,
   amount numeric NOT NULL,
   note text,
-  expense_date date NOT NULL DEFAULT CURRENT_DATE,
+  entry_date date NOT NULL DEFAULT CURRENT_DATE,
   created_at timestamptz DEFAULT now()
 );
-ALTER TABLE home_expenses ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "anon_read" ON home_expenses;
-CREATE POLICY "anon_read" ON home_expenses FOR SELECT TO anon USING (true);
-DROP POLICY IF EXISTS "auth_manage" ON home_expenses;
-CREATE POLICY "auth_manage" ON home_expenses FOR ALL TO authenticated USING (true);
-
-CREATE TABLE IF NOT EXISTS home_income_deductions (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  name text NOT NULL,
-  amount numeric NOT NULL,
-  note text,
-  deduction_date date NOT NULL DEFAULT CURRENT_DATE,
-  created_at timestamptz DEFAULT now()
-);
-ALTER TABLE home_income_deductions ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "anon_read" ON home_income_deductions;
-CREATE POLICY "anon_read" ON home_income_deductions FOR SELECT TO anon USING (true);
-DROP POLICY IF EXISTS "auth_manage" ON home_income_deductions;
-CREATE POLICY "auth_manage" ON home_income_deductions FOR ALL TO authenticated USING (true);
-
-CREATE TABLE IF NOT EXISTS home_income_entries (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  name text NOT NULL,
-  amount numeric NOT NULL,
-  note text,
-  income_date date NOT NULL DEFAULT CURRENT_DATE,
-  created_at timestamptz DEFAULT now()
-);
-ALTER TABLE home_income_entries ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "anon_read" ON home_income_entries;
-CREATE POLICY "anon_read" ON home_income_entries FOR SELECT TO anon USING (true);
-DROP POLICY IF EXISTS "auth_manage" ON home_income_entries;
-CREATE POLICY "auth_manage" ON home_income_entries FOR ALL TO authenticated USING (true);`;
+ALTER TABLE home_ic_ledger ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_read" ON home_ic_ledger;
+CREATE POLICY "anon_read" ON home_ic_ledger FOR SELECT TO anon USING (true);
+DROP POLICY IF EXISTS "auth_manage" ON home_ic_ledger;
+CREATE POLICY "auth_manage" ON home_ic_ledger FOR ALL TO authenticated USING (true);`;
