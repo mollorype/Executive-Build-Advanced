@@ -95,14 +95,17 @@ export function dateRangeToTimestampBounds(from: string, to: string): { fromISO:
   return { fromISO: fromDate.toISOString(), toISO: toDate.toISOString() };
 }
 
-export const HOME_EXPENSE_SETUP_SQL = `-- Run this once in your Supabase SQL Editor:
+export const HOME_EXPENSE_SETUP_SQL = `-- Safe to run more than once (e.g. after this app adds a new table) —
+-- existing tables/policies are left as-is, only what's missing is created.
 CREATE TABLE IF NOT EXISTS home_family_members (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   name text UNIQUE NOT NULL,
   created_at timestamptz DEFAULT now()
 );
 ALTER TABLE home_family_members ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_read" ON home_family_members;
 CREATE POLICY "anon_read" ON home_family_members FOR SELECT TO anon USING (true);
+DROP POLICY IF EXISTS "auth_manage" ON home_family_members;
 CREATE POLICY "auth_manage" ON home_family_members FOR ALL TO authenticated USING (true);
 
 CREATE TABLE IF NOT EXISTS home_expenses (
@@ -116,7 +119,9 @@ CREATE TABLE IF NOT EXISTS home_expenses (
   created_at timestamptz DEFAULT now()
 );
 ALTER TABLE home_expenses ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_read" ON home_expenses;
 CREATE POLICY "anon_read" ON home_expenses FOR SELECT TO anon USING (true);
+DROP POLICY IF EXISTS "auth_manage" ON home_expenses;
 CREATE POLICY "auth_manage" ON home_expenses FOR ALL TO authenticated USING (true);
 
 CREATE TABLE IF NOT EXISTS home_income_deductions (
@@ -128,7 +133,9 @@ CREATE TABLE IF NOT EXISTS home_income_deductions (
   created_at timestamptz DEFAULT now()
 );
 ALTER TABLE home_income_deductions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_read" ON home_income_deductions;
 CREATE POLICY "anon_read" ON home_income_deductions FOR SELECT TO anon USING (true);
+DROP POLICY IF EXISTS "auth_manage" ON home_income_deductions;
 CREATE POLICY "auth_manage" ON home_income_deductions FOR ALL TO authenticated USING (true);
 
 CREATE TABLE IF NOT EXISTS home_income_entries (
@@ -140,5 +147,7 @@ CREATE TABLE IF NOT EXISTS home_income_entries (
   created_at timestamptz DEFAULT now()
 );
 ALTER TABLE home_income_entries ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_read" ON home_income_entries;
 CREATE POLICY "anon_read" ON home_income_entries FOR SELECT TO anon USING (true);
+DROP POLICY IF EXISTS "auth_manage" ON home_income_entries;
 CREATE POLICY "auth_manage" ON home_income_entries FOR ALL TO authenticated USING (true);`;
