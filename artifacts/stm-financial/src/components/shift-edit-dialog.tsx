@@ -35,7 +35,7 @@ function Field({ label, value, onChange, prefix, suffix, hint }: {
           onChange={e => onChange(e.target.value)}
           placeholder="0"
           className={[
-            "w-full rounded-lg border bg-slate-900 border-slate-200 text-slate-900 text-sm font-semibold",
+            "w-full rounded-lg border bg-white border-slate-100 text-slate-900 text-sm font-semibold",
             "px-3 py-2.5 outline-none tabular-nums",
             "focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 placeholder:text-slate-400",
             prefix ? "pl-8" : "",
@@ -202,7 +202,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
               type="date"
               value={shiftDate}
               onChange={e => setShiftDate(e.target.value)}
-              className="w-full rounded-lg border bg-slate-900 border-slate-200 text-slate-900 text-sm font-semibold px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30"
+              className="w-full rounded-lg border bg-white border-slate-100 text-slate-900 text-sm font-semibold px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30"
             />
           </div>
 
@@ -242,7 +242,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
                   value={e.name}
                   onChange={ev => updateExpense(i, "name", ev.target.value)}
                   placeholder="Description"
-                  className="rounded-lg border bg-slate-900 border-slate-200 text-slate-900 text-sm px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 placeholder:text-slate-400"
+                  className="rounded-lg border bg-white border-slate-100 text-slate-900 text-sm px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 placeholder:text-slate-400"
                 />
                 <div className="relative">
                   <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs select-none">K</span>
@@ -251,7 +251,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
                     value={e.amount || ""}
                     onChange={ev => updateExpense(i, "amount", ev.target.value)}
                     placeholder="0"
-                    className="w-28 rounded-lg border bg-slate-900 border-slate-200 text-slate-900 text-sm pl-7 pr-2 py-2.5 outline-none tabular-nums focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 placeholder:text-slate-400"
+                    className="w-28 rounded-lg border bg-white border-slate-100 text-slate-900 text-sm pl-7 pr-2 py-2.5 outline-none tabular-nums focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 placeholder:text-slate-400"
                   />
                 </div>
                 <button type="button" onClick={() => removeExpense(i)} aria-label={`Remove expense ${i + 1}`} className="text-slate-300 hover:text-red-500 transition-colors p-1">
@@ -303,7 +303,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
         <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex items-center gap-3">
           <button
             onClick={onClose}
-            className="flex-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-300 hover:text-slate-900 font-semibold rounded-xl py-2.5 text-sm transition-all"
+            className="flex-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 font-semibold rounded-xl py-2.5 text-sm transition-all"
           >
             Cancel
           </button>

@@ -174,7 +174,12 @@ export async function flushQueue(): Promise<void> {
 
       if (error) {
         updateQueueItem(item.id, { status: "pending", lastError: error.message, attempts: item.attempts + 1 });
-        break; // stop this pass — don't hammer a dead connection for every remaining item
+        // If we just lost connectivity, stop the pass — the rest will fail
+        // the same way. But a server-side error (bad data, RLS, etc.) is
+        // specific to this one item, so don't let it block every other
+        // queued shift from syncing — move on to the next item.
+        if (typeof navigator !== "undefined" && !navigator.onLine) break;
+        continue;
       }
 
       try {
