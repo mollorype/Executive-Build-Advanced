@@ -452,76 +452,63 @@ export default function HomeExpenses() {
                 <ListChecks className="w-4 h-4 text-pale-blue-foreground" />
                 <h2 className="text-slate-900 font-semibold text-sm">Ledger</h2>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 text-slate-900">
-                      <th className="px-4 py-2.5 text-left font-semibold whitespace-nowrap">Date</th>
-                      <th className="px-4 py-2.5 text-left font-semibold">Description</th>
-                      <th className="px-4 py-2.5 text-right font-semibold whitespace-nowrap">Debit (MMK)</th>
-                      <th className="px-4 py-2.5 text-right font-semibold whitespace-nowrap">Credit (MMK)</th>
-                      <th className="px-4 py-2.5 text-right font-semibold whitespace-nowrap">Balance (MMK)</th>
-                      <th className="px-4 py-2.5" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    <tr className="italic text-slate-500 bg-slate-50">
-                      <td className="px-4 py-2" />
-                      <td className="px-4 py-2">Opening Balance</td>
-                      <td className="px-4 py-2 text-right" />
-                      <td className="px-4 py-2 text-right" />
-                      <td className="px-4 py-2 text-right font-semibold tabular-nums">{mmkFmt(ledger.openingBalance)}</td>
-                      <td className="px-4 py-2" />
-                    </tr>
-                    {ledger.rows.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-slate-400 italic">No entries in this period</td>
-                      </tr>
-                    ) : (
-                      ledger.rows.map(r => {
-                        const entry = entries.find(e => e.id === r.id) ?? null;
-                        return (
-                          <tr key={r.id} className="text-slate-800">
-                            <td className="px-4 py-2.5 whitespace-nowrap tabular-nums">{fmtDate(r.date)}</td>
-                            <td className="px-4 py-2.5">{r.description}</td>
-                            <td className="px-4 py-2.5 text-right tabular-nums text-pale-red-foreground">{r.debit ? mmkFmt(r.debit) : ""}</td>
-                            <td className="px-4 py-2.5 text-right tabular-nums text-pale-green-foreground">{r.credit ? mmkFmt(r.credit) : ""}</td>
-                            <td className="px-4 py-2.5 text-right tabular-nums font-medium">{mmkFmt(r.balance)}</td>
-                            <td className="px-4 py-2.5 text-right">
-                              {entry && (
-                                <button
-                                  onClick={() => handleDeleteEntry(entry)}
-                                  disabled={deletingId === entry.id}
-                                  aria-label="Delete entry"
-                                  className="text-slate-300 hover:text-red-500 disabled:opacity-40 transition-colors p-1"
-                                >
-                                  {deletingId === entry.id
-                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    : <Trash2 className="w-3.5 h-3.5" />}
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                    <tr className="italic text-slate-500 bg-slate-50">
-                      <td className="px-4 py-2" />
-                      <td className="px-4 py-2">Period Totals</td>
-                      <td className="px-4 py-2 text-right tabular-nums text-pale-red-foreground">{ledger.totalDebit ? mmkFmt(ledger.totalDebit) : ""}</td>
-                      <td className="px-4 py-2 text-right tabular-nums text-pale-green-foreground">{ledger.totalCredit ? mmkFmt(ledger.totalCredit) : ""}</td>
-                      <td className="px-4 py-2 text-right" />
-                      <td className="px-4 py-2" />
-                    </tr>
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-800">
-                      <td className="px-4 py-2.5" colSpan={4}>Closing Balance</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">{mmkFmt(ledger.closingBalance)}</td>
-                      <td className="px-4 py-2.5" />
-                    </tr>
-                  </tfoot>
-                </table>
+
+              <div className="px-5 py-2.5 bg-slate-50 flex items-center justify-between border-b border-slate-100">
+                <span className="text-xs italic text-slate-500">Opening Balance</span>
+                <span className="text-xs font-semibold text-slate-600 tabular-nums">{mmkFmt(ledger.openingBalance)}</span>
+              </div>
+
+              {ledger.rows.length === 0 ? (
+                <div className="px-6 py-10 text-center">
+                  <ListChecks className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                  <p className="text-slate-400 text-sm">No entries in this period.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {ledger.rows.map(r => {
+                    const entry = entries.find(e => e.id === r.id) ?? null;
+                    const Icon = entry ? ROLE_ICONS[entry.role] : ListChecks;
+                    return (
+                      <div key={r.id} className="px-5 py-3 flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                          <Icon className="w-4 h-4 text-slate-500" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-slate-900 font-medium truncate">{r.description}</p>
+                          <p className="text-xs text-slate-400 mt-0.5 tabular-nums">
+                            {fmtDate(r.date)} · Balance {mmkFmt(r.balance)}
+                          </p>
+                        </div>
+                        <span className={`text-sm font-semibold tabular-nums shrink-0 ${r.debit ? "text-pale-red-foreground" : "text-pale-green-foreground"}`}>
+                          {r.debit ? "-" : "+"}{mmkFmt(r.debit || r.credit)}
+                        </span>
+                        <button
+                          onClick={() => entry && handleDeleteEntry(entry)}
+                          disabled={!entry || deletingId === entry?.id}
+                          aria-label="Delete entry"
+                          className="shrink-0 text-slate-300 hover:text-red-500 disabled:opacity-40 transition-colors p-1"
+                        >
+                          {entry && deletingId === entry.id
+                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                            : <Trash2 className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="px-5 py-2.5 bg-slate-50 flex items-center justify-between border-t border-slate-100 text-xs">
+                <span className="italic text-slate-500">Period Totals</span>
+                <span className="tabular-nums text-slate-600">
+                  {ledger.totalDebit > 0 && <span className="text-pale-red-foreground">-{mmkFmt(ledger.totalDebit)}</span>}
+                  {ledger.totalDebit > 0 && ledger.totalCredit > 0 && <span className="mx-1.5 text-slate-300">·</span>}
+                  {ledger.totalCredit > 0 && <span className="text-pale-green-foreground">+{mmkFmt(ledger.totalCredit)}</span>}
+                </span>
+              </div>
+              <div className="px-5 py-3 bg-slate-100 border-t-2 border-slate-800 flex items-center justify-between">
+                <span className="text-sm font-bold text-slate-900">Closing Balance</span>
+                <span className="text-sm font-bold text-slate-900 tabular-nums">{mmkFmt(ledger.closingBalance)}</span>
               </div>
             </div>
           </>
