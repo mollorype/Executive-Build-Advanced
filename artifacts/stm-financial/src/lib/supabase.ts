@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl =
   import.meta.env.NEXT_PUBLIC_SUPABASE_URL ||
   import.meta.env.VITE_SUPABASE_URL ||
-  "https://ryubjollofribrvrwqtz.supabase.co";
+  "https://api.shwethazinmoe.site";
 
 const supabaseAnonKey =
   import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
