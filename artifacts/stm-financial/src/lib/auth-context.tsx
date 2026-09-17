@@ -2,8 +2,6 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { supabase, Profile, Role } from "./supabase";
 import type { User, Session } from "@supabase/supabase-js";
 
-export const ACCOUNTANT_TABLE = "accountant_access";
-
 type AuthContextType = {
   user: User | null;
   session: Session | null;
@@ -16,29 +14,32 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-async function resolveAccountantRole(email: string): Promise<Role | null> {
-  const { data } = await supabase
-    .from(ACCOUNTANT_TABLE)
-    .select("id")
-    .eq("email", email.trim().toLowerCase())
-    .maybeSingle();
-
-  return data ? "accountant" : null;
+/**
+ * Resolves the role for the CURRENTLY signed-in Supabase session by asking the
+ * database, not by trusting anything the browser supplies. `current_app_role()`
+ * is a SECURITY DEFINER Postgres function that reads the caller's verified JWT
+ * email (auth.jwt() ->> 'email' — populated by PostgREST only after checking the
+ * Supabase-signed JWT signature, so a client can't forge it) against the
+ * ceo_access / accountant_access allowlist tables, which have no direct client
+ * access at all. This is the exact same function every RLS policy uses, so the
+ * role the UI shows can never drift from what the database actually allows.
+ * Deny-by-default: anyone not explicitly allow-listed gets null, not "ceo".
+ */
+async function fetchTrustedRole(): Promise<Role | null> {
+  const { data, error } = await supabase.rpc("current_app_role");
+  if (error) return null;
+  return (data as Role | null) ?? null;
 }
 
-/**
- * Resolves the role for an already-authenticated Supabase user (sign-in / session hydration).
- * Accountants are allow-listed explicitly in accountant_access. Everyone else is the CEO —
- * the only way to obtain a Supabase Auth account at all, outside the accountant self-serve
- * flow, is to be provisioned directly in the Supabase dashboard, i.e. by the CEO. There's
- * deliberately no separate CEO_EMAIL check: an env var that's merely misconfigured (unset,
- * wrong value, stray whitespace) would silently lock the real CEO out, which has already
- * happened twice — the allowlist-gated Supabase Auth account itself is the only trust boundary
- * this needs.
- */
-async function resolveRole(email: string): Promise<Role | null> {
-  const accountantRole = await resolveAccountantRole(email);
-  return accountantRole ?? "ceo";
+/** Pre-signup UX check only — calls a narrow RPC (yes/no for one email) instead
+ * of reading the accountant_access table directly, so the allowlist itself
+ * isn't publicly enumerable. The real gate is still current_app_role() above;
+ * this just avoids showing a signup form for an email that will be denied. */
+async function checkAccountantAllowlist(email: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc("is_accountant_allowed", {
+    check_email: email.trim().toLowerCase(),
+  });
+  return !error && data === true;
 }
 
 function buildProfile(user: User, role: Role): Profile {
@@ -64,10 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!cancelled) { setSession(nextSession); setUser(null); setProfile(null); }
         return;
       }
-      const role = await resolveRole(u.email);
+      const role = await fetchTrustedRole();
       if (cancelled) return;
       if (!role) {
-        // Session belongs to an email that's no longer authorized (e.g. removed from the allowlist).
+        // Session belongs to an email that's not (or no longer) in ceo_access/accountant_access.
         await supabase.auth.signOut();
         setSession(null);
         setUser(null);
@@ -94,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error as Error };
 
-    const role = await resolveRole(email);
+    const role = await fetchTrustedRole();
     if (!role) {
       await supabase.auth.signOut();
       return {
@@ -113,9 +114,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signUp(email: string, password: string) {
     // Self-serve signup only ever grants the Accountant role — the CEO account is
-    // provisioned directly in Supabase, never through this flow.
-    const role = await resolveAccountantRole(email);
-    if (!role) {
+    // provisioned directly in Supabase, never through this flow. This check is only
+    // a UX nicety (avoids attempting a signup that's certain to be denied) — the
+    // actual gate is current_app_role() via RLS, so bypassing this check client-side
+    // (e.g. calling supabase.auth.signUp directly) grants no privileged access,
+    // since a non-allow-listed email will resolve to role = null everywhere.
+    const allowed = await checkAccountantAllowlist(email);
+    if (!allowed) {
       return { error: new Error("This email hasn't been authorized yet. Ask your administrator to add it in Manage Access first.") };
     }
 
@@ -123,6 +128,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) return { error: error as Error };
 
     if (data.session && data.user) {
+      const role = await fetchTrustedRole();
+      if (!role) {
+        await supabase.auth.signOut();
+        return { error: new Error("This email hasn't been authorized yet. Ask your administrator to add it in Manage Access first.") };
+      }
       setSession(data.session);
       setUser(data.user);
       setProfile(buildProfile(data.user, role));
