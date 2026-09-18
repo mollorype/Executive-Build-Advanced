@@ -11,6 +11,7 @@ import Shifts from "@/pages/shifts";
 import ManageAccess from "@/pages/manage-access";
 import PORegistry from "@/pages/po-registry";
 import DebtTracker from "@/pages/debt-tracker";
+import HomeExpenses from "@/pages/home-expenses";
 
 const queryClient = new QueryClient();
 
@@ -114,6 +115,12 @@ function Router() {
       <Route path="/manage-access">
         <ProtectedRoute>
           <ManageAccess />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/home-expenses">
+        <ProtectedRoute>
+          <HomeExpenses />
         </ProtectedRoute>
       </Route>
 

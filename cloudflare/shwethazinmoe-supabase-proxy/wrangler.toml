@@ -1,0 +1,7 @@
+name = "shwethazinmoe-supabase-proxy"
+main = "src/worker.js"
+compatibility_date = "2024-11-01"
+
+routes = [
+  { pattern = "api.shwethazinmoe.site/*", zone_name = "shwethazinmoe.site" }
+]

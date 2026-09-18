@@ -121,34 +121,21 @@ export function getItemStatus(id: string): QueueStatus {
 }
 
 // ─── Linked-expense side effects (debt_transactions / debt_profiles) ────────
+// This app is anonymous by design, and the anon role has no direct access to
+// debt_profiles/debt_transactions. The insert + balance/score adjustment is
+// done by a narrow SECURITY DEFINER RPC instead, which applies the balance
+// as a server-computed delta so a caller can't set an absolute balance.
 async function replayLinkedExpenses(linkedExpenses: LinkedExpensePayload[]) {
   for (const expense of linkedExpenses) {
     const paymentAmt = expense.txnType === "debt" ? expense.amount : -expense.amount;
 
-    await supabase.from("debt_transactions").insert({
-      profile_id: expense.profileId,
-      amount: paymentAmt,
-      date: expense.localDateTimeStr,
-      note: `Payment via Daily Shift — ${expense.employeeName}`,
-      transaction_number: expense.txnNumber,
-      source: "daily_app",
+    await supabase.rpc("record_daily_app_debt_entry", {
+      p_profile_id: expense.profileId,
+      p_amount: paymentAmt,
+      p_transaction_number: expense.txnNumber,
+      p_note: `Payment via Daily Shift — ${expense.employeeName}`,
+      p_date: expense.localDateTimeStr,
     });
-
-    const { data: prof } = await supabase
-      .from("debt_profiles")
-      .select("current_balance, score")
-      .eq("id", expense.profileId)
-      .single();
-
-    if (prof) {
-      const newBalance = prof.current_balance + paymentAmt;
-      const newScore = Math.min(100, (prof.score ?? 50) + 5);
-      await supabase.from("debt_profiles").update({
-        current_balance: newBalance,
-        score: newScore,
-        last_payment_at: expense.localDateTimeStr,
-      }).eq("id", expense.profileId);
-    }
   }
 }
 
@@ -174,7 +161,12 @@ export async function flushQueue(): Promise<void> {
 
       if (error) {
         updateQueueItem(item.id, { status: "pending", lastError: error.message, attempts: item.attempts + 1 });
-        break; // stop this pass — don't hammer a dead connection for every remaining item
+        // If we just lost connectivity, stop the pass — the rest will fail
+        // the same way. But a server-side error (bad data, RLS, etc.) is
+        // specific to this one item, so don't let it block every other
+        // queued shift from syncing — move on to the next item.
+        if (typeof navigator !== "undefined" && !navigator.onLine) break;
+        continue;
       }
 
       try {

@@ -437,11 +437,11 @@ function ExpensesPanel({ items, onChange, lang }: {
     setProfileId(undefined);
     if (!val.trim()) { setHits([]); setShowDrop(false); return; }
     setSearching(true);
-    const { data } = await supabase
-      .from("debt_profiles")
-      .select("id, name, relation")
-      .ilike("name", `%${val.trim()}%`)
-      .limit(6);
+    // Narrow SECURITY DEFINER RPC — returns only id/name/relation. The
+    // debt_profiles table itself is not readable by the anon role.
+    const { data } = await supabase.rpc("search_debt_profiles_basic", {
+      search_term: val.trim(),
+    });
     setSearching(false);
     if (data && data.length > 0) {
       setHits(data as ProfileHit[]);
@@ -1771,11 +1771,7 @@ export default function App() {
     setEmail(mail);
     setScreen("checking");
 
-    const { data, error } = await supabase
-      .from("allowed_employees")
-      .select("id")
-      .eq("email", mail)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc("is_employee_allowed", { check_email: mail });
 
     if (error || !data) {
       setScreen("denied");

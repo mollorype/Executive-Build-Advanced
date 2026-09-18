@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth-context";
 import type { Role } from "@/lib/supabase";
 import {
-  Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, PackageSearch, CreditCard, Receipt,
+  Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, PackageSearch, CreditCard, Receipt, Home,
 } from "lucide-react";
 
 type Props = { children: React.ReactNode };
@@ -13,6 +13,7 @@ const navItems: { path: string; label: string; icon: typeof LayoutDashboard; rol
   { path: "/shifts", label: "Shifts", icon: Receipt, roles: ["ceo"] },
   { path: "/po-registry", label: "PO Registry", icon: PackageSearch, roles: ["ceo"] },
   { path: "/debt-tracker", label: "Debt Tracker", icon: CreditCard, roles: ["ceo", "accountant"] },
+  { path: "/home-expenses", label: "I/C", icon: Home, roles: ["ceo"] },
   { path: "/manage-access", label: "Staff Access", icon: Users, roles: ["ceo"] },
 ];
 
