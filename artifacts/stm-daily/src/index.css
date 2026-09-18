@@ -30,21 +30,102 @@
   animation: pop-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
-/* ─── Print styles — show only receipt, hide everything else ─── */
+/* ─────────────────────────────────────────────────────────────────
+   Print styles — Epson TM-T81 III (80 mm thermal receipt printer)
+
+   Roll is 80 mm wide; the printable area is 72 mm (576 dots @ 203 dpi),
+   so the receipt body is laid out at exactly 72 mm and the page at 80 mm
+   with no margins. Height is `auto` so the roll is cut right after the
+   last line instead of ejecting a full A4/Letter page.
+
+   The head is 1-bit (black or nothing) — greys dither into muddy
+   patterns and hairline borders often drop out — so everything is
+   forced to solid black on white, and shadows / rounded corners /
+   background fills are stripped. The on-screen receipt is untouched;
+   these rules only apply to the printed output.
+   ───────────────────────────────────────────────────────────────── */
 @media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
+  html,
+  body {
+    width: 80mm !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  /* Only the receipt reaches the paper. */
   body * { visibility: hidden !important; }
+
   .receipt-printable,
-  .receipt-printable * { visibility: visible !important; }
+  .receipt-printable * {
+    visibility: visible !important;
+    color: #000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    border-radius: 0 !important;
+    border-color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   .receipt-printable {
-    position: fixed !important;
+    position: absolute !important;
     top: 0 !important;
     left: 0 !important;
+    width: 72mm !important;
+    max-width: 72mm !important;
+    margin: 0 2mm !important;          /* 4 mm total: centres 72 mm inside 80 mm */
+    padding: 2mm 0 8mm !important;     /* trailing feed so the tear-off clears the footer */
+    border: none !important;
+    background: #fff !important;
+    overflow: visible !important;
+    font-family: "Consolas", "Courier New", ui-monospace, monospace !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+  }
+
+  /* Tailwind's px-5 / px-6 / py-* would waste paper — sections run full width. */
+  .receipt-printable > div {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-top: 1.5mm !important;
+    padding-bottom: 1.5mm !important;
+    break-inside: avoid;
+  }
+
+  /* Section dividers: dashed hairlines dither badly, use a solid 1px rule. */
+  .receipt-printable > div {
+    border-bottom-style: solid !important;
+  }
+
+  .receipt-printable table {
     width: 100% !important;
-    max-width: 420px !important;
-    margin: 0 auto !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-    padding: 16px !important;
-    background: white !important;
+    font-size: 10px !important;
+    border-collapse: collapse !important;
+  }
+  .receipt-printable thead tr {
+    border-bottom: 1px solid #000 !important;
+  }
+  .receipt-printable tbody tr {
+    border-top-width: 0 !important;
+    break-inside: avoid;
+  }
+  .receipt-printable td,
+  .receipt-printable th {
+    padding-top: 1px !important;
+    padding-bottom: 1px !important;
+  }
+
+  /* Station name and grand total carry the receipt — keep them legible. */
+  .receipt-printable > div:first-child p:first-child {
+    font-size: 13px !important;
+    font-weight: 700 !important;
   }
 }
