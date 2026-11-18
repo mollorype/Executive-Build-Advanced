@@ -41,7 +41,15 @@ Deno.serve(async (req) => {
 
   if (action === "link") {
     const { data: code, error } = await asUser.rpc("create_telegram_link_code");
-    if (error || !code) return json({ error: "Only the CEO can connect Telegram alerts." }, 403);
+    if (error || !code) {
+      // Only 42501 is the database refusing a non-CEO; anything else is a setup
+      // or infrastructure problem, and must not be reported as a permission issue.
+      if (error?.code === "42501") return json({ error: "Only the CEO can connect Telegram alerts." }, 403);
+      if (error?.code === "PGRST202") {
+        return json({ error: "Telegram alerts aren't installed in the database yet (the telegram_shift_alerts migration hasn't been run)." }, 503);
+      }
+      return json({ error: `Couldn't create a connect link: ${error?.message ?? "no code returned"}` }, 500);
+    }
 
     // (Re-)point the bot at our webhook so the /start reaches us. Idempotent,
     // and self-heals if the bot token is ever regenerated.
