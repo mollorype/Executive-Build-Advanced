@@ -519,6 +519,117 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   const isPastDueDate = profile.payment_due_date != null && today > profile.payment_due_date && profile.current_balance > 0;
   const displayPhones = getDisplayPhones(profile);
 
+  // Shared by the phone card list and the md+ table so both behave identically.
+  // Plain render functions (not components) so the remark <input> keeps focus.
+  function renderDescription(txn: DebtTransaction) {
+    const isPayment = txn.amount < 0;
+    const hasProductType = !isPayment && !!txn.product_type;
+    const hasVolume = txn.liters != null && txn.liters > 0;
+    if (remarkEditingId === txn.id) {
+      return (
+        <div className="flex items-center gap-1.5">
+          <input
+            autoFocus
+            type="text"
+            value={remarkDraft}
+            onChange={e => setRemarkDraft(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter") handleSaveRemark(txn);
+              if (e.key === "Escape") setRemarkEditingId(null);
+            }}
+            placeholder="Add a remark…"
+            className="flex-1 min-w-0 bg-slate-100 border border-slate-200 text-slate-900 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/50 placeholder:text-slate-500"
+          />
+          <button
+            onClick={() => handleSaveRemark(txn)}
+            className="text-xs text-pale-gold-foreground hover:opacity-80 font-semibold px-2 py-1 rounded-lg hover:bg-pale-gold transition-all">
+            Save
+          </button>
+          <button
+            onClick={() => setRemarkEditingId(null)}
+            aria-label="Cancel editing remark"
+            className="text-xs text-slate-400 hover:text-slate-700 px-1.5 py-1 rounded-lg hover:bg-slate-100 transition-all">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      );
+    }
+    return (
+      <>
+        <p className="text-slate-900 text-sm">{describeTransaction(txn)}</p>
+        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+          {hasProductType && (
+            <span className="text-[10px] font-bold text-pale-blue-foreground bg-pale-blue px-1.5 py-0.5 rounded">
+              {txn.product_type}
+            </span>
+          )}
+          {hasProductType && (hasVolume ? (
+            <span className="text-[10px] text-slate-400">
+              {txn.liters!.toLocaleString("en-US", { maximumFractionDigits: 3 })} L
+              {txn.price_per_liter != null && (
+                <> @ {new Intl.NumberFormat("en-US").format(txn.price_per_liter)}/L</>
+              )}
+            </span>
+          ) : (
+            <span className="text-[10px] text-slate-500 italic">(Flat Amount Purchase)</span>
+          ))}
+          <span className={`text-[10px] px-1.5 py-0.5 rounded border ${txn.source === "daily_app" ? "text-pale-gold-foreground border-amber-100 bg-pale-gold" : "text-slate-500 border-slate-100"}`}>
+            {txn.source === "daily_app" ? "Daily App" : "Manual"}
+          </span>
+          {txn.note ? (
+            <button
+              onClick={() => { setRemarkEditingId(txn.id); setRemarkDraft(txn.note ?? ""); }}
+              title="Edit remark"
+              className="flex items-center gap-0.5 text-[10px] text-pale-gold-foreground/80 hover:text-pale-gold-foreground transition-colors">
+              <Pencil className="w-2.5 h-2.5" /> edit remark
+            </button>
+          ) : (
+            <button
+              onClick={() => { setRemarkEditingId(txn.id); setRemarkDraft(""); }}
+              className="flex items-center gap-0.5 text-[10px] text-slate-300 hover:text-slate-500 transition-colors">
+              <MessageSquarePlus className="w-3 h-3" /> remark
+            </button>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  // `touch` = phone card: larger tap targets (32px) than the desktop table (26px).
+  function renderActions(txn: DebtTransaction, touch: boolean) {
+    const isHighlighted = !!txn.highlighted;
+    const pad = touch ? "p-2" : "p-1.5";
+    const icon = touch ? "w-4 h-4" : "w-3.5 h-3.5";
+    const idle = touch ? "text-slate-400" : "text-slate-300"; // no hover feedback on touch, so start darker
+    return (
+      <div className="flex items-center justify-end gap-1 shrink-0">
+        <button
+          type="button"
+          onClick={() => handleToggleHighlight(txn)}
+          disabled={togglingHighlight === txn.id}
+          title={isHighlighted ? "Remove highlight" : "Highlight transaction"}
+          aria-label={isHighlighted ? "Remove highlight" : "Highlight transaction"}
+          className={`${pad} rounded-lg transition-all ${
+            isHighlighted
+              ? "text-pale-gold-foreground bg-pale-gold"
+              : `${idle} hover:text-pale-gold-foreground hover:bg-pale-gold`
+          }`}>
+          {togglingHighlight === txn.id
+            ? <Loader2 className={`${icon} animate-spin`} />
+            : <Bookmark className={icon} fill={isHighlighted ? "currentColor" : "none"} />}
+        </button>
+        <button type="button" onClick={() => openEditTxn(txn)} title="Edit transaction" aria-label="Edit transaction"
+          className={`${idle} hover:text-pale-blue-foreground hover:bg-pale-blue ${pad} rounded-lg transition-all`}>
+          <Pencil className={icon} />
+        </button>
+        <button onClick={() => handleDeleteTransaction(txn)} disabled={deletingId === txn.id} title="Delete transaction" aria-label="Delete transaction"
+          className={`${idle} hover:text-pale-red-foreground hover:bg-pale-red ${pad} rounded-lg transition-all`}>
+          {deletingId === txn.id ? <Loader2 className={`${icon} animate-spin`} /> : <Trash2 className={icon} />}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
@@ -820,7 +931,47 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                 <p className="text-slate-500 text-sm">No transactions yet</p>
               </div>
             ) : (
-              <div className="bg-slate-50 border border-slate-100 rounded-xl overflow-hidden">
+              <>
+                {/* Phones: one card per transaction, so date, amount, balance and
+                    actions are all visible without scrolling sideways. */}
+                <div className="md:hidden bg-slate-50 border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-100">
+                  {transactions.map(txn => {
+                    const isPayment = txn.amount < 0;
+                    const isHighlighted = !!txn.highlighted;
+                    const balance = runningBalances.get(txn.id) ?? 0;
+                    return (
+                      <div key={txn.id} className={`px-4 py-3 ${isHighlighted ? "bg-amber-400/[0.05] border-l-[3px] border-amber-400" : ""}`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-slate-600 text-xs">{fmtDateTime(txn.date)}</p>
+                            <p className="text-slate-500 text-[10px] font-mono mt-0.5 break-all">{txn.transaction_number}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className={`text-sm font-bold tabular-nums whitespace-nowrap ${isPayment ? "text-pale-green-foreground" : "text-pale-red-foreground"}`}>
+                              {isPayment ? "−" : "+"}{mmkFmt(Math.abs(txn.amount))}
+                            </p>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mt-0.5">
+                              {isPayment ? "Credit" : "Debit"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-2 break-words">{renderDescription(txn)}</div>
+                        <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                          <p className="text-xs text-slate-500">
+                            Balance{" "}
+                            <span className={`font-semibold tabular-nums whitespace-nowrap ${balance > 0 ? "text-pale-red-foreground" : "text-pale-green-foreground"}`}>
+                              {mmkFmt(balance)}
+                            </span>
+                          </p>
+                          {renderActions(txn, true)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* md+: the full ledger table. */}
+                <div className="hidden md:block bg-slate-50 border border-slate-100 rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[760px] text-sm border-collapse">
                     <thead>
@@ -836,10 +987,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                     <tbody className="divide-y divide-slate-100">
                       {transactions.map(txn => {
                         const isPayment = txn.amount < 0;
-                        const hasProductType = !isPayment && !!txn.product_type;
-                        const hasVolume = txn.liters != null && txn.liters > 0;
                         const isHighlighted = !!txn.highlighted;
-                        const isEditingRemark = remarkEditingId === txn.id;
                         const balance = runningBalances.get(txn.id) ?? 0;
                         return (
                           <tr key={txn.id} className={`align-top transition-colors ${isHighlighted ? "bg-amber-400/[0.05] border-l-[3px] border-amber-400" : "hover:bg-slate-50"}`}>
@@ -848,71 +996,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                               <p className="text-slate-600 text-[10px] font-mono mt-0.5">{txn.transaction_number}</p>
                             </td>
                             <td className="px-4 py-3 min-w-[220px]">
-                              {isEditingRemark ? (
-                                <div className="flex items-center gap-1.5">
-                                  <input
-                                    autoFocus
-                                    type="text"
-                                    value={remarkDraft}
-                                    onChange={e => setRemarkDraft(e.target.value)}
-                                    onKeyDown={e => {
-                                      if (e.key === "Enter") handleSaveRemark(txn);
-                                      if (e.key === "Escape") setRemarkEditingId(null);
-                                    }}
-                                    placeholder="Add a remark…"
-                                    className="flex-1 bg-slate-100 border border-slate-200 text-slate-900 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500/50 placeholder:text-slate-500"
-                                  />
-                                  <button
-                                    onClick={() => handleSaveRemark(txn)}
-                                    className="text-xs text-pale-gold-foreground hover:opacity-80 font-semibold px-2 py-1 rounded-lg hover:bg-pale-gold transition-all">
-                                    Save
-                                  </button>
-                                  <button
-                                    onClick={() => setRemarkEditingId(null)}
-                                    aria-label="Cancel editing remark"
-                                    className="text-xs text-slate-400 hover:text-slate-700 px-1.5 py-1 rounded-lg hover:bg-slate-100 transition-all">
-                                    <X className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <>
-                                  <p className="text-slate-900 text-sm">{describeTransaction(txn)}</p>
-                                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                    {hasProductType && (
-                                      <span className="text-[10px] font-bold text-pale-blue-foreground bg-pale-blue px-1.5 py-0.5 rounded">
-                                        {txn.product_type}
-                                      </span>
-                                    )}
-                                    {hasProductType && (hasVolume ? (
-                                      <span className="text-[10px] text-slate-400">
-                                        {txn.liters!.toLocaleString("en-US", { maximumFractionDigits: 3 })} L
-                                        {txn.price_per_liter != null && (
-                                          <> @ {new Intl.NumberFormat("en-US").format(txn.price_per_liter)}/L</>
-                                        )}
-                                      </span>
-                                    ) : (
-                                      <span className="text-[10px] text-slate-500 italic">(Flat Amount Purchase)</span>
-                                    ))}
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${txn.source === "daily_app" ? "text-pale-gold-foreground border-amber-100 bg-pale-gold" : "text-slate-500 border-slate-100"}`}>
-                                      {txn.source === "daily_app" ? "Daily App" : "Manual"}
-                                    </span>
-                                    {txn.note ? (
-                                      <button
-                                        onClick={() => { setRemarkEditingId(txn.id); setRemarkDraft(txn.note ?? ""); }}
-                                        title="Edit remark"
-                                        className="flex items-center gap-0.5 text-[10px] text-pale-gold-foreground/80 hover:text-pale-gold-foreground transition-colors">
-                                        <Pencil className="w-2.5 h-2.5" /> edit remark
-                                      </button>
-                                    ) : (
-                                      <button
-                                        onClick={() => { setRemarkEditingId(txn.id); setRemarkDraft(""); }}
-                                        className="flex items-center gap-0.5 text-[10px] text-slate-300 hover:text-slate-500 transition-colors">
-                                        <MessageSquarePlus className="w-3 h-3" /> remark
-                                      </button>
-                                    )}
-                                  </div>
-                                </>
-                              )}
+                              {renderDescription(txn)}
                             </td>
                             <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap text-pale-red-foreground">
                               {!isPayment ? mmkFmt(txn.amount) : ""}
@@ -924,30 +1008,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                               {mmkFmt(balance)}
                             </td>
                             <td className="px-4 py-3">
-                              <div className="flex items-center justify-end gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleHighlight(txn)}
-                                  disabled={togglingHighlight === txn.id}
-                                  title={isHighlighted ? "Remove highlight" : "Highlight transaction"}
-                                  className={`p-1.5 rounded-lg transition-all ${
-                                    isHighlighted
-                                      ? "text-pale-gold-foreground bg-pale-gold"
-                                      : "text-slate-300 hover:text-pale-gold-foreground hover:bg-pale-gold"
-                                  }`}>
-                                  {togglingHighlight === txn.id
-                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    : <Bookmark className="w-3.5 h-3.5" fill={isHighlighted ? "currentColor" : "none"} />}
-                                </button>
-                                <button type="button" onClick={() => openEditTxn(txn)} title="Edit transaction"
-                                  className="text-slate-300 hover:text-pale-blue-foreground hover:bg-pale-blue p-1.5 rounded-lg transition-all">
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </button>
-                                <button onClick={() => handleDeleteTransaction(txn)} disabled={deletingId === txn.id} title="Delete transaction"
-                                  className="text-slate-300 hover:text-pale-red-foreground hover:bg-pale-red p-1.5 rounded-lg transition-all">
-                                  {deletingId === txn.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                                </button>
-                              </div>
+                              {renderActions(txn, false)}
                             </td>
                           </tr>
                         );
@@ -955,7 +1016,8 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                     </tbody>
                   </table>
                 </div>
-              </div>
+                </div>
+              </>
             )}
           </div>
         </div>
