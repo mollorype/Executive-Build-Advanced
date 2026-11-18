@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useLocation, useSearch } from "wouter";
 import { supabase, Shift, TABLES, COLS, mapRowToShift, shiftTotalSales, RED_FLAG_THRESHOLD } from "@/lib/supabase";
 import ShiftDetailPanel from "@/components/shift-detail-panel";
 import ShiftEditDialog from "@/components/shift-edit-dialog";
@@ -10,6 +11,7 @@ import {
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function mmk(val: number | null | undefined) {
   if (val == null) return "—";
@@ -73,6 +75,35 @@ export default function Shifts() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
+
+  // Deep link: /shifts?shift=<id> (the Telegram alert's "View shift details"
+  // button) opens that shift directly, even if it isn't on the current page.
+  const [, setLocation] = useLocation();
+  const linkedShiftId = new URLSearchParams(useSearch()).get("shift");
+  const [linkError, setLinkError] = useState("");
+
+  useEffect(() => {
+    if (!linkedShiftId) return;
+    setLinkError("");
+    if (!UUID_RE.test(linkedShiftId)) {
+      setLinkError("That shift link isn't valid.");
+      return;
+    }
+    let cancelled = false;
+    supabase.from(TABLES.SHIFTS).select("*").eq("id", linkedShiftId).maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (data) setSelectedShift(mapRowToShift(data as Record<string, unknown>));
+        else setLinkError(error ? "Couldn't load that shift. Try again." : "That shift no longer exists — it may have been deleted.");
+      });
+    return () => { cancelled = true; };
+  }, [linkedShiftId]);
+
+  function closeShiftPanel() {
+    setSelectedShift(null);
+    // Drop ?shift= so a refresh doesn't reopen it.
+    if (linkedShiftId) setLocation("/shifts", { replace: true });
+  }
 
   const fetchShifts = useCallback(async (currentPage: number) => {
     const from = currentPage * PAGE_SIZE;
@@ -231,6 +262,20 @@ export default function Shifts() {
       </div>
 
       <div className="p-6 space-y-5">
+        {linkError && (
+          <div role="alert" className="flex items-start gap-2 bg-pale-red border border-red-200 rounded-xl px-4 py-3 text-sm text-pale-red-foreground">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span className="flex-1">{linkError}</span>
+            <button
+              onClick={() => { setLinkError(""); setLocation("/shifts", { replace: true }); }}
+              aria-label="Dismiss"
+              className="shrink-0 hover:opacity-70"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Date Filter */}
         <div className="bg-white border border-slate-100 rounded-xl p-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -521,7 +566,7 @@ export default function Shifts() {
       </div>
 
       {selectedShift && (
-        <ShiftDetailPanel shift={selectedShift} onClose={() => setSelectedShift(null)} />
+        <ShiftDetailPanel shift={selectedShift} onClose={closeShiftPanel} />
       )}
 
       {editingShift && (

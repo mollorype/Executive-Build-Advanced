@@ -1,4 +1,5 @@
-import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation, useSearch, Redirect } from "wouter";
+import { loginPathFor, nextFromSearch } from "@/lib/return-to";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,6 +23,8 @@ function homeFor(role: Role): string {
 
 function ProtectedRoute({ children, allow = ["ceo"] }: { children: React.ReactNode; allow?: Role[] }) {
   const { user, profile, loading } = useAuth();
+  const [location] = useLocation();
+  const search = useSearch();
 
   if (loading) {
     return (
@@ -35,7 +38,8 @@ function ProtectedRoute({ children, allow = ["ceo"] }: { children: React.ReactNo
   }
 
   if (!user) {
-    return <Redirect to="/" />;
+    // Remember the page (incl. ?query) so login lands back on it.
+    return <Redirect to={loginPathFor(location + (search ? `?${search}` : ""))} />;
   }
 
   if (!profile) {
@@ -63,6 +67,7 @@ function ProtectedRoute({ children, allow = ["ceo"] }: { children: React.ReactNo
 
 function AuthRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
+  const search = useSearch();
 
   if (loading) {
     return (
@@ -73,7 +78,7 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (user && profile) {
-    return <Redirect to={homeFor(profile.role)} />;
+    return <Redirect to={nextFromSearch(search) ?? homeFor(profile.role)} />;
   }
 
   return <>{children}</>;

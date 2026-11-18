@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
+import { nextFromSearch } from "@/lib/return-to";
 import type { Role } from "@/lib/supabase";
 import { Shield, Lock, AlertTriangle, Eye, EyeOff, CheckCircle } from "lucide-react";
 
@@ -11,6 +12,8 @@ function destinationFor(role?: Role): string {
 export default function Login() {
   const { signIn, signUp } = useAuth();
   const [, setLocation] = useLocation();
+  // Where a logged-out link was headed (e.g. a Telegram shift alert), if any.
+  const next = nextFromSearch(useSearch());
   const [mode, setMode] = useState<"signin" | "signup">("signin");
 
   const [email, setEmail] = useState("");
@@ -45,7 +48,7 @@ export default function Login() {
     }
 
     await new Promise(r => setTimeout(r, 800));
-    setLocation(destinationFor(role));
+    setLocation(next ?? destinationFor(role));
     setLoading(false);
   }
 
@@ -82,7 +85,7 @@ export default function Login() {
     }
 
     await new Promise(r => setTimeout(r, 800));
-    setLocation(destinationFor(role));
+    setLocation(next ?? destinationFor(role));
   }
 
   return (
