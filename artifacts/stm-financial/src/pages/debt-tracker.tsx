@@ -510,7 +510,7 @@ export default function DebtTracker() {
                     <div
                       key={profile.id}
                       onClick={() => setSelectedProfile(profile)}
-                      className="group flex items-center px-5 py-3.5 cursor-pointer hover:bg-slate-100 transition-colors gap-4"
+                      className="group flex items-center px-4 md:px-5 py-3.5 cursor-pointer hover:bg-slate-100 transition-colors gap-3 md:gap-4"
                     >
                       {/* Avatar */}
                       <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm shrink-0">
@@ -520,9 +520,9 @@ export default function DebtTracker() {
                       {/* Name + phone (flex-1) */}
                       <div className="flex-1 min-w-0">
                         <p className="text-slate-900 font-semibold text-sm truncate">{profile.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
                           {profile.phone_number && (
-                            <span className="text-slate-500 text-xs flex items-center gap-1">
+                            <span className="text-slate-500 text-xs flex items-center gap-1 whitespace-nowrap">
                               <Phone className="w-3 h-3" /> {profile.phone_number}
                             </span>
                           )}
@@ -532,12 +532,12 @@ export default function DebtTracker() {
                           </span>
                         </div>
                         {/* Mobile: balance + score row */}
-                        <div className="flex items-center justify-between mt-1.5 md:hidden">
-                          <span className={`font-bold text-sm tabular-nums ${paid ? "text-pale-green-foreground" : risk ? "text-pale-red-foreground" : "text-slate-900"}`}>
+                        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 mt-1.5 md:hidden">
+                          <span className={`font-bold text-sm tabular-nums whitespace-nowrap ${paid ? "text-pale-green-foreground" : risk ? "text-pale-red-foreground" : "text-slate-900"}`}>
                             {paid ? "Cleared" : mmkFmt(profile.current_balance)}
                           </span>
                           {!NO_SCORE_RELATIONS.has(profile.relation) && (
-                            <span className="text-xs font-bold" style={{ color: sc }}>
+                            <span className="text-xs font-bold whitespace-nowrap" style={{ color: sc }}>
                               {profile.score}/100 · {tier}
                             </span>
                           )}
@@ -572,21 +572,24 @@ export default function DebtTracker() {
                         )}
                       </div>
 
-                      <div className="w-20 flex justify-end items-center gap-1">
+                      {/* Row actions: hover-reveal only where a mouse can hover;
+                          touch screens can't hover, so there they're always shown. */}
+                      <div className="shrink-0 md:w-20 flex justify-end items-center gap-1">
                         <button
                           onClick={(e) => { e.stopPropagation(); setLedgerProfile(profile); }}
-                          className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-pale-blue-foreground hover:bg-pale-blue p-1.5 rounded-lg transition-all"
+                          className="[@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-slate-400 hover:text-pale-blue-foreground hover:bg-pale-blue p-2 md:p-1.5 rounded-lg transition-all"
                           title="Export / Preview ledger"
                           aria-label={`Export ledger for ${profile.name}`}
                         >
-                          <FileSpreadsheet className="w-3.5 h-3.5" />
+                          <FileSpreadsheet className="w-4 h-4 md:w-3.5 md:h-3.5" />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteProfile(profile); }}
-                          className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-pale-red-foreground hover:bg-pale-red p-1.5 rounded-lg transition-all"
+                          className="[@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-slate-400 hover:text-pale-red-foreground hover:bg-pale-red p-2 md:p-1.5 rounded-lg transition-all"
                           title="Delete profile"
+                          aria-label={`Delete profile ${profile.name}`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4 md:w-3.5 md:h-3.5" />
                         </button>
                         <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-400 transition-colors" />
                       </div>
