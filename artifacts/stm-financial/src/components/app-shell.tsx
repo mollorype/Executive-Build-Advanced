@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import ChangePasswordDialog from "@/components/change-password-dialog";
 import { useAuth } from "@/lib/auth-context";
 import type { Role } from "@/lib/supabase";
 import {
-  Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, PackageSearch, CreditCard, Receipt, Home, Cylinder,
+  Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, PackageSearch, CreditCard, Receipt, Home, Cylinder, KeyRound,
 } from "lucide-react";
 
 type Props = { children: React.ReactNode };
@@ -22,6 +23,7 @@ export default function AppShell({ children }: Props) {
   const { profile, signOut } = useAuth();
   const [location, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const visibleNavItems = navItems.filter(item => !profile || item.roles.includes(profile.role));
 
   async function handleSignOut() {
@@ -78,7 +80,14 @@ export default function AppShell({ children }: Props) {
           })}
         </nav>
 
-        <div className="px-3 py-4 border-t border-slate-100">
+        <div className="px-3 py-4 border-t border-slate-100 space-y-1">
+          <button
+            onClick={() => setChangingPassword(true)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-all"
+          >
+            <KeyRound className="w-4 h-4 shrink-0" />
+            Change password
+          </button>
           <button
             onClick={handleSignOut}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all"
@@ -124,8 +133,15 @@ export default function AppShell({ children }: Props) {
               );
             })}
             <button
+              onClick={() => { setMobileOpen(false); setChangingPassword(true); }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-all mt-4"
+            >
+              <KeyRound className="w-4 h-4" />
+              Change password
+            </button>
+            <button
               onClick={handleSignOut}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all mt-4"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all"
             >
               <LogOut className="w-4 h-4" />
               Sign Out
@@ -137,6 +153,8 @@ export default function AppShell({ children }: Props) {
       <div className="flex-1 lg:ml-64 flex flex-col pt-14 lg:pt-0 min-h-screen">
         {children}
       </div>
+
+      {changingPassword && <ChangePasswordDialog onClose={() => setChangingPassword(false)} />}
     </div>
   );
 }
