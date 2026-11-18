@@ -29,22 +29,3 @@
 .success-ring {
   animation: pop-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
-
-/* ─── Print styles — show only receipt, hide everything else ─── */
-@media print {
-  body * { visibility: hidden !important; }
-  .receipt-printable,
-  .receipt-printable * { visibility: visible !important; }
-  .receipt-printable {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    max-width: 420px !important;
-    margin: 0 auto !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-    padding: 16px !important;
-    background: white !important;
-  }
-}

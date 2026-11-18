@@ -20,7 +20,7 @@ function fmtSigned(v: number): string {
 }
 
 // ─── types ───────────────────────────────────────────────────────────────────
-type Screen = "login" | "checking" | "denied" | "mode-select" | "form" | "confirm" | "success" | "receipt" | "settings";
+type Screen = "login" | "checking" | "denied" | "mode-select" | "form" | "confirm" | "success" | "settings";
 
 interface FuelRow { totalAmount: string; price: string; liters: string; }
 interface DieselRow { cash: string; price: string; }
@@ -813,36 +813,44 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
 
   return (
     <div className="min-h-screen bg-[#0f111a]">
-      <div className="sticky top-0 z-10 bg-[#0f111a]/95 backdrop-blur border-b border-[#30363d] px-4 py-3 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
-          <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2M12 2a10 10 0 100 20A10 10 0 0012 2z" />
-          </svg>
+      {/* Phones: two rows (identity + language, then date + actions) so nothing
+          forces the page wider than the screen. md+: one row as before. */}
+      <div className="sticky top-0 z-10 bg-[#0f111a]/95 backdrop-blur border-b border-[#30363d] px-4 py-3 flex flex-col gap-2.5 md:flex-row md:items-center md:gap-3">
+        <div className="flex items-center gap-3 min-w-0 md:flex-1">
+          <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
+            <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2M12 2a10 10 0 100 20A10 10 0 0012 2z" />
+            </svg>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-gray-500 font-semibold uppercase tracking-widest">STM Daily</p>
+            <p className="text-sm font-bold text-white capitalize truncate">{employeeName}'s Shift Report</p>
+          </div>
+          <div className="shrink-0">
+            <LangToggle lang={lang} setLang={setLang} />
+          </div>
         </div>
-        <div>
-          <p className="text-xs text-gray-500 font-semibold uppercase tracking-widest">STM Daily</p>
-          <p className="text-sm font-bold text-white capitalize">{employeeName}'s Shift Report</p>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 md:flex-nowrap md:shrink-0">
           <input
             type="datetime-local"
             value={form.shiftDate}
             onChange={e => setForm(f => ({ ...f, shiftDate: e.target.value }))}
             aria-label="Shift date and time"
-            className="text-xs text-gray-400 bg-[#161b22] border border-[#30363d] hover:border-gray-500 focus:border-blue-500 focus:outline-none rounded-lg px-2 py-1 cursor-pointer"
+            className="flex-1 min-w-[10rem] md:flex-none text-xs text-gray-400 bg-[#161b22] border border-[#30363d] hover:border-gray-500 focus:border-blue-500 focus:outline-none rounded-lg px-2 py-1.5 cursor-pointer"
           />
-          <LangToggle lang={lang} setLang={setLang} />
           <button
             type="button"
             onClick={onBack}
-            className="text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1 transition-colors"
+            aria-label="Switch mode"
+            className="shrink-0 whitespace-nowrap text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1.5 transition-colors"
           >
-            ← Switch Mode
+            <span className="md:hidden">← Mode</span>
+            <span className="hidden md:inline">← Switch Mode</span>
           </button>
           <button
             type="button"
             onClick={onLogout}
-            className="text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1 transition-colors"
+            className="shrink-0 whitespace-nowrap text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1.5 transition-colors"
           >
             Switch User
           </button>
@@ -1138,8 +1146,8 @@ function SuccessScreen({ employeeName, onNewShift, queuedItemId, lang }: { emplo
 
 // ─── App Config (localStorage) ────────────────────────────────────────────────
 const CONFIG_KEY = "stm_app_config";
-interface AppConfig { price92: string; pricePD: string; price95: string; priceHSD: string; stationPhone: string; receiptMotto: string; }
-const DEFAULT_CONFIG: AppConfig = { price92: "1200", pricePD: "1400", price95: "1350", priceHSD: "1100", stationPhone: "09-3339777", receiptMotto: "Thank You For Your Purchase!" };
+interface AppConfig { price92: string; pricePD: string; price95: string; priceHSD: string; }
+const DEFAULT_CONFIG: AppConfig = { price92: "1200", pricePD: "1400", price95: "1350", priceHSD: "1100" };
 function loadConfig(): AppConfig {
   try {
     const raw = localStorage.getItem(CONFIG_KEY);
@@ -1150,8 +1158,8 @@ function loadConfig(): AppConfig {
 function saveConfig(cfg: AppConfig) { localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg)); }
 
 // ─── Mode Select Screen ───────────────────────────────────────────────────────
-function ModeSelectScreen({ employeeName, onShift, onReceipt, onSettings, onLogout, lang, setLang }: {
-  employeeName: string; onShift: () => void; onReceipt: () => void;
+function ModeSelectScreen({ employeeName, onShift, onSettings, onLogout, lang, setLang }: {
+  employeeName: string; onShift: () => void;
   onSettings: () => void; onLogout: () => void; lang: Lang; setLang: (l: Lang) => void;
 }) {
   return (
@@ -1208,24 +1216,6 @@ function ModeSelectScreen({ employeeName, onShift, onReceipt, onSettings, onLogo
           </div>
         </button>
 
-        <button type="button" onClick={onReceipt}
-          className="w-full bg-[#161b22] border-2 border-[#30363d] hover:border-emerald-500/60 hover:bg-emerald-600/5 rounded-2xl p-6 text-left transition-all active:scale-[0.98] group">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-600/20 flex items-center justify-center shrink-0 group-hover:bg-emerald-600/30 transition-colors">
-              <svg className="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-base font-bold text-white">Issue Customer Receipt</p>
-              <p className="text-sm text-gray-500 mt-0.5">Generate a digital receipt for an individual pump transaction</p>
-            </div>
-          </div>
-          <div className="mt-4 flex items-center text-xs font-semibold text-emerald-400">
-            Issue receipt
-            <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-          </div>
-        </button>
       </div>
     </div>
   );
@@ -1279,385 +1269,11 @@ function AppSettingsScreen({ onBack }: { onBack: () => void }) {
           <PriceField label="Premium Diesel" value={cfg.pricePD} onChange={v => setField("pricePD", v)} placeholder="1400" />
           <PriceField label="Fuel 95" value={cfg.price95} onChange={v => setField("price95", v)} placeholder="1350" />
           <PriceField label="Diesel" value={cfg.priceHSD} onChange={v => setField("priceHSD", v)} placeholder="1100" />
-          <p className="text-xs text-gray-600">Auto-filled in the Customer Receipt form per product</p>
-        </div>
-        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Receipt Footer</p>
-          <div>
-            <label className={SETTINGS_LABEL_CLS}>Station Phone Number</label>
-            <input type="text" value={cfg.stationPhone}
-              onChange={e => setField("stationPhone", e.target.value)}
-              placeholder="09-3339777" className={SETTINGS_FIELD_CLS} />
-          </div>
-          <div>
-            <label className={SETTINGS_LABEL_CLS}>Receipt Motto</label>
-            <input type="text" value={cfg.receiptMotto}
-              onChange={e => setField("receiptMotto", e.target.value)}
-              placeholder="Thank You For Your Purchase!" className={SETTINGS_FIELD_CLS} />
-          </div>
+          <p className="text-xs text-gray-600">Auto-filled in the shift form per product</p>
         </div>
         <button type="button" onClick={handleSave}
           className={`w-full font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98] ${saved ? "bg-emerald-600 text-white" : "bg-blue-600 hover:bg-blue-500 text-white"}`}>
           {saved ? "✓ Saved!" : "Save Changes"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Customer Receipt Screen ───────────────────────────────────────────────────
-type PaymentStatus = "paid" | "debt";
-type PaymentMethod = "Cash" | "K Pay" | "MMQR";
-type CalcMode = "liters" | "amount";
-type ProductType = "92 RON" | "PD" | "95" | "HSD";
-
-const PRODUCT_LABELS: Record<ProductType, string> = {
-  "92 RON": "Fuel 92", "PD": "Premium Diesel", "95": "Fuel 95", "HSD": "Diesel",
-};
-const PRODUCT_PRICE_KEYS: Record<ProductType, keyof AppConfig> = {
-  "92 RON": "price92", "PD": "pricePD", "95": "price95", "HSD": "priceHSD",
-};
-
-interface CartItem { id: number; product: ProductType; pricePerLiter: string; calcMode: CalcMode; litersInput: string; amountInput: string; }
-interface ReceiptLine { product: ProductType; pricePerLiter: number; liters: number; amount: number; }
-interface GeneratedReceipt {
-  staffName: string; customerName: string; payStatus: PaymentStatus; payMethod: PaymentMethod;
-  items: ReceiptLine[]; grandTotal: number;
-  stationPhone: string; receiptMotto: string; receiptNo: string; timestamp: string;
-}
-
-function computeRow(item: CartItem): { liters: number; amount: number } {
-  const price = parseFloat(item.pricePerLiter) || 0;
-  if (item.calcMode === "liters") {
-    const liters = parseFloat(item.litersInput) || 0;
-    return { liters, amount: liters * price };
-  }
-  const amount = parseFloat(item.amountInput) || 0;
-  return { liters: price > 0 ? amount / price : 0, amount };
-}
-
-let _nextId = 1;
-
-function CustomerReceiptScreen({ employeeName, onBack }: { employeeName: string; onBack: () => void }) {
-  const cfg0 = loadConfig();
-  const [staffName, setStaffName] = useState(employeeName);
-  const [customerName, setCustomerName] = useState("");
-  const [payStatus, setPayStatus] = useState<PaymentStatus>("paid");
-  const [payMethod, setPayMethod] = useState<PaymentMethod>("Cash");
-  const [cart, setCart] = useState<CartItem[]>([
-    { id: _nextId++, product: "92 RON", pricePerLiter: cfg0.price92, calcMode: "liters", litersInput: "", amountInput: "" },
-  ]);
-  const [receipt, setReceipt] = useState<GeneratedReceipt | null>(null);
-
-  function fmtL(v: number) { return v.toLocaleString("en-US", { maximumFractionDigits: 3 }); }
-  function fmtK(v: number) { return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.round(v)); }
-
-  function addRow() {
-    if (cart.length >= 4) return;
-    const cfg = loadConfig();
-    const product: ProductType = "92 RON";
-    setCart(c => [...c, { id: _nextId++, product, pricePerLiter: cfg[PRODUCT_PRICE_KEYS[product]] as string, calcMode: "liters", litersInput: "", amountInput: "" }]);
-  }
-
-  function removeRow(id: number) { setCart(c => c.filter(r => r.id !== id)); }
-
-  function updateRow(id: number, patch: Partial<CartItem>) {
-    setCart(c => c.map(r => {
-      if (r.id !== id) return r;
-      const updated = { ...r, ...patch };
-      if (patch.product) {
-        const cfg = loadConfig();
-        updated.pricePerLiter = cfg[PRODUCT_PRICE_KEYS[patch.product as ProductType]] as string;
-      }
-      return updated;
-    }));
-  }
-
-  function handleGenerate() {
-    const lines: ReceiptLine[] = cart.map(item => {
-      const { liters, amount } = computeRow(item);
-      return { product: item.product, pricePerLiter: parseFloat(item.pricePerLiter) || 0, liters, amount };
-    }).filter(l => l.liters > 0 && l.pricePerLiter > 0);
-    if (lines.length === 0) return;
-    const grandTotal = lines.reduce((s, l) => s + l.amount, 0);
-    const cfg = loadConfig();
-    const d = new Date();
-    const dateStr = d.toISOString().slice(0, 10).replace(/-/g, "");
-    setReceipt({
-      staffName, customerName, payStatus, payMethod, items: lines, grandTotal,
-      stationPhone: cfg.stationPhone || "09-3339777",
-      receiptMotto: cfg.receiptMotto || "Thank You For Your Purchase!",
-      receiptNo: `RCP-${dateStr}-${Math.floor(Math.random() * 9000) + 1000}`,
-      timestamp: d.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }),
-    });
-  }
-
-  const fieldCls = "w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-3 py-2.5 text-sm font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-gray-700";
-  const labelCls = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5";
-
-  const canGenerate = cart.some(item => {
-    const { liters } = computeRow(item);
-    return liters > 0 && (parseFloat(item.pricePerLiter) || 0) > 0;
-  });
-
-  if (receipt) {
-    return (
-      <div className="min-h-screen bg-[#0f111a]">
-        {/* Action bar — hidden on print */}
-        <div className="sticky top-0 z-10 bg-[#0f111a]/95 backdrop-blur border-b border-[#30363d] px-4 py-3 flex items-center gap-2 print:hidden">
-          <button onClick={() => setReceipt(null)} className="text-gray-400 hover:text-white text-sm font-semibold flex items-center gap-1 transition-colors">
-            ← New Receipt
-          </button>
-          <p className="text-sm font-bold text-white mx-auto">Receipt Generated</p>
-          <button onClick={() => window.print()}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
-            Print
-          </button>
-          <button onClick={onBack} className="text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1.5 transition-colors">
-            ← Switch Mode
-          </button>
-        </div>
-
-        {/* Receipt — this is what gets printed */}
-        <div className="max-w-sm mx-auto px-4 py-6">
-          <div className="receipt-printable bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-lg font-mono">
-            {/* Station header */}
-            <div className="px-6 pt-5 pb-4 text-center border-b border-dashed border-gray-300">
-              <p className="text-base font-black text-gray-900 leading-tight">Shwe Thzain Moe Fuel Station</p>
-              <p className="text-xs text-gray-500 mt-0.5">Customer Receipt</p>
-            </div>
-
-            {/* Meta */}
-            <div className="px-5 py-4 space-y-1.5 border-b border-dashed border-gray-300 text-xs">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Receipt No.</span>
-                <span className="font-bold text-gray-800">{receipt.receiptNo}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Date &amp; Time</span>
-                <span className="text-gray-800">{receipt.timestamp}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Staff</span>
-                <span className="font-semibold text-gray-800 capitalize">{receipt.staffName || "—"}</span>
-              </div>
-              {receipt.customerName && (
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Customer</span>
-                  <span className="font-semibold text-gray-800">{receipt.customerName}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-gray-500">Payment</span>
-                <span className="font-semibold text-gray-800">
-                  {receipt.payStatus === "paid" ? `PAID · ${receipt.payMethod}` : "DEBT / CREDIT"}
-                </span>
-              </div>
-            </div>
-
-            {/* Itemized table */}
-            <div className="px-5 py-3 border-b border-dashed border-gray-300">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Items</p>
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-gray-400 border-b border-gray-100">
-                    <th className="text-left font-semibold pb-1.5">Product</th>
-                    <th className="text-right font-semibold pb-1.5">Price/L</th>
-                    <th className="text-right font-semibold pb-1.5">Liters</th>
-                    <th className="text-right font-semibold pb-1.5">Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {receipt.items.map((line, i) => (
-                    <tr key={i}>
-                      <td className="py-1.5 font-semibold text-gray-800">{line.product}</td>
-                      <td className="py-1.5 text-right text-gray-600">{fmtK(line.pricePerLiter)}</td>
-                      <td className="py-1.5 text-right text-gray-600">{fmtL(line.liters)}</td>
-                      <td className="py-1.5 text-right font-bold text-gray-900">{fmtK(line.amount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Grand total */}
-            <div className="px-5 py-4 border-b border-dashed border-gray-300">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-black text-gray-900">GRAND TOTAL</span>
-                <span className="text-base font-black text-gray-900">{fmtK(receipt.grandTotal)} MMK</span>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="px-5 py-4 text-center text-xs space-y-1">
-              <p className="text-gray-500">Tel: {receipt.stationPhone}</p>
-              <p className="font-semibold text-gray-700">{receipt.receiptMotto}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-[#0f111a]">
-      <div className="sticky top-0 z-10 bg-[#0f111a]/95 backdrop-blur border-b border-[#30363d] px-4 py-3 flex items-center">
-        <button onClick={onBack} className="text-gray-400 hover:text-white text-sm font-semibold flex items-center gap-1 transition-colors">← Switch Mode</button>
-        <p className="text-sm font-bold text-white mx-auto">Issue Customer Receipt</p>
-        <div className="w-28" />
-      </div>
-      <div className="max-w-sm mx-auto px-4 py-6 space-y-4">
-
-        {/* Transaction info */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Transaction Info</p>
-          <div>
-            <label className={labelCls}>Employee Name</label>
-            <input type="text" value={staffName} onChange={e => setStaffName(e.target.value)}
-              placeholder="Your name" className={fieldCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Customer Name <span className="text-gray-600 normal-case font-normal">(optional)</span></label>
-            <input type="text" value={customerName} onChange={e => setCustomerName(e.target.value)}
-              placeholder="Leave blank if not needed" className={fieldCls} />
-          </div>
-        </div>
-
-        {/* Payment */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Payment</p>
-          <div className="flex gap-2">
-            {(["paid", "debt"] as PaymentStatus[]).map(s => (
-              <button key={s} type="button" onClick={() => setPayStatus(s)}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all ${
-                  payStatus === s
-                    ? s === "paid" ? "bg-emerald-500 text-white border-emerald-500" : "bg-red-500 text-white border-red-500"
-                    : "bg-transparent text-gray-500 border-[#30363d] hover:text-gray-300"
-                }`}>
-                {s === "paid" ? "✓ Paid" : "↑ Debt"}
-              </button>
-            ))}
-          </div>
-          {payStatus === "paid" && (
-            <div className="flex gap-2">
-              {(["Cash", "K Pay", "MMQR"] as PaymentMethod[]).map(m => (
-                <button key={m} type="button" onClick={() => setPayMethod(m)}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
-                    payMethod === m ? "bg-blue-600 text-white border-blue-600" : "bg-transparent text-gray-500 border-[#30363d] hover:text-gray-300"
-                  }`}>
-                  {m}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Products */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-[#30363d] flex items-center justify-between">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Products</p>
-            <span className="text-[10px] text-gray-600">{cart.length}/4 items</span>
-          </div>
-
-          {cart.map((item, idx) => {
-            const { liters, amount } = computeRow(item);
-            const price = parseFloat(item.pricePerLiter) || 0;
-            return (
-              <div key={item.id} className={`px-4 py-4 space-y-3 ${idx > 0 ? "border-t border-[#30363d]" : ""}`}>
-                {/* Row header */}
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase">Item {idx + 1}</span>
-                  {cart.length > 1 && (
-                    <button type="button" onClick={() => removeRow(item.id)}
-                      aria-label={`Remove item ${idx + 1}`}
-                      className="ml-auto text-gray-600 hover:text-red-400 transition-colors p-0.5">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-
-                {/* Product type */}
-                <div>
-                  <label className={labelCls}>Product Type</label>
-                  <select value={item.product}
-                    onChange={e => updateRow(item.id, { product: e.target.value as ProductType })}
-                    className={fieldCls + " bg-[#0d1117]"}>
-                    {(Object.keys(PRODUCT_LABELS) as ProductType[]).map(p => (
-                      <option key={p} value={p}>{PRODUCT_LABELS[p]}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Price per liter */}
-                <div>
-                  <label className={labelCls}>Price Per Liter</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
-                    <input type="number" value={item.pricePerLiter}
-                      onChange={e => updateRow(item.id, { pricePerLiter: e.target.value })}
-                      placeholder="0" className={"pl-8 " + fieldCls} />
-                  </div>
-                </div>
-
-                {/* Calc mode toggle + input */}
-                <div>
-                  <div className="flex gap-2 mb-2">
-                    {(["liters", "amount"] as CalcMode[]).map(m => (
-                      <button key={m} type="button" onClick={() => updateRow(item.id, { calcMode: m })}
-                        className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
-                          item.calcMode === m ? "bg-blue-600 text-white border-blue-600" : "bg-transparent text-gray-500 border-[#30363d]"
-                        }`}>
-                        {m === "liters" ? "By Liters" : "By Amount"}
-                      </button>
-                    ))}
-                  </div>
-                  {item.calcMode === "liters" ? (
-                    <>
-                      <input type="number" value={item.litersInput}
-                        onChange={e => updateRow(item.id, { litersInput: e.target.value })}
-                        placeholder="0.000 L" className={fieldCls} />
-                      {liters > 0 && price > 0 && (
-                        <p className="text-xs font-bold text-emerald-400 mt-1.5">→ {new Intl.NumberFormat("en-US").format(Math.round(amount))} MMK</p>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
-                        <input type="number" value={item.amountInput}
-                          onChange={e => updateRow(item.id, { amountInput: e.target.value })}
-                          placeholder="0" className={"pl-8 " + fieldCls} />
-                      </div>
-                      {amount > 0 && price > 0 && (
-                        <p className="text-xs font-bold text-emerald-400 mt-1.5">→ {liters.toLocaleString("en-US", { maximumFractionDigits: 3 })} L</p>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Add product button */}
-          <div className="px-4 py-3 border-t border-[#30363d]">
-            <button type="button" onClick={addRow} disabled={cart.length >= 4}
-              className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 hover:text-emerald-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Add Product {cart.length >= 4 ? "(max 4)" : ""}
-            </button>
-          </div>
-        </div>
-
-        <button type="button" onClick={handleGenerate} disabled={!canGenerate}
-          className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98]">
-          Generate Receipt →
         </button>
       </div>
     </div>
@@ -1947,7 +1563,6 @@ export default function App() {
         <ModeSelectScreen
           employeeName={employeeName}
           onShift={() => setScreen("form")}
-          onReceipt={() => setScreen("receipt")}
           onSettings={() => setScreen("settings")}
           onLogout={handleLogout}
           lang={lang} setLang={setLang}
@@ -1978,7 +1593,6 @@ export default function App() {
         </>
       )}
       {screen === "success"  && <SuccessScreen employeeName={employeeName} onNewShift={handleNewShift} queuedItemId={lastQueuedId} lang={lang} />}
-      {screen === "receipt"  && <CustomerReceiptScreen employeeName={employeeName} onBack={() => setScreen("mode-select")} />}
       {screen === "settings" && <AppSettingsScreen onBack={() => setScreen("mode-select")} />}
 
       <SyncStatusBanner isOnline={isOnline} pendingCount={pendingCount} justSynced={justSynced} lang={lang} />

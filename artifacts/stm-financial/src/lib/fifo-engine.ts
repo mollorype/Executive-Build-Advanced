@@ -28,7 +28,9 @@ function jellyCanLitersForProduct(shift: Shift, product: string): number {
     .reduce((sum, item) => sum + (item.total_liters ?? 0), 0);
 }
 
-function shiftVolume(shift: Shift, product: ProductType): number {
+/** Litres of `product` a shift sold: pump sales + whole pipas sold + jelly cans.
+ * Exported so the Pipa Ledger's "Deduct shift sales" uses the exact same count. */
+export function shiftVolume(shift: Shift, product: ProductType): number {
   const fallback = (liters?: number | null, total?: number | null, price?: number | null) => {
     if (liters && liters > 0) return liters;
     if (total && price && price > 0) return total / price;

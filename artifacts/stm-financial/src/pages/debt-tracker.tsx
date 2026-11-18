@@ -10,6 +10,7 @@ import DebtProfileDetail from "@/components/debt-profile-detail";
 import DebtLedgerModal from "@/components/debt-ledger-modal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cacheDebtProfiles, getCachedDebtProfiles, useOnlineStatus } from "@/lib/offlineCache";
+import { useAuth } from "@/lib/auth-context";
 import {
   Plus, Search, SortAsc, User, Phone, X, Calendar, CreditCard,
   AlertTriangle, CheckCircle, TrendingDown, Loader2, Trash2, ShieldCheck,
@@ -44,6 +45,14 @@ export default function DebtTracker() {
   const [selectedProfile, setSelectedProfile] = useState<DebtProfile | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [ledgerProfile, setLedgerProfile] = useState<DebtProfile | null>(null);
+
+  const { profile: authProfile } = useAuth();
+  const isCeo = authProfile?.role === "ceo";
+  const [showDeleteAll, setShowDeleteAll] = useState(false);
+  const [deleteAllConfirmText, setDeleteAllConfirmText] = useState("");
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [deleteAllError, setDeleteAllError] = useState("");
+  const [deleteAllTxnCount, setDeleteAllTxnCount] = useState<number | null>(null);
 
   const [name, setName] = useState("");
   const [relation, setRelation] = useState<DebtRelation>("Other");
@@ -148,6 +157,47 @@ export default function DebtTracker() {
     if (!window.confirm(`Delete "${profile.name}" and all their transactions?\n\nThis cannot be undone.`)) return;
     const { error } = await supabase.from(DEBT_TABLES.PROFILES).delete().eq("id", profile.id);
     if (!error) fetchProfiles();
+  }
+
+  const DELETE_ALL_PHRASE = "DELETE ALL";
+
+  async function openDeleteAll() {
+    setDeleteAllConfirmText("");
+    setDeleteAllError("");
+    setDeleteAllTxnCount(null);
+    setShowDeleteAll(true);
+    // Shown in the dialog so the scale of what's about to go is explicit.
+    const { count } = await supabase
+      .from(DEBT_TABLES.TRANSACTIONS)
+      .select("id", { count: "exact", head: true });
+    setDeleteAllTxnCount(count ?? null);
+  }
+
+  async function handleDeleteAll() {
+    if (deleteAllConfirmText !== DELETE_ALL_PHRASE) return;
+    setDeletingAll(true);
+    setDeleteAllError("");
+    // One DELETE statement, so it is atomic: either every profile goes (their
+    // transactions cascade via the profile_id FK) or, if anything blocks it,
+    // nothing is deleted. The filter matches every row — PostgREST refuses an
+    // unfiltered DELETE.
+    const { error, count } = await supabase
+      .from(DEBT_TABLES.PROFILES)
+      .delete({ count: "exact" })
+      .not("id", "is", null);
+    setDeletingAll(false);
+    if (error) {
+      setDeleteAllError(error.message);
+      return;
+    }
+    // RLS doesn't raise on a disallowed DELETE — it just matches zero rows.
+    if (!count && profiles.length > 0) {
+      setDeleteAllError("Nothing was deleted. Your account may not have permission to delete debt profiles.");
+      return;
+    }
+    setShowDeleteAll(false);
+    setSelectedProfile(null);
+    fetchProfiles();
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -407,6 +457,17 @@ export default function DebtTracker() {
             <CreditCard className="w-4 h-4 text-pale-blue-foreground" />
             <h2 className="text-slate-900 font-semibold text-sm">Debt Profiles</h2>
             <span className="ml-auto text-slate-500 text-xs">{filtered.length} {filtered.length === 1 ? "profile" : "profiles"}</span>
+            {isCeo && profiles.length > 0 && (
+              <button
+                type="button"
+                onClick={openDeleteAll}
+                disabled={!isOnline}
+                title={isOnline ? "Delete every debt profile" : "Unavailable offline"}
+                className="flex items-center gap-1 text-xs font-semibold text-pale-red-foreground hover:bg-pale-red border border-red-200 rounded-lg px-2 py-1 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Delete all
+              </button>
+            )}
           </div>
 
           {loading ? (
@@ -449,7 +510,7 @@ export default function DebtTracker() {
                     <div
                       key={profile.id}
                       onClick={() => setSelectedProfile(profile)}
-                      className="group flex items-center px-5 py-3.5 cursor-pointer hover:bg-slate-100 transition-colors gap-4"
+                      className="group flex items-center px-4 md:px-5 py-3.5 cursor-pointer hover:bg-slate-100 transition-colors gap-3 md:gap-4"
                     >
                       {/* Avatar */}
                       <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm shrink-0">
@@ -459,9 +520,9 @@ export default function DebtTracker() {
                       {/* Name + phone (flex-1) */}
                       <div className="flex-1 min-w-0">
                         <p className="text-slate-900 font-semibold text-sm truncate">{profile.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
                           {profile.phone_number && (
-                            <span className="text-slate-500 text-xs flex items-center gap-1">
+                            <span className="text-slate-500 text-xs flex items-center gap-1 whitespace-nowrap">
                               <Phone className="w-3 h-3" /> {profile.phone_number}
                             </span>
                           )}
@@ -471,12 +532,12 @@ export default function DebtTracker() {
                           </span>
                         </div>
                         {/* Mobile: balance + score row */}
-                        <div className="flex items-center justify-between mt-1.5 md:hidden">
-                          <span className={`font-bold text-sm tabular-nums ${paid ? "text-pale-green-foreground" : risk ? "text-pale-red-foreground" : "text-slate-900"}`}>
+                        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 mt-1.5 md:hidden">
+                          <span className={`font-bold text-sm tabular-nums whitespace-nowrap ${paid ? "text-pale-green-foreground" : risk ? "text-pale-red-foreground" : "text-slate-900"}`}>
                             {paid ? "Cleared" : mmkFmt(profile.current_balance)}
                           </span>
                           {!NO_SCORE_RELATIONS.has(profile.relation) && (
-                            <span className="text-xs font-bold" style={{ color: sc }}>
+                            <span className="text-xs font-bold whitespace-nowrap" style={{ color: sc }}>
                               {profile.score}/100 · {tier}
                             </span>
                           )}
@@ -511,21 +572,24 @@ export default function DebtTracker() {
                         )}
                       </div>
 
-                      <div className="w-20 flex justify-end items-center gap-1">
+                      {/* Row actions: hover-reveal only where a mouse can hover;
+                          touch screens can't hover, so there they're always shown. */}
+                      <div className="shrink-0 md:w-20 flex justify-end items-center gap-1">
                         <button
                           onClick={(e) => { e.stopPropagation(); setLedgerProfile(profile); }}
-                          className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-pale-blue-foreground hover:bg-pale-blue p-1.5 rounded-lg transition-all"
+                          className="[@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-slate-400 hover:text-pale-blue-foreground hover:bg-pale-blue p-2 md:p-1.5 rounded-lg transition-all"
                           title="Export / Preview ledger"
                           aria-label={`Export ledger for ${profile.name}`}
                         >
-                          <FileSpreadsheet className="w-3.5 h-3.5" />
+                          <FileSpreadsheet className="w-4 h-4 md:w-3.5 md:h-3.5" />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteProfile(profile); }}
-                          className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-pale-red-foreground hover:bg-pale-red p-1.5 rounded-lg transition-all"
+                          className="[@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-slate-400 hover:text-pale-red-foreground hover:bg-pale-red p-2 md:p-1.5 rounded-lg transition-all"
                           title="Delete profile"
+                          aria-label={`Delete profile ${profile.name}`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4 md:w-3.5 md:h-3.5" />
                         </button>
                         <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-400 transition-colors" />
                       </div>
@@ -803,6 +867,75 @@ export default function DebtTracker() {
           profile={ledgerProfile}
           onClose={() => setLedgerProfile(null)}
         />
+      )}
+
+      {/* Delete All Profiles confirmation */}
+      {showDeleteAll && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={() => !deletingAll && setShowDeleteAll(false)} />
+          <div role="alertdialog" aria-modal="true" aria-labelledby="delete-all-title"
+            className="relative w-full max-w-md bg-white border border-slate-100 rounded-2xl shadow p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-pale-red flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-pale-red-foreground" />
+              </div>
+              <div className="min-w-0">
+                <h2 id="delete-all-title" className="text-slate-900 font-bold text-base">Delete all debt profiles?</h2>
+                <p className="text-slate-500 text-sm mt-1">
+                  This permanently deletes <span className="font-semibold text-slate-900">{profiles.length} {profiles.length === 1 ? "profile" : "profiles"}</span>
+                  {" "}across every tab, and{" "}
+                  <span className="font-semibold text-slate-900">
+                    {deleteAllTxnCount === null ? "all" : deleteAllTxnCount} {deleteAllTxnCount === 1 ? "transaction" : "transactions"}
+                  </span>
+                  {" "}with them. It cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="delete-all-confirm" className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                Type <span className="text-slate-900 font-mono normal-case">{DELETE_ALL_PHRASE}</span> to confirm
+              </label>
+              <input
+                id="delete-all-confirm"
+                type="text"
+                value={deleteAllConfirmText}
+                onChange={e => setDeleteAllConfirmText(e.target.value)}
+                autoComplete="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                disabled={deletingAll}
+                className="w-full bg-white border border-slate-200 text-slate-900 text-base sm:text-sm font-mono rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-red-500"
+              />
+            </div>
+
+            {deleteAllError && (
+              <div className="flex items-start gap-2 bg-pale-red border border-red-200 rounded-xl px-3 py-2.5 text-xs text-pale-red-foreground">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                {deleteAllError}
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowDeleteAll(false)}
+                disabled={deletingAll}
+                className="text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-xl px-4 py-2 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAll}
+                disabled={deleteAllConfirmText !== DELETE_ALL_PHRASE || deletingAll}
+                className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white text-sm font-bold rounded-xl px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {deletingAll ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting…</> : <><Trash2 className="w-4 h-4" /> Delete all</>}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
