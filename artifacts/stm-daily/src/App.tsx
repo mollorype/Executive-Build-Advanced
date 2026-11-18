@@ -580,9 +580,11 @@ function ExpensesPanel({ items, onChange, lang }: {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex gap-2">
+      {/* Phones: the name/profile search gets its own full-width row, with Amount + Add
+          below it. sm+: one row, as before ("sm:contents" dissolves the inner wrapper). */}
+      <div className="flex flex-col sm:flex-row gap-2">
         {/* Name / search combobox */}
-        <div className="flex-1 flex flex-col gap-1.5 relative" ref={wrapRef}>
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5 relative" ref={wrapRef}>
           <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "expenseName")}</label>
           <div className="relative">
             <input
@@ -592,7 +594,7 @@ function ExpensesPanel({ items, onChange, lang }: {
               onKeyDown={e => e.key === "Enter" && addItem()}
               onFocus={() => { if (hits.length > 0) setShowDrop(true); }}
               placeholder="Search a profile or type a new name…"
-              className={`w-full rounded-xl border px-3 py-3 text-sm font-medium outline-none bg-[#0d1117] text-white placeholder:text-gray-700 transition-colors ${
+              className={`w-full rounded-xl border px-3 ${profileId ? "pr-16" : ""} py-3 text-sm font-medium outline-none bg-[#0d1117] text-white placeholder:text-gray-700 transition-colors ${
                 profileId
                   ? "border-blue-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
                   : "border-[#30363d] focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
@@ -627,8 +629,9 @@ function ExpensesPanel({ items, onChange, lang }: {
           )}
         </div>
 
+        <div className="flex gap-2 sm:contents">
         {/* Amount */}
-        <div className="w-32 flex flex-col gap-1.5">
+        <div className="flex-1 sm:flex-none sm:w-32 flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "amount")}</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
@@ -656,6 +659,7 @@ function ExpensesPanel({ items, onChange, lang }: {
             </svg>
             Add
           </button>
+        </div>
         </div>
       </div>
 
