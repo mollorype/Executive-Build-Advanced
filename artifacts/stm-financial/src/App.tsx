@@ -11,6 +11,7 @@ import Dashboard from "@/pages/dashboard";
 import Shifts from "@/pages/shifts";
 import ManageAccess from "@/pages/manage-access";
 import PORegistry from "@/pages/po-registry";
+import PipaLedger from "@/pages/pipa-ledger";
 import DebtTracker from "@/pages/debt-tracker";
 import HomeExpenses from "@/pages/home-expenses";
 
@@ -108,6 +109,12 @@ function Router() {
       <Route path="/po-registry">
         <ProtectedRoute>
           <PORegistry />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/pipa-ledger">
+        <ProtectedRoute>
+          <PipaLedger />
         </ProtectedRoute>
       </Route>
 

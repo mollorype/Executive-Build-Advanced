@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { supabase, FuelPurchaseOrder } from "@/lib/supabase";
 import { runFIFOEngine, forceClosePO, verifyPO, calcNetProfit, FIFORunResult } from "@/lib/fifo-engine";
-import PipaRemainingCard from "@/components/pipa-remaining-card";
+import PipaStockSummary from "@/components/pipa/stock-summary-card";
 
 const PAGE_SIZE = 20;
 
@@ -336,7 +336,7 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
                 <option value="95">95 RON</option>
                 <option value="PD">PD (Premium Diesel)</option>
                 <option value="D">Diesel</option>
-                <option value="pipa">Pipa</option>
+                {/* No "Pipa" here: a pipa is the drum, not a fuel — pipas are tracked in the Pipa Ledger. */}
               </select>
             </div>
 
@@ -676,8 +676,8 @@ export default function PORegistry() {
         {/* Create New PO */}
         <CreatePOForm onCreated={() => fetchPOs(page)} />
 
-        {/* Pipa Remaining */}
-        <PipaRemainingCard />
+        {/* Pipa stock, calculated from the Pipa Ledger */}
+        <PipaStockSummary />
 
         {/* Active PO Cards */}
         {activePOs.length > 0 && (
