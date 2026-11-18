@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { supabase } from "@/lib/supabase";
 import { useLocation, useSearch } from "wouter";
 import { nextFromSearch } from "@/lib/return-to";
 import type { Role } from "@/lib/supabase";
@@ -25,32 +24,6 @@ export default function Login() {
   const [error, setError] = useState("");
   const [accessDenied, setAccessDenied] = useState(false);
   const [confirmationSent, setConfirmationSent] = useState(false);
-  const [forgot, setForgot] = useState(false);
-  const [resetSent, setResetSent] = useState(false);
-
-  async function handleSendReset(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/reset-password`,
-    });
-    setLoading(false);
-    if (err) {
-      setError(err.status === 429 || err.code === "over_email_send_rate_limit"
-        ? "Too many reset emails were sent recently. Please wait a while and try again."
-        : `Couldn't send the reset email: ${err.message}`);
-      return;
-    }
-    // Same message whether or not the email has an account, so this can't be used to probe addresses.
-    setResetSent(true);
-  }
-
-  function leaveForgot() {
-    setForgot(false);
-    setResetSent(false);
-    setError("");
-  }
 
   function switchMode(next: "signin" | "signup") {
     setMode(next);
@@ -162,42 +135,6 @@ export default function Login() {
                 Back to sign in
               </button>
             </div>
-          ) : forgot ? (
-            resetSent ? (
-              <div className="text-center py-4">
-                <CheckCircle className="w-10 h-10 text-pale-green-foreground mx-auto mb-3" />
-                <p className="text-slate-900 font-semibold">Check your email</p>
-                <p className="text-slate-500 text-sm mt-2">
-                  If <span className="text-slate-700">{email.trim()}</span> has an account, a link to set a new password is on its way.
-                  Check your spam folder too.
-                </p>
-                <button type="button" onClick={leaveForgot} className="mt-5 text-pale-blue-foreground hover:opacity-80 text-sm font-medium">
-                  Back to sign in
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleSendReset} className="space-y-5">
-                <p className="text-sm text-slate-600">Enter your email and we'll send you a link to set a new password.</p>
-                <div>
-                  <label htmlFor="reset-email" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Email Address</label>
-                  <input id="reset-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300/50 focus:border-blue-300 transition-all"
-                    placeholder="Enter your email" />
-                </div>
-                {error && (
-                  <div className="rounded-xl bg-pale-red border border-red-100 px-4 py-3 text-pale-red-foreground text-sm">{error}</div>
-                )}
-                <button type="submit" disabled={loading}
-                  className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2">
-                  {loading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                  Send reset link
-                </button>
-                <button type="button" onClick={leaveForgot}
-                  className="w-full text-center text-slate-400 hover:text-slate-600 text-xs font-medium transition-colors">
-                  ← Back to sign in
-                </button>
-              </form>
-            )
           ) : (
             <form onSubmit={mode === "signin" ? handleSignIn : handleSignUp} className="space-y-5">
               <div>
@@ -235,14 +172,6 @@ export default function Login() {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                {mode === "signin" && (
-                  <div className="flex justify-end mt-2">
-                    <button type="button" onClick={() => { setForgot(true); setError(""); setAccessDenied(false); }}
-                      className="text-xs font-medium text-pale-blue-foreground hover:opacity-80">
-                      Forgot password?
-                    </button>
-                  </div>
-                )}
               </div>
 
               {mode === "signup" && (

@@ -12,7 +12,6 @@ import Shifts from "@/pages/shifts";
 import ManageAccess from "@/pages/manage-access";
 import PORegistry from "@/pages/po-registry";
 import PipaLedger from "@/pages/pipa-ledger";
-import ResetPassword from "@/pages/reset-password";
 import DebtTracker from "@/pages/debt-tracker";
 import HomeExpenses from "@/pages/home-expenses";
 
@@ -93,12 +92,6 @@ function Router() {
         <AuthRoute>
           <Login />
         </AuthRoute>
-      </Route>
-
-      {/* Not behind AuthRoute/ProtectedRoute: the reset email signs you in, and
-          this page must stay put long enough to set the new password. */}
-      <Route path="/reset-password">
-        <ResetPassword />
       </Route>
 
       <Route path="/dashboard">
