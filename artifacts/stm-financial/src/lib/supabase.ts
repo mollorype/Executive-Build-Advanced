@@ -19,6 +19,8 @@ export const TABLES = {
   PROFILES: "profiles",
 } as const;
 
+export type Fuel92Pump = { pump: "normal" | "new"; liters: number; price: number; total: number };
+
 export const COLS = {
   TIMESTAMP: "timestamp",
   EMPLOYEE_NAME: "employee_name",
@@ -60,6 +62,8 @@ export function mapRowToShift(row: Record<string, unknown>): Shift {
     fuel_92_liters: fuel.fuel_92_liters ?? null,
     fuel_92_price: fuel.fuel_92_price ?? null,
     fuel_92_total: fuel.fuel_92_total ?? null,
+    fuel_92_pumps: Array.isArray((fuel as Record<string, unknown>).fuel_92_pumps)
+      ? (fuel as Record<string, unknown>).fuel_92_pumps as Fuel92Pump[] : null,
     fuel_95_liters: fuel.fuel_95_liters ?? null,
     fuel_95_price: fuel.fuel_95_price ?? null,
     fuel_95_total: fuel.fuel_95_total ?? null,
@@ -169,6 +173,8 @@ export type Shift = {
   fuel_92_liters: number | null;
   fuel_92_price: number | null;
   fuel_92_total: number | null;
+  /** STM Daily's per-pump split for Fuel 92 (normal / new pump); null when only one pump was used. */
+  fuel_92_pumps: Fuel92Pump[] | null;
 
   fuel_95_liters: number | null;
   fuel_95_price: number | null;

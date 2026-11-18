@@ -21,6 +21,8 @@ export interface ShiftPayload {
     fuel_92_liters: number;
     fuel_92_price: number;
     fuel_92_total: number;
+    /** Per-pump split, present only when the "new pump" was used. The fuel_92_* fields above stay the combined totals. */
+    fuel_92_pumps?: { pump: "normal" | "new"; liters: number; price: number; total: number }[];
     fuel_95_liters: number;
     fuel_95_price: number;
     fuel_95_total: number;

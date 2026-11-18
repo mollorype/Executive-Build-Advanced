@@ -29,7 +29,9 @@ type PipaProduct = "92" | "95" | "PD" | "D";
 interface PipaItem { product: PipaProduct; containers: string; price: string; }
 interface JellyCanItem { product: PipaProduct; pieces: string; liters: string; price: string; }
 interface FormData {
-  fuel92: FuelRow;
+  fuel92: FuelRow;          // Fuel 92 — normal pump
+  fuel92New: FuelRow;       // Fuel 92 — new pump (closable)
+  fuel92NewOpen: boolean;
   fuel95: FuelRow;
   premiumDiesel: FuelRow;
   pipa: PipaItem[];
@@ -54,6 +56,9 @@ const STRINGS = {
   totalAmount:          { en: "Total Amount",              my: "ရောင်းရငွေ" },
   literPrice:           { en: "Liter Price",               my: "လီတာစျေးနှုန်း" },
   literSold:            { en: "Liters Sold",               my: "ရောင်းရလီတာ" },
+  normalPump:           { en: "Normal Pump",               my: "ပုံမှန်ပန့်" },
+  newPump:              { en: "New Pump",                  my: "ပန့်အသစ်" },
+  addNewPump:           { en: "Add New Pump",              my: "ပန့်အသစ် ထည့်ရန်" },
   pipa:                 { en: "Pipa",                      my: "ပီပါ" },
   addPipaEntry:         { en: "Add Pipa Entry",            my: "ပီပါထည့်ရန်" },
   cashAmount:           { en: "Cash Amount",               my: "ငွေပမာဏ" },
@@ -98,6 +103,8 @@ function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void 
 
 const EMPTY: FormData = {
   fuel92:         { totalAmount: "", price: "", liters: "" },
+  fuel92New:      { totalAmount: "", price: "", liters: "" },
+  fuel92NewOpen:  true,
   fuel95:         { totalAmount: "", price: "", liters: "" },
   premiumDiesel:  { totalAmount: "", price: "", liters: "" },
   pipa:           [],
@@ -107,6 +114,29 @@ const EMPTY: FormData = {
   actualCash:     "",
   shiftDate:      "",
 };
+
+/** Litres for one pump row: entered/auto-filled litres, else derived from total ÷ price. */
+function fuelRowLiters(row: FuelRow): number {
+  return n(row.liters) > 0 ? n(row.liters) : (n(row.price) > 0 ? n(row.totalAmount) / n(row.price) : 0);
+}
+
+type Pump92 = { key: "normal" | "new"; row: FuelRow };
+
+/** The Fuel 92 pumps that count: the normal pump always, the new pump only while its card is open. */
+function fuel92Pumps(form: FormData): Pump92[] {
+  return form.fuel92NewOpen
+    ? [{ key: "normal", row: form.fuel92 }, { key: "new", row: form.fuel92New }]
+    : [{ key: "normal", row: form.fuel92 }];
+}
+
+/** Whether the "new pump" card is shown — remembered per device, since a station either has it or doesn't. */
+const NEW_PUMP_KEY = "stm_daily_92_new_pump_open";
+function loadNewPumpOpen(): boolean {
+  try { return localStorage.getItem(NEW_PUMP_KEY) !== "0"; } catch { return true; }
+}
+function saveNewPumpOpen(open: boolean) {
+  try { localStorage.setItem(NEW_PUMP_KEY, open ? "1" : "0"); } catch { /* storage unavailable — default next time */ }
+}
 
 // ─── Input component ─────────────────────────────────────────────────────────
 function GoldInput({
@@ -396,6 +426,20 @@ function ProductCard({ label, badge, accentText, accentBorder, totalAmount, pric
           </span>
         )}
       </div>
+      <PumpInputs totalAmount={totalAmount} price={price} liters={liters}
+        onTotalAmount={onTotalAmount} onPrice={onPrice} onLiters={onLiters} lang={lang} />
+    </div>
+  );
+}
+
+/** Total / price / litres inputs for one pump. */
+function PumpInputs({ totalAmount, price, liters, onTotalAmount, onPrice, onLiters, lang }: {
+  totalAmount: string; price: string; liters: string;
+  onTotalAmount: (v: string) => void; onPrice: (v: string) => void; onLiters: (v: string) => void;
+  lang: Lang;
+}) {
+  return (
+    <>
       <div className="px-5 pb-3 grid grid-cols-2 gap-4">
         <GoldInput label={t(lang, "totalAmount")} value={totalAmount} onChange={onTotalAmount} prefix="K" />
         <GoldInput label={t(lang, "literPrice")} value={price} onChange={onPrice} prefix="K" />
@@ -403,6 +447,70 @@ function ProductCard({ label, badge, accentText, accentBorder, totalAmount, pric
       <div className="px-5 pb-5">
         <GoldInput label={t(lang, "literSold")} value={liters} onChange={onLiters} />
       </div>
+    </>
+  );
+}
+
+type FuelField = "totalAmount" | "price" | "liters";
+
+// ─── Fuel 92 card — normal pump + closable new pump ────────────────────────────
+function Fuel92Card({ normal, fresh, newOpen, total, onField, onOpenNew, onCloseNew, lang }: {
+  normal: FuelRow; fresh: FuelRow; newOpen: boolean; total: number;
+  onField: (key: "fuel92" | "fuel92New", field: FuelField, v: string) => void;
+  onOpenNew: () => void; onCloseNew: () => void;
+  lang: Lang;
+}) {
+  const pumpHeader = (label: string, amount: number, close?: () => void) => (
+    <div className="px-5 pb-2 flex items-center justify-between gap-2">
+      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">{label}</span>
+      <div className="flex items-center gap-2">
+        {amount > 0 && <span className="text-xs font-semibold text-blue-300 tabular-nums">{fmt(amount)}</span>}
+        {close && (
+          <button type="button" onClick={close} aria-label={`Close ${t(lang, "newPump")}`}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="bg-[#161b22] rounded-2xl border border-[#30363d] overflow-hidden border-l-4 border-l-blue-500">
+      <div className="px-5 pt-4 pb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="text-[11px] font-black px-2 py-0.5 rounded-md bg-white/5 text-blue-400">92</span>
+          <span className="text-sm font-bold text-white uppercase tracking-wide">Fuel 92</span>
+        </div>
+        {total > 0 && (
+          <span className="text-base font-bold tabular-nums text-blue-400">
+            {fmt(total)} <span className="text-gray-600 text-xs font-normal">MMK</span>
+          </span>
+        )}
+      </div>
+
+      {pumpHeader(t(lang, "normalPump"), n(normal.totalAmount))}
+      <PumpInputs totalAmount={normal.totalAmount} price={normal.price} liters={normal.liters}
+        onTotalAmount={v => onField("fuel92", "totalAmount", v)} onPrice={v => onField("fuel92", "price", v)}
+        onLiters={v => onField("fuel92", "liters", v)} lang={lang} />
+
+      {newOpen ? (
+        <div className="border-t border-[#30363d] pt-3">
+          {pumpHeader(t(lang, "newPump"), n(fresh.totalAmount), onCloseNew)}
+          <PumpInputs totalAmount={fresh.totalAmount} price={fresh.price} liters={fresh.liters}
+            onTotalAmount={v => onField("fuel92New", "totalAmount", v)} onPrice={v => onField("fuel92New", "price", v)}
+            onLiters={v => onField("fuel92New", "liters", v)} lang={lang} />
+        </div>
+      ) : (
+        <div className="px-5 pb-5">
+          <button type="button" onClick={onOpenNew}
+            className="w-full py-2.5 rounded-xl border border-dashed border-[#30363d] hover:border-blue-500/60 text-sm font-semibold text-gray-400 hover:text-blue-300 transition-colors">
+            + {t(lang, "addNewPump")}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -749,6 +857,8 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
       ...EMPTY,
       shiftDate: localDt,
       fuel92: { ...EMPTY.fuel92, price: cfg.price92 },
+      fuel92New: { ...EMPTY.fuel92New, price: cfg.price92 },
+      fuel92NewOpen: loadNewPumpOpen(),
       fuel95: { ...EMPTY.fuel95, price: cfg.price95 },
       premiumDiesel: { ...EMPTY.premiumDiesel, price: cfg.pricePD },
       diesel: { ...EMPTY.diesel, price: cfg.priceHSD },
@@ -762,8 +872,8 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
   }
 
   const setFuelField = useCallback((
-    key: "fuel92" | "fuel95" | "premiumDiesel",
-    field: "totalAmount" | "price" | "liters",
+    key: "fuel92" | "fuel92New" | "fuel95" | "premiumDiesel",
+    field: FuelField,
     val: string,
   ) => {
     setForm(f => {
@@ -784,12 +894,12 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
     });
   }, []);
 
-  // Totals are the entered totalAmount directly
-  const t92   = n(form.fuel92.totalAmount);
+  // Totals are the entered totalAmount directly; Fuel 92 adds up every open pump
+  const t92   = fuel92Pumps(form).reduce((s, p) => s + n(p.row.totalAmount), 0);
   const t95   = n(form.fuel95.totalAmount);
   const tPD   = n(form.premiumDiesel.totalAmount);
   // Liters: use the stored (entered or auto-calculated) value
-  const l92   = n(form.fuel92.liters);
+  const l92   = fuel92Pumps(form).reduce((s, p) => s + n(p.row.liters), 0);
   const l95   = n(form.fuel95.liters);
   const lPD   = n(form.premiumDiesel.liters);
 
@@ -809,6 +919,20 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     onSubmit(form, grandTotal, difference);
+  }
+
+  function openNewPump() {
+    saveNewPumpOpen(true);
+    setForm(f => ({ ...f, fuel92NewOpen: true }));
+  }
+
+  function closeNewPump() {
+    const r = form.fuel92New;
+    if ((n(r.totalAmount) > 0 || n(r.liters) > 0)
+        && !window.confirm(lang === "my" ? "ပန့်အသစ်ကို ပိတ်မလား? ထည့်ထားသော ပမာဏများ ဖျက်ပါမည်။" : "Close the New Pump? Its numbers will be cleared.")) return;
+    saveNewPumpOpen(false);
+    // Clear it, so nothing hidden is ever counted; keep the price for next time.
+    setForm(f => ({ ...f, fuel92NewOpen: false, fuel92New: { ...EMPTY.fuel92New, price: f.fuel92New.price } }));
   }
 
   return (
@@ -862,9 +986,8 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
           <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">{t(lang, "fuelProducts")}</h3>
           {/* Fuel rows — full-width vertical stack */}
           <div className="space-y-3">
-            <ProductCard label="Fuel 92" badge="92" accentText="text-blue-400" accentBorder="border-l-blue-500"
-              totalAmount={form.fuel92.totalAmount} price={form.fuel92.price} liters={form.fuel92.liters} total={t92}
-              onTotalAmount={v => setFuelField("fuel92", "totalAmount", v)} onPrice={v => setFuelField("fuel92", "price", v)} onLiters={v => setFuelField("fuel92", "liters", v)} lang={lang} />
+            <Fuel92Card normal={form.fuel92} fresh={form.fuel92New} newOpen={form.fuel92NewOpen} total={t92}
+              onField={setFuelField} onOpenNew={openNewPump} onCloseNew={closeNewPump} lang={lang} />
             <ProductCard label="Fuel 95" badge="95" accentText="text-emerald-400" accentBorder="border-l-emerald-500"
               totalAmount={form.fuel95.totalAmount} price={form.fuel95.price} liters={form.fuel95.liters} total={t95}
               onTotalAmount={v => setFuelField("fuel95", "totalAmount", v)} onPrice={v => setFuelField("fuel95", "price", v)} onLiters={v => setFuelField("fuel95", "liters", v)} lang={lang} />
@@ -955,10 +1078,11 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
   employeeName: string; email: string; form: FormData; grandTotal: number; difference: number;
   onConfirm: () => void; onBack: () => void; submitting: boolean; lang: Lang;
 }) {
-  const t92   = n(form.fuel92.totalAmount);
+  const pumps92 = fuel92Pumps(form);
+  const t92   = pumps92.reduce((s, p) => s + n(p.row.totalAmount), 0);
   const t95   = n(form.fuel95.totalAmount);
   const tPD   = n(form.premiumDiesel.totalAmount);
-  const l92   = n(form.fuel92.liters)        || (n(form.fuel92.price)        > 0 ? t92 / n(form.fuel92.price)        : 0);
+  const l92   = pumps92.reduce((s, p) => s + fuelRowLiters(p.row), 0);
   const l95   = n(form.fuel95.liters)        || (n(form.fuel95.price)        > 0 ? t95 / n(form.fuel95.price)        : 0);
   const lPD   = n(form.premiumDiesel.liters) || (n(form.premiumDiesel.price) > 0 ? tPD / n(form.premiumDiesel.price) : 0);
   const tPipa           = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
@@ -970,7 +1094,13 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
   const actualCash      = n(form.actualCash);
 
   const rows = [
-    { label: "Fuel 92",        liters: l92,  price: form.fuel92.price,         total: t92,   color: "text-blue-400" },
+    // With the new pump open, each pump gets its own line (empty ones are hidden below).
+    ...(pumps92.length > 1
+      ? pumps92.map(p => ({
+          label: `Fuel 92 · ${t(lang, p.key === "new" ? "newPump" : "normalPump")}`,
+          liters: fuelRowLiters(p.row), price: p.row.price, total: n(p.row.totalAmount), color: "text-blue-400",
+        }))
+      : [{ label: "Fuel 92", liters: l92, price: form.fuel92.price, total: t92, color: "text-blue-400" }]),
     { label: "Fuel 95",        liters: l95,  price: form.fuel95.price,         total: t95,   color: "text-emerald-400" },
     { label: "Premium Diesel", liters: lPD,  price: form.premiumDiesel.price,  total: tPD,   color: "text-purple-400" },
   ];
@@ -1420,10 +1550,18 @@ export default function App() {
     setSubmitting(true);
     setSubmitError("");
 
-    const t92   = n(formData.fuel92.totalAmount);
+    // Fuel 92 is saved combined (what the CEO portal, FIFO profit and alerts read),
+    // with the per-pump split alongside whenever the new pump was used.
+    const pumps92 = fuel92Pumps(formData)
+      .map(p => ({ pump: p.key, liters: fuelRowLiters(p.row), price: n(p.row.price), total: n(p.row.totalAmount) }))
+      .filter(p => p.total > 0 || p.liters > 0);
+    const t92   = pumps92.reduce((s, p) => s + p.total, 0);
+    const l92   = pumps92.reduce((s, p) => s + p.liters, 0);
+    const usedNewPump = pumps92.some(p => p.pump === "new");
+    // One pump: its own price, exactly as before. Two pumps: the litre-weighted price, so litres × price = total.
+    const p92   = usedNewPump && l92 > 0 ? Math.round((t92 / l92) * 100) / 100 : n(formData.fuel92.price);
     const t95   = n(formData.fuel95.totalAmount);
     const tPD   = n(formData.premiumDiesel.totalAmount);
-    const l92   = n(formData.fuel92.liters)   > 0 ? n(formData.fuel92.liters)   : (n(formData.fuel92.price)   > 0 ? t92 / n(formData.fuel92.price)   : 0);
     const l95   = n(formData.fuel95.liters)   > 0 ? n(formData.fuel95.liters)   : (n(formData.fuel95.price)   > 0 ? t95 / n(formData.fuel95.price)   : 0);
     const lPD   = n(formData.premiumDiesel.liters) > 0 ? n(formData.premiumDiesel.liters) : (n(formData.premiumDiesel.price) > 0 ? tPD / n(formData.premiumDiesel.price) : 0);
     const pipaItems = formData.pipa.map(item => ({
@@ -1459,8 +1597,9 @@ export default function App() {
       timestamp: formData.shiftDate ? new Date(formData.shiftDate).toISOString() : new Date().toISOString(),
       fuel_data: {
         fuel_92_liters:        l92,
-        fuel_92_price:         n(formData.fuel92.price),
+        fuel_92_price:         p92,
         fuel_92_total:         t92,
+        ...(usedNewPump ? { fuel_92_pumps: pumps92 } : {}),
         fuel_95_liters:        l95,
         fuel_95_price:         n(formData.fuel95.price),
         fuel_95_total:         t95,
