@@ -813,36 +813,44 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
 
   return (
     <div className="min-h-screen bg-[#0f111a]">
-      <div className="sticky top-0 z-10 bg-[#0f111a]/95 backdrop-blur border-b border-[#30363d] px-4 py-3 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
-          <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2M12 2a10 10 0 100 20A10 10 0 0012 2z" />
-          </svg>
+      {/* Phones: two rows (identity + language, then date + actions) so nothing
+          forces the page wider than the screen. md+: one row as before. */}
+      <div className="sticky top-0 z-10 bg-[#0f111a]/95 backdrop-blur border-b border-[#30363d] px-4 py-3 flex flex-col gap-2.5 md:flex-row md:items-center md:gap-3">
+        <div className="flex items-center gap-3 min-w-0 md:flex-1">
+          <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
+            <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2M12 2a10 10 0 100 20A10 10 0 0012 2z" />
+            </svg>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-gray-500 font-semibold uppercase tracking-widest">STM Daily</p>
+            <p className="text-sm font-bold text-white capitalize truncate">{employeeName}'s Shift Report</p>
+          </div>
+          <div className="shrink-0">
+            <LangToggle lang={lang} setLang={setLang} />
+          </div>
         </div>
-        <div>
-          <p className="text-xs text-gray-500 font-semibold uppercase tracking-widest">STM Daily</p>
-          <p className="text-sm font-bold text-white capitalize">{employeeName}'s Shift Report</p>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 md:flex-nowrap md:shrink-0">
           <input
             type="datetime-local"
             value={form.shiftDate}
             onChange={e => setForm(f => ({ ...f, shiftDate: e.target.value }))}
             aria-label="Shift date and time"
-            className="text-xs text-gray-400 bg-[#161b22] border border-[#30363d] hover:border-gray-500 focus:border-blue-500 focus:outline-none rounded-lg px-2 py-1 cursor-pointer"
+            className="flex-1 min-w-[10rem] md:flex-none text-xs text-gray-400 bg-[#161b22] border border-[#30363d] hover:border-gray-500 focus:border-blue-500 focus:outline-none rounded-lg px-2 py-1.5 cursor-pointer"
           />
-          <LangToggle lang={lang} setLang={setLang} />
           <button
             type="button"
             onClick={onBack}
-            className="text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1 transition-colors"
+            aria-label="Switch mode"
+            className="shrink-0 whitespace-nowrap text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1.5 transition-colors"
           >
-            ← Switch Mode
+            <span className="md:hidden">← Mode</span>
+            <span className="hidden md:inline">← Switch Mode</span>
           </button>
           <button
             type="button"
             onClick={onLogout}
-            className="text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1 transition-colors"
+            className="shrink-0 whitespace-nowrap text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1.5 transition-colors"
           >
             Switch User
           </button>
