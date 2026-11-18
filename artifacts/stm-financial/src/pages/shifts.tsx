@@ -3,6 +3,7 @@ import { useLocation, useSearch } from "wouter";
 import { supabase, Shift, TABLES, COLS, mapRowToShift, shiftTotalSales, RED_FLAG_THRESHOLD } from "@/lib/supabase";
 import ShiftDetailPanel from "@/components/shift-detail-panel";
 import ShiftEditDialog from "@/components/shift-edit-dialog";
+import TelegramAlertsCard from "@/components/telegram-alerts-card";
 import {
   BarChart3, DollarSign, AlertTriangle, Users,
   ChevronRight, TrendingUp, RefreshCw,
@@ -275,6 +276,8 @@ export default function Shifts() {
             </button>
           </div>
         )}
+
+        <TelegramAlertsCard />
 
         {/* Date Filter */}
         <div className="bg-white border border-slate-100 rounded-xl p-4">
