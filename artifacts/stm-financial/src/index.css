@@ -162,6 +162,16 @@
   * {
     @apply border-border;
   }
+  /* iPhone Safari gives date fields a fixed minimum width that ignores w-full,
+     so in a two-column row they stuck out past the card. */
+  input[type="date"] {
+    min-width: 0;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
+  }
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }

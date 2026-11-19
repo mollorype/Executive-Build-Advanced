@@ -2,12 +2,12 @@ import { useState, useEffect, useMemo } from "react";
 import {
   supabase, DebtProfile, DebtTransaction, DEBT_TABLES, RELATIONS, DebtRelation,
   NO_SCORE_RELATIONS,
-  generateTxnNumber, calculateScore, scoreColor, scoreTier, mmkFmt, formatPhone,
+  generateTxnNumber, repaymentSummary, fmtPercent, mmkFmt, formatPhone,
   getDisplayPhones, combineDateWithCurrentTime,
 } from "@/lib/debt-supabase";
 import { sortTransactionsChronological, describeTransaction } from "@/lib/ledger";
 import { cacheDebtTransactions, getCachedDebtTransactions, useOnlineStatus } from "@/lib/offlineCache";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import {
   X, Plus, Trash2, Clock, User, Phone, CreditCard,
   AlertTriangle, CheckCircle, Loader2, Calendar, Pencil, ShieldAlert, BadgeAlert,
@@ -36,22 +36,59 @@ type Props = {
   onProfileChange: (p: DebtProfile) => void;
 };
 
-function ScoreGauge({ score }: { score: number }) {
-  const r = 40, cx = 60, cy = 55;
-  const semi = Math.PI * r;
-  const progress = (score / 100) * semi;
-  const color = scoreColor(score);
-  const tier = scoreTier(score);
+/** Donut of how much of the debt has been repaid, with the amounts beside it. */
+function RepaymentChart({ amounts, balance }: { amounts: number[]; balance: number }) {
+  const r = repaymentSummary(amounts, balance);
+  if (r.borrowed <= 0 && r.repaid <= 0) {
+    return (
+      <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Repayment Progress</p>
+        <p className="text-sm text-slate-500 mt-2">No debt recorded yet.</p>
+      </div>
+    );
+  }
+  const done = r.remaining <= 0;
+  const pct = fmtPercent(r.percent, r.remaining);
+  const data = [
+    { name: "Repaid", value: Math.min(r.repaid, r.borrowed || r.repaid), color: "#10b981" },
+    { name: "Still owed", value: r.remaining, color: "#ef4444" },
+  ].filter(d => d.value > 0);
   return (
-    <div className="flex flex-col items-center gap-1">
-      <svg viewBox="0 0 120 72" className="w-36 h-24" role="img" aria-label={`Trust and repayment score: ${score} out of 100, ${tier}`}>
-        <path d={`M 20 55 A 40 40 0 0 1 100 55`} fill="none" stroke="#e2e8f0" strokeWidth="12" strokeLinecap="round" />
-        <path d={`M 20 55 A 40 40 0 0 1 100 55`} fill="none" stroke={color} strokeWidth="12" strokeLinecap="round"
-          strokeDasharray={`${progress} ${semi}`} />
-        <text x={cx} y={52} textAnchor="middle" fill="#0f172a" fontSize="18" fontWeight="700">{score}</text>
-        <text x={cx} y={66} textAnchor="middle" fill={color} fontSize="9" fontWeight="600">{tier.toUpperCase()}</text>
-      </svg>
-      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Trust & Repayment Score</p>
+    <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
+      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Repayment Progress</p>
+      <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
+        <div className="relative w-32 h-32 shrink-0" role="img" aria-label={`${pct} of the debt repaid`}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={data} dataKey="value" innerRadius={42} outerRadius={60} startAngle={90} endAngle={-270}
+                paddingAngle={data.length > 1 ? 2 : 0} stroke="none" isAnimationActive={false}>
+                {data.map(d => <Cell key={d.name} fill={d.color} />)}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <span className={`text-2xl font-bold tabular-nums leading-none ${done ? "text-emerald-600" : "text-slate-900"}`}>{pct}</span>
+            <span className="text-[11px] font-semibold text-slate-500 mt-1">repaid</span>
+          </div>
+        </div>
+        <div className="min-w-0 flex-1 basis-40 space-y-2 text-sm">
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-1.5 text-slate-500"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />Repaid</span>
+            <span className="font-semibold text-slate-900 tabular-nums">{mmkFmt(r.repaid)}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-1.5 text-slate-500"><span className="w-2.5 h-2.5 rounded-full bg-red-500" />Still owed</span>
+            <span className={`font-semibold tabular-nums ${done ? "text-emerald-600" : "text-pale-red-foreground"}`}>{done ? "Nothing" : mmkFmt(r.remaining)}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-2">
+            <span className="text-slate-500">Total borrowed</span>
+            <span className="font-semibold text-slate-700 tabular-nums">{mmkFmt(r.borrowed)}</span>
+          </div>
+          {r.overpaid > 0 && (
+            <p className="text-xs text-pale-gold-foreground font-medium">Paid {mmkFmt(r.overpaid)} more than owed.</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -386,12 +423,10 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
       highlighted: false,
       created_at: new Date().toISOString(),
     }];
-    const newScore = calculateScore(allTxns, newBalance);
     const lastPayAt = txnType === "payment" ? new Date().toISOString() : profile.last_payment_at;
 
     await supabase.from(DEBT_TABLES.PROFILES).update({
       current_balance: newBalance,
-      score: newScore,
       last_payment_at: lastPayAt,
     }).eq("id", profile.id);
 
@@ -405,7 +440,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     setFuelLastSource(null);
     setSubmitting(false);
 
-    const updated: DebtProfile = { ...profile, current_balance: newBalance, score: newScore, last_payment_at: lastPayAt ?? profile.last_payment_at };
+    const updated: DebtProfile = { ...profile, current_balance: newBalance, last_payment_at: lastPayAt ?? profile.last_payment_at };
     onProfileChange(updated);
     await fetchTransactions();
 
@@ -419,13 +454,12 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     const { error } = await supabase.from(DEBT_TABLES.TRANSACTIONS).delete().eq("id", txn.id);
     if (error) { setDeletingId(null); return; }
     const remainingTxns = transactions.filter(t => t.id !== txn.id);
-    const newScore = calculateScore(remainingTxns, newBalance);
     const payments = remainingTxns.filter(t => t.amount < 0);
     const lastPay = payments.length > 0
       ? payments.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0].created_at
       : null;
-    await supabase.from(DEBT_TABLES.PROFILES).update({ current_balance: newBalance, score: newScore, last_payment_at: lastPay }).eq("id", profile.id);
-    const updated: DebtProfile = { ...profile, current_balance: newBalance, score: newScore, last_payment_at: lastPay };
+    await supabase.from(DEBT_TABLES.PROFILES).update({ current_balance: newBalance, last_payment_at: lastPay }).eq("id", profile.id);
+    const updated: DebtProfile = { ...profile, current_balance: newBalance, last_payment_at: lastPay };
     onProfileChange(updated);
     setDeletingId(null);
     await fetchTransactions();
@@ -505,15 +539,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
     setEditPhones(prev => prev.map((p, i) => i === idx ? formatPhone(val) : p));
   }
 
-  const paid = Math.max(0, (profile.total_debt ?? 0) - Math.max(0, profile.current_balance));
-  const remaining = Math.max(0, profile.current_balance);
-  const hasPieData = (profile.total_debt ?? 0) > 0;
-  const pieData = hasPieData
-    ? [{ name: "Paid", value: paid, color: "#10b981" }, { name: "Remaining", value: remaining, color: "#ef4444" }]
-    : [];
-
   const isCleared = profile.current_balance <= 0;
-  const isHighRisk = profile.score < 40;
   const today = new Date().toISOString().slice(0, 10);
   const isOverCreditLimit = profile.credit_limit != null && profile.current_balance > profile.credit_limit;
   const isPastDueDate = profile.payment_due_date != null && today > profile.payment_due_date && profile.current_balance > 0;
@@ -667,17 +693,12 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
           )}
 
           {/* Status banners */}
-          {isCleared ? (
+          {isCleared && (
             <div className="flex items-center gap-3 bg-pale-green border border-emerald-100 rounded-xl px-4 py-3">
               <CheckCircle className="w-5 h-5 text-pale-green-foreground shrink-0" />
               <p className="text-pale-green-foreground font-semibold text-sm">Debt fully cleared</p>
             </div>
-          ) : (isHighRisk && !NO_SCORE_RELATIONS.has(profile.relation)) ? (
-            <div className="flex items-center gap-3 bg-pale-red border border-red-100 rounded-xl px-4 py-3">
-              <AlertTriangle className="w-5 h-5 text-pale-red-foreground shrink-0" />
-              <p className="text-pale-red-foreground font-semibold text-sm">High Risk — Low repayment activity</p>
-            </div>
-          ) : null}
+          )}
 
           {/* Violation alerts */}
           {(isOverCreditLimit || isPastDueDate) && (
@@ -761,36 +782,11 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
             </div>
           </div>
 
-          {/* Chart + Score */}
-          {(hasPieData || !NO_SCORE_RELATIONS.has(profile.relation)) && (
-            <div className={`grid gap-4 ${hasPieData && !NO_SCORE_RELATIONS.has(profile.relation) ? "grid-cols-2" : "grid-cols-1 place-items-center"}`}>
-              {hasPieData && (
-                <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col items-center">
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Repayment Progress</p>
-                  <ResponsiveContainer width={120} height={120}>
-                    <PieChart>
-                      <Pie data={pieData} cx={55} cy={55} innerRadius={30} outerRadius={50} paddingAngle={2} dataKey="value">
-                        {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                      </Pie>
-                      <Tooltip contentStyle={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: "12px", fontSize: "12px", boxShadow: "0 4px 16px rgba(16,24,40,0.08)" }} formatter={(v: number) => [mmkFmt(v), ""]} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="flex gap-3 mt-1 text-xs">
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Paid</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Left</span>
-                  </div>
-                </div>
-              )}
-              {!NO_SCORE_RELATIONS.has(profile.relation) && (
-                <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col items-center justify-center">
-                  <ScoreGauge score={profile.score} />
-                  <div className="mt-2 space-y-1 text-xs text-slate-600 text-center">
-                    <p>80–100 Excellent · 40–79 Average</p>
-                    <p>0–39 High Risk</p>
-                  </div>
-                </div>
-              )}
-            </div>
+          {/* How much of the debt has been repaid */}
+          {loadingTxn ? (
+            <div className="bg-slate-50 border border-slate-100 rounded-xl h-40 animate-pulse" aria-hidden="true" />
+          ) : (
+            <RepaymentChart amounts={transactions.map(t => t.amount)} balance={profile.current_balance} />
           )}
 
           {/* Add Transaction */}
@@ -871,7 +867,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
               ) : (
                 /* ── Simple amount field: payments OR Family/Own debts ── */
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Amount</label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">K</span>
@@ -881,7 +877,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                         required />
                     </div>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-1">Date</label>
                     <input type="date" value={txnDate} onChange={e => setTxnDate(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300/50" />

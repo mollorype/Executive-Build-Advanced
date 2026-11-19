@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   supabase, DebtProfile, DEBT_TABLES, RELATIONS, DebtRelation,
   NO_SCORE_RELATIONS, RECEIVABLES_EXCLUDED_RELATIONS, computeReceivables,
   DebtCategoryId, DEBT_CATEGORY_RELATIONS, DEBT_CATEGORY_LABELS,
-  calculateScore, scoreColor, scoreTier, mmkFmt, formatPhone, generateTxnNumber,
+  repaymentSummary, fmtPercent, mmkFmt, formatPhone, generateTxnNumber,
   combineDateWithCurrentTime,
 } from "@/lib/debt-supabase";
 import DebtProfileDetail from "@/components/debt-profile-detail";
@@ -13,7 +13,7 @@ import { cacheDebtProfiles, getCachedDebtProfiles, useOnlineStatus } from "@/lib
 import { useAuth } from "@/lib/auth-context";
 import {
   Plus, Search, SortAsc, User, Phone, X, Calendar, CreditCard,
-  AlertTriangle, CheckCircle, TrendingDown, Loader2, Trash2, ShieldCheck,
+  AlertTriangle, CheckCircle, TrendingDown, Loader2, Trash2, ShieldCheck, PieChart as PieChartIcon,
   Banknote, ArrowUpDown, ChevronRight, FileSpreadsheet, WifiOff,
 } from "lucide-react";
 
@@ -131,7 +131,30 @@ export default function DebtTracker() {
     }
   }
 
+  // Every transaction amount, by profile — just enough to work out how much each person has repaid.
+  // null = couldn't load (e.g. offline), so the "% repaid" figures are hidden rather than wrong.
+  const [txnAmounts, setTxnAmounts] = useState<Map<string, number[]> | null>(null);
+
+  const fetchTxnAmounts = useCallback(async () => {
+    const byProfile = new Map<string, number[]>();
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from(DEBT_TABLES.TRANSACTIONS)
+        .select("profile_id, amount")
+        .order("id")
+        .range(from, from + 999);
+      if (error) { setTxnAmounts(null); return; }
+      for (const t of (data ?? []) as { profile_id: string; amount: number }[]) {
+        const list = byProfile.get(t.profile_id);
+        if (list) list.push(Number(t.amount)); else byProfile.set(t.profile_id, [Number(t.amount)]);
+      }
+      if (!data || data.length < 1000) break;
+    }
+    setTxnAmounts(byProfile);
+  }, []);
+
   const fetchProfiles = useCallback(async () => {
+    fetchTxnAmounts();
     const { data, error } = await supabase
       .from(DEBT_TABLES.PROFILES)
       .select("*")
@@ -144,7 +167,7 @@ export default function DebtTracker() {
       // so profile links keep working instead of showing an empty list.
       setProfiles(getCachedDebtProfiles());
     }
-  }, []);
+  }, [fetchTxnAmounts]);
 
   const isOnline = useOnlineStatus(fetchProfiles);
 
@@ -219,7 +242,6 @@ export default function DebtTracker() {
         date,
         total_debt: debt,
         current_balance: debt ?? 0,
-        score: 50,
         credit_limit: creditLimit ? parseFloat(creditLimit) : null,
         payment_due_date: paymentDueDate || null,
       })
@@ -293,7 +315,14 @@ export default function DebtTracker() {
   const { owed: externalOwed, activeCount: externalActiveCount } = computeReceivables(profiles);
 
   const totalOwed = profiles.reduce((s, p) => s + Math.max(0, p.current_balance), 0);
-  const redFlags = profiles.filter(p => p.score < 40).length;
+  const repayment = useMemo(() => {
+    if (!txnAmounts) return null;
+    const byId = new Map(profiles.map(p => [p.id, repaymentSummary(txnAmounts.get(p.id) ?? [], p.current_balance)]));
+    let borrowed = 0, repaid = 0, remaining = 0;
+    for (const r of byId.values()) { borrowed += r.borrowed; repaid += Math.min(r.repaid, r.borrowed); remaining += r.remaining; }
+    const percent = borrowed > 0 ? (repaid / borrowed) * 100 : 0;
+    return { byId, borrowed, repaid, remaining, percent };
+  }, [profiles, txnAmounts]);
   const cleared = profiles.filter(p => p.current_balance <= 0).length;
 
   return (
@@ -393,13 +422,20 @@ export default function DebtTracker() {
           </div>
           <div className="bg-white border border-slate-100 rounded-xl p-4 col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
-                <AlertTriangle className="w-4 h-4 text-pale-gold-foreground" />
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                <PieChartIcon className="w-4 h-4 text-pale-green-foreground" />
               </div>
-              <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">High Risk</span>
+              <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Repaid</span>
             </div>
-            <p className="text-lg font-bold text-slate-900">{redFlags}</p>
-            <p className="text-slate-500 text-xs mt-1">Score below 40</p>
+            <p className="text-lg font-bold text-slate-900 tabular-nums">
+              {repayment ? fmtPercent(repayment.percent, repayment.remaining) : "—"}
+            </p>
+            <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1.5" aria-hidden="true">
+              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${repayment ? Math.min(100, repayment.percent) : 0}%` }} />
+            </div>
+            <p className="text-slate-500 text-xs mt-1.5">
+              {repayment ? `${mmkFmt(repayment.repaid)} of ${mmkFmt(repayment.borrowed)} borrowed` : "Of everything borrowed"}
+            </p>
           </div>
         </div>
 
@@ -497,15 +533,14 @@ export default function DebtTracker() {
                 <div className="flex-1">Name</div>
                 <div className="w-28">Relation</div>
                 <div className="w-36 text-right">Balance</div>
-                <div className="w-28 text-right">Score</div>
+                <div className="w-28 text-right">Repaid</div>
                 <div className="w-20" />
               </div>
               <div className="divide-y divide-slate-100">
                 {filtered.map(profile => {
                   const paid = profile.current_balance <= 0;
-                  const risk = profile.score < 40;
-                  const sc = scoreColor(profile.score);
-                  const tier = scoreTier(profile.score);
+                  const rp = repayment?.byId.get(profile.id);
+                  const rpPct = rp && (rp.borrowed > 0 || rp.repaid > 0) ? fmtPercent(rp.percent, rp.remaining) : null;
                   return (
                     <div
                       key={profile.id}
@@ -531,14 +566,17 @@ export default function DebtTracker() {
                             {profile.relation}
                           </span>
                         </div>
-                        {/* Mobile: balance + score row */}
+                        {/* Mobile: balance + repaid row */}
                         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 mt-1.5 md:hidden">
-                          <span className={`font-bold text-sm tabular-nums whitespace-nowrap ${paid ? "text-pale-green-foreground" : risk ? "text-pale-red-foreground" : "text-slate-900"}`}>
+                          <span className={`font-bold text-sm tabular-nums whitespace-nowrap ${paid ? "text-pale-green-foreground" : "text-slate-900"}`}>
                             {paid ? "Cleared" : mmkFmt(profile.current_balance)}
                           </span>
-                          {!NO_SCORE_RELATIONS.has(profile.relation) && (
-                            <span className="text-xs font-bold whitespace-nowrap" style={{ color: sc }}>
-                              {profile.score}/100 · {tier}
+                          {rpPct && rp && (
+                            <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                              <span className="w-12 h-1.5 rounded-full bg-slate-200 overflow-hidden" aria-hidden="true">
+                                <span className="block h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, rp.percent)}%` }} />
+                              </span>
+                              {rpPct} repaid
                             </span>
                           )}
                         </div>
@@ -553,22 +591,22 @@ export default function DebtTracker() {
 
                       {/* Desktop: balance */}
                       <div className="hidden md:block w-36 text-right">
-                        <span className={`font-bold text-sm tabular-nums flex items-center justify-end gap-1 ${paid ? "text-pale-green-foreground" : risk ? "text-pale-red-foreground" : "text-slate-900"}`}>
+                        <span className={`font-bold text-sm tabular-nums flex items-center justify-end gap-1 ${paid ? "text-pale-green-foreground" : "text-slate-900"}`}>
                           {paid ? <><CheckCircle className="w-3.5 h-3.5" /> Cleared</> : mmkFmt(profile.current_balance)}
                         </span>
                       </div>
 
-                      {/* Desktop: score */}
+                      {/* Desktop: % repaid */}
                       <div className="hidden md:block w-28 text-right">
-                        {NO_SCORE_RELATIONS.has(profile.relation) ? (
-                          <span className="text-xs text-slate-400 italic">N/A</span>
-                        ) : (
+                        {rpPct && rp ? (
                           <>
-                            <span className="text-sm font-bold tabular-nums" style={{ color: sc }}>
-                              {profile.score}<span className="text-slate-400 font-normal">/100</span>
-                            </span>
-                            <p className="text-xs mt-0.5" style={{ color: sc }}>{tier}</p>
+                            <span className="text-sm font-bold tabular-nums text-slate-900">{rpPct}</span>
+                            <div className="ml-auto mt-1 w-20 h-1.5 rounded-full bg-slate-200 overflow-hidden" aria-hidden="true">
+                              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, rp.percent)}%` }} />
+                            </div>
                           </>
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
                         )}
                       </div>
 
