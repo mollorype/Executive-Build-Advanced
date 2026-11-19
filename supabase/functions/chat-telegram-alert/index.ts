@@ -1,4 +1,5 @@
-// Forwards each new STM Team Chat message to the CEOs on Telegram.
+// Tells the CEOs on Telegram that someone wrote in STM Team Chat. Messages are
+// end-to-end encrypted, so only the sender's name goes out, never the content.
 //
 // Called by the chat_messages AFTER INSERT trigger (pg_net) with
 // { message_id }. Nothing in the request is trusted beyond that id: the
@@ -9,7 +10,6 @@ import { adminClient, json, CORS } from "../_shared/admin.ts";
 import { tg } from "../_shared/telegram.ts";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
     .update({ telegram_sent_at: new Date().toISOString() })
     .eq("id", message_id)
     .is("telegram_sent_at", null)
-    .select("id, sender_id, sender_name, sender_role, body, photo_path")
+    .select("id, sender_id, sender_name, sender_role, photo_path")
     .maybeSingle();
   if (error) return json({ error: error.message }, 500);
   if (!msg) return json({ skipped: "already sent or not found" });
@@ -46,29 +46,16 @@ Deno.serve(async (req) => {
     .filter((id: number) => !skip.has(String(id)));
   if (!chatIds.length) return json({ sent: 0 });
 
+  // Messages are end-to-end encrypted: the server can't read them, so the
+  // alert only says who wrote and whether there's a photo.
   const who = `${msg.sender_name}${msg.sender_role === "ceo" ? " (CEO)" : ""}`;
   const portal = (Deno.env.get("PORTAL_URL") || "https://powerstm.netlify.app").replace(/\/$/, "");
   const reply_markup = { inline_keyboard: [[{ text: "Open team chat", url: `${portal}/chat` }]] };
-
-  // Photos are sent as photos through a link that works for 10 minutes —
-  // long enough for Telegram to fetch it once.
-  let photoUrl: string | null = null;
-  if (msg.photo_path) {
-    const { data } = await admin.storage.from("chat-photos").createSignedUrl(msg.photo_path, 600);
-    photoUrl = data?.signedUrl ?? null;
-  }
+  const text = `💬 New ${msg.photo_path ? "photo" : "message"} from ${who} in STM Team Chat\n🔒 End-to-end encrypted — open the chat to read it.`;
 
   let sent = 0;
   await Promise.all(chatIds.map(async (chat_id: number) => {
-    let res;
-    if (photoUrl) {
-      const caption = clip(`💬 ${who} — STM Team Chat${msg.body ? `\n\n${msg.body}` : ""}`, 1000);
-      res = await tg(token, "sendPhoto", { chat_id, photo: photoUrl, caption, reply_markup }).catch(() => null);
-    }
-    if (!res?.ok) {
-      const text = clip(`💬 ${who} — STM Team Chat\n\n${msg.body ?? ""}${msg.photo_path ? `${msg.body ? "\n" : ""}📷 Photo` : ""}`, 3500);
-      res = await tg(token, "sendMessage", { chat_id, text, reply_markup }).catch(() => null);
-    }
+    const res = await tg(token, "sendMessage", { chat_id, text, reply_markup }).catch(() => null);
     if (res?.ok) sent++;
   }));
 

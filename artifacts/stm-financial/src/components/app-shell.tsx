@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import ChangePasswordDialog from "@/components/change-password-dialog";
-import { useChatUnread } from "@/components/team-chat";
+import { useChatKeyMaintenance, useChatUnread } from "@/components/team-chat";
 import { useAuth } from "@/lib/auth-context";
 import { supabase, type Role } from "@/lib/supabase";
 import {
@@ -25,6 +25,8 @@ export default function AppShell({ children }: Props) {
   const { user, profile, signOut } = useAuth();
   const [location, setLocation] = useLocation();
   const unread = useChatUnread(supabase, profile?.role === "ceo" ? user?.id ?? null : null, location !== "/chat");
+  // While the portal is open, hand the chat's encryption key to staff's new phones.
+  useChatKeyMaintenance(supabase, profile?.role === "ceo" ? user?.id ?? null : null);
   const badge = (path: string) =>
     path === "/chat" && unread > 0 ? (
       <span className="ml-auto min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">

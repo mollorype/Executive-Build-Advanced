@@ -8,18 +8,29 @@ export type ChatMessage = {
   id: string;
   created_at: string;
   sender_id: string | null;
+  /** Stamped by the database from the sender's login; also sealed into the encryption. */
+  sender_email: string;
   sender_name: string;
   sender_role: ChatRole;
+  /** Readable text — only on test messages from before encryption. */
   body: string | null;
+  /** Encrypted text, the IV it was sealed with, and which chat key version. */
+  ciphertext: string | null;
+  iv: string | null;
+  key_version: number | null;
   photo_path: string | null;
+  photo_iv: string | null;
   client_id: string | null;
+  /** Local only: the decrypted text ("" for a photo with no caption); null if it couldn't be opened. */
+  text?: string | null;
   /** Local only: still on its way, or failed to send. */
   pending?: "sending" | "failed";
   /** Local only: the photo as picked on this device, shown until the server copy loads. */
   localPhoto?: string;
 };
 
-export const MESSAGE_COLUMNS = "id, created_at, sender_id, sender_name, sender_role, body, photo_path, client_id";
+export const MESSAGE_COLUMNS =
+  "id, created_at, sender_id, sender_email, sender_name, sender_role, body, ciphertext, iv, key_version, photo_path, photo_iv, client_id";
 export const PAGE_SIZE = 50;
 export const MAX_BODY = 2000;
 export const PHOTO_BUCKET = "chat-photos";
@@ -33,12 +44,23 @@ export function normalizeMessage(row: unknown): ChatMessage | null {
     id: r.id,
     created_at: r.created_at,
     sender_id: typeof r.sender_id === "string" ? r.sender_id : null,
+    sender_email: typeof r.sender_email === "string" ? r.sender_email : "",
     sender_name: typeof r.sender_name === "string" && r.sender_name ? r.sender_name : "Someone",
     sender_role: r.sender_role === "ceo" ? "ceo" : "staff",
     body: typeof r.body === "string" && r.body ? r.body : null,
+    ciphertext: typeof r.ciphertext === "string" && r.ciphertext ? r.ciphertext : null,
+    iv: typeof r.iv === "string" && r.iv ? r.iv : null,
+    key_version: typeof r.key_version === "number" ? r.key_version : null,
     photo_path: typeof r.photo_path === "string" && r.photo_path ? r.photo_path : null,
+    photo_iv: typeof r.photo_iv === "string" && r.photo_iv ? r.photo_iv : null,
     client_id: typeof r.client_id === "string" ? r.client_id : null,
   };
+}
+
+/** What to show as the message text: decrypted, or the old readable text. undefined = still locked. */
+export function shownText(m: ChatMessage): string | null | undefined {
+  if (m.text !== undefined) return m.text;
+  return m.ciphertext ? undefined : m.body;
 }
 
 const keyOf = (m: ChatMessage) => (m.client_id ? `c:${m.client_id}` : `i:${m.id}`);
@@ -48,8 +70,8 @@ const byTime = (a: ChatMessage, b: ChatMessage) =>
 /**
  * Merge incoming messages into the list, oldest first, one entry per message.
  * The saved copy of a message replaces its local "sending"/"failed" copy
- * (matched by client_id), keeping the local photo preview until the saved
- * photo has loaded.
+ * (matched by client_id), keeping the text already decrypted (or typed here)
+ * and the local photo preview, so nothing flickers.
  */
 export function mergeMessages(list: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
   const map = new Map<string, ChatMessage>();
@@ -58,7 +80,11 @@ export function mergeMessages(list: ChatMessage[], incoming: ChatMessage[]): Cha
     const key = keyOf(m);
     const prev = map.get(key);
     if (prev && !prev.pending && m.pending) continue; // never downgrade a saved message
-    map.set(key, prev?.localPhoto && !m.localPhoto ? { ...m, localPhoto: prev.localPhoto } : m);
+    const keepText = prev && prev.text !== undefined && m.text === undefined;
+    const keepPhoto = prev?.localPhoto && !m.localPhoto;
+    map.set(key, keepText || keepPhoto
+      ? { ...m, ...(keepText ? { text: prev.text } : {}), ...(keepPhoto ? { localPhoto: prev.localPhoto } : {}) }
+      : m);
   }
   return [...map.values()].sort(byTime);
 }
@@ -208,6 +234,13 @@ export const CHAT_STRINGS = {
   back:          { en: "Back", my: "နောက်သို့" },
   close:         { en: "Close", my: "ပိတ်မည်" },
   preparing:     { en: "Preparing photo…", my: "ဓာတ်ပုံ ပြင်ဆင်နေသည်…" },
+  e2e:           { en: "End-to-end encrypted", my: "အစမှအဆုံး လျှို့ဝှက်ထားသည်" },
+  securing:      { en: "Setting up encryption…", my: "လုံခြုံရေး ပြင်ဆင်နေသည်…" },
+  waitingKey:    { en: "This phone hasn't received the chat key yet. It unlocks by itself as soon as a teammate or the CEO has the app open.", my: "ဒီဖုန်းအတွက် chat key မရသေးပါ။ အဖွဲ့ဝင်တစ်ယောက် app ဖွင့်ထားတာနဲ့ အလိုအလျောက် ဖွင့်ပေးပါမည်။" },
+  locked:        { en: "🔒 Waiting for the key to read this", my: "🔒 ဖတ်ရန် key စောင့်နေသည်" },
+  cantOpen:      { en: "🔒 Couldn't unlock this message", my: "🔒 ဒီစာကို ဖွင့်မရပါ" },
+  unsupported:   { en: "This browser can't do encrypted chat. Update it, or open the app in Chrome.", my: "ဒီ browser မှာ အသုံးပြု၍မရပါ။ Chrome ဖြင့်ဖွင့်ပါ။" },
+  deleteMessage: { en: "Delete message", my: "စာဖျက်ရန်" },
   notInstalled:  { en: "Team chat isn't set up yet. The CEO needs to run the chat setup in Supabase.", my: "Team chat ကို မပြင်ဆင်ရသေးပါ" },
   noAccess:      { en: "You don't have access to the team chat. Ask the CEO.", my: "Team chat သုံးခွင့် မရှိပါ" },
   unreadable:    { en: "Couldn't read that photo. Try another one.", my: "ဓာတ်ပုံကို ဖတ်မရပါ" },
@@ -221,6 +254,7 @@ export type ChatStringKey = keyof typeof CHAT_STRINGS;
 export function chatErrorKey(e: unknown, online = true): ChatStringKey | null {
   const err = e as { code?: string; message?: string; statusCode?: string | number } | null;
   const msg = err?.message ?? "";
+  if (msg === "e2e-unsupported") return "unsupported";
   if (!online || /Failed to fetch|NetworkError|Load failed/i.test(msg)) return "offline";
   if (err?.code === "PGRST205" || err?.code === "42P01" || /schema cache|does not exist|Bucket not found/i.test(msg)) return "notInstalled";
   if (err?.code === "42501" || /row-level security|permission denied|Only STM staff/i.test(msg)) return "noAccess";

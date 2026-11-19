@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { type ShiftPayload, type StaffLoginState, AUTH_STORAGE_KEY, authClient, staffAuth, storedStaffUser, supabase, submitShift } from "./lib/supabase";
-import TeamChat, { useChatUnread } from "./components/team-chat";
+import TeamChat, { useChatKeyMaintenance, useChatUnread } from "./components/team-chat";
 import { CHAT_STRINGS } from "./lib/team-chat-core";
 import { enqueueShift, flushQueue, useOfflineSync, useQueueItemStatus, type LinkedExpensePayload } from "./lib/offlineQueue";
 import "./index.css";
@@ -1673,6 +1673,8 @@ export default function App() {
   });
 
   const unread = useChatUnread(authClient, staff?.id ?? null, screen === "mode-select");
+  // While the app is open, hand the chat's encryption key to teammates' new phones.
+  useChatKeyMaintenance(authClient, staff?.id ?? null);
 
   async function signOutStaff() {
     await authClient.auth.signOut({ scope: "local" }).catch(() => {});
