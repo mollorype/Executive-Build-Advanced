@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { type ShiftPayload, supabase, submitShift } from "./lib/supabase";
+import { type ShiftPayload, type StaffLoginState, AUTH_STORAGE_KEY, authClient, staffAuth, storedStaffUser, supabase, submitShift } from "./lib/supabase";
+import TeamChat, { useChatUnread } from "./components/team-chat";
+import { CHAT_STRINGS } from "./lib/team-chat-core";
 import { enqueueShift, flushQueue, useOfflineSync, useQueueItemStatus, type LinkedExpensePayload } from "./lib/offlineQueue";
 import "./index.css";
 
@@ -20,7 +22,7 @@ function fmtSigned(v: number): string {
 }
 
 // ─── types ───────────────────────────────────────────────────────────────────
-type Screen = "login" | "checking" | "denied" | "mode-select" | "form" | "confirm" | "success" | "settings";
+type Screen = "login" | "checking" | "denied" | "mode-select" | "form" | "confirm" | "success" | "settings" | "chat";
 
 interface FuelRow { totalAmount: string; price: string; liters: string; }
 interface DieselRow { cash: string; price: string; }
@@ -52,6 +54,11 @@ type Lang = "en" | "my";
 const STRINGS = {
   signInTitle:          { en: "Sign in to continue",       my: "အကောင့်ဝင်ပါ။" },
   workEmail:            { en: "Work Email",                 my: "အကောင့်အီးမေးထည့်ပါ" },
+  password:             { en: "Password",                   my: "စကားဝှက်" },
+  confirmPassword:      { en: "Type it again",              my: "စကားဝှက် ထပ်ရိုက်ပါ" },
+  createPassword:       { en: "Create your password",       my: "စကားဝှက် အသစ်ဖန်တီးပါ" },
+  enterPassword:        { en: "Enter your password",        my: "စကားဝှက် ထည့်ပါ" },
+  signIn:               { en: "Sign in →",                  my: "ဝင်မည် →" },
   fuelProducts:         { en: "Fuel Products",             my: "ဆီ အမျိုးအစား" },
   totalAmount:          { en: "Total Amount",              my: "ရောင်းရငွေ" },
   literPrice:           { en: "Liter Price",               my: "လီတာစျေးနှုန်း" },
@@ -747,20 +754,89 @@ function ExpensesPanel({ items, onChange, lang }: {
 }
 
 // ─── Login screen ─────────────────────────────────────────────────────────────
-function LoginScreen({ onLogin, lang, setLang }: {
-  onLogin: (name: string, email: string) => void;
+const MIN_STAFF_PASSWORD = 6;
+const LOGIN_FIELD_CLS = "w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-3 text-base sm:text-sm font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-gray-700";
+const LOGIN_LABEL_CLS = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5";
+
+type LoginStep = "email" | "password" | "create";
+
+// Email first; then the password — or, the first time, choosing one.
+// Supabase Auth checks the password; the staff-auth function only creates the
+// login, and only for an email on the STM Daily allowlist with no login yet.
+function LoginScreen({ onSignedIn, onDenied, lang, setLang }: {
+  onSignedIn: (email: string, userId: string) => void;
+  onDenied: (email: string) => void;
   lang: Lang; setLang: (l: Lang) => void;
 }) {
+  const [step, setStep] = useState<LoginStep>("email");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const mail = email.trim().toLowerCase();
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = email.trim().toLowerCase();
-    if (!trimmed.includes("@")) { setError("Please enter a valid email address."); return; }
-    const name = trimmed.split("@")[0];
-    onLogin(name, trimmed);
+  async function signIn() {
+    const { data, error: err } = await authClient.auth.signInWithPassword({ email: mail, password });
+    if (err || !data.user) {
+      const msg = err?.message ?? "";
+      setError(/invalid login/i.test(msg) ? "Wrong password. Try again, or ask your manager to reset it."
+        : !navigator.onLine || /fetch|network/i.test(msg) ? "No internet connection. Connect and try again."
+        : msg || "Couldn't sign in. Try again.");
+      return;
+    }
+    onSignedIn(mail, data.user.id);
   }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (step === "email") {
+      if (!mail.includes("@")) { setError("Please enter a valid email address."); return; }
+      setBusy(true);
+      try {
+        const { state } = await staffAuth<{ state: StaffLoginState }>({ action: "status", email: mail });
+        if (state === "not_allowed") { onDenied(mail); return; }
+        setPassword(""); setConfirmPw(""); setShow(false);
+        setStep(state === "has_password" ? "password" : "create");
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    if (step === "create") {
+      if (password.length < MIN_STAFF_PASSWORD) { setError(`Use at least ${MIN_STAFF_PASSWORD} characters.`); return; }
+      if (password !== confirmPw) { setError("The two passwords don't match."); return; }
+      setBusy(true);
+      try {
+        await staffAuth({ action: "set_password", email: mail, password });
+      } catch (err) {
+        setError((err as Error).message);
+        setBusy(false);
+        return;
+      }
+      await signIn();
+      setBusy(false);
+      return;
+    }
+    setBusy(true);
+    await signIn();
+    setBusy(false);
+  }
+
+  const eye = (
+    <button type="button" onClick={() => setShow(v => !v)} aria-label={show ? "Hide password" : "Show password"}
+      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white p-1">
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        {show
+          ? <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 5.1A9.5 9.5 0 0112 5c5 0 9 4.5 10 7-.4 1-1.2 2.3-2.4 3.6M6.1 6.1C4.2 7.4 2.8 9.4 2 12c1 2.5 5 7 10 7 1.7 0 3.3-.5 4.6-1.3" />
+          : <><path strokeLinecap="round" strokeLinejoin="round" d="M2 12c1-2.5 5-7 10-7s9 4.5 10 7c-1 2.5-5 7-10 7S3 14.5 2 12z" /><circle cx="12" cy="12" r="3" /></>}
+      </svg>
+    </button>
+  );
 
   return (
     <div className="min-h-screen bg-[#0f111a] flex flex-col items-center justify-center px-4">
@@ -777,28 +853,85 @@ function LoginScreen({ onLogin, lang, setLang }: {
         <p className="text-sm text-gray-500 mt-1">Daily Shift Report Portal</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-[#161b22] rounded-2xl border border-[#30363d] p-8">
-        <h2 className="text-lg font-bold text-white mb-1">{t(lang, "signInTitle")}</h2>
-        <p className="text-sm text-gray-500 mb-6">Enter your work email to start your shift report.</p>
+      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-[#161b22] rounded-2xl border border-[#30363d] p-6 sm:p-8">
+        {step === "email" ? (
+          <>
+            <h2 className="text-lg font-bold text-white mb-1">{t(lang, "signInTitle")}</h2>
+            <p className="text-sm text-gray-500 mb-6">Enter your work email to start your shift report.</p>
 
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">{t(lang, "workEmail")}</label>
-        <input
-          type="email"
-          value={email}
-          onChange={e => { setEmail(e.target.value); setError(""); }}
-          placeholder="you@company.com"
-          className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-gray-700"
-          autoFocus
-          required
-        />
-        {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
+            <label htmlFor="login-email" className={LOGIN_LABEL_CLS}>{t(lang, "workEmail")}</label>
+            <input
+              id="login-email"
+              type="email"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setError(""); }}
+              placeholder="you@company.com"
+              autoComplete="username"
+              className={LOGIN_FIELD_CLS}
+              autoFocus
+              required
+            />
+          </>
+        ) : (
+          <>
+            <h2 className="text-lg font-bold text-white mb-1">{t(lang, step === "create" ? "createPassword" : "enterPassword")}</h2>
+            <p className="text-sm text-gray-500 mb-5">
+              {step === "create"
+                ? `First time signing in — choose a password (at least ${MIN_STAFF_PASSWORD} characters; numbers are fine). You'll use it every time.`
+                : "Welcome back."}
+            </p>
+
+            <div className="flex items-center justify-between gap-2 bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-2.5 mb-4">
+              <span className="text-sm text-gray-300 truncate">{mail}</span>
+              <button type="button" onClick={() => { setStep("email"); setError(""); setPassword(""); setConfirmPw(""); }}
+                className="text-xs font-semibold text-blue-400 hover:text-blue-300 shrink-0">Change</button>
+            </div>
+
+            <label htmlFor="login-password" className={LOGIN_LABEL_CLS}>{t(lang, "password")}</label>
+            <div className="relative">
+              <input
+                id="login-password"
+                type={show ? "text" : "password"}
+                value={password}
+                onChange={e => { setPassword(e.target.value); setError(""); }}
+                autoComplete={step === "create" ? "new-password" : "current-password"}
+                className={`${LOGIN_FIELD_CLS} pr-11`}
+                autoFocus
+                required
+              />
+              {eye}
+            </div>
+
+            {step === "create" && (
+              <>
+                <label htmlFor="login-confirm" className={`${LOGIN_LABEL_CLS} mt-4`}>{t(lang, "confirmPassword")}</label>
+                <input
+                  id="login-confirm"
+                  type={show ? "text" : "password"}
+                  value={confirmPw}
+                  onChange={e => { setConfirmPw(e.target.value); setError(""); }}
+                  autoComplete="new-password"
+                  className={LOGIN_FIELD_CLS}
+                  required
+                />
+              </>
+            )}
+          </>
+        )}
+
+        {error && <p role="alert" className="text-xs text-red-400 mt-2">{error}</p>}
 
         <button
           type="submit"
-          className="mt-5 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98]"
+          disabled={busy}
+          className="mt-5 w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98]"
         >
-          Continue →
+          {busy && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+          {step === "email" ? "Continue →" : step === "create" ? "Save password & sign in →" : t(lang, "signIn")}
         </button>
+        {step === "password" && (
+          <p className="text-xs text-gray-600 mt-3 text-center">Forgot it? Ask your manager to reset your password.</p>
+        )}
       </form>
       <p className="text-xs text-gray-700 mt-6">STM Daily · Confidential</p>
     </div>
@@ -1292,8 +1425,8 @@ function loadConfig(): AppConfig {
 function saveConfig(cfg: AppConfig) { localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg)); }
 
 // ─── Mode Select Screen ───────────────────────────────────────────────────────
-function ModeSelectScreen({ employeeName, onShift, onSettings, onLogout, lang, setLang }: {
-  employeeName: string; onShift: () => void;
+function ModeSelectScreen({ employeeName, onShift, onChat, unread, onSettings, onLogout, lang, setLang }: {
+  employeeName: string; onShift: () => void; onChat: () => void; unread: number;
   onSettings: () => void; onLogout: () => void; lang: Lang; setLang: (l: Lang) => void;
 }) {
   return (
@@ -1346,6 +1479,31 @@ function ModeSelectScreen({ employeeName, onShift, onSettings, onLogout, lang, s
           </div>
           <div className="mt-4 flex items-center text-xs font-semibold text-blue-400">
             Open form
+            <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+          </div>
+        </button>
+
+        <button type="button" onClick={onChat}
+          aria-label={unread > 0 ? `${CHAT_STRINGS.title[lang]}, ${unread} new` : CHAT_STRINGS.title[lang]}
+          className="w-full bg-[#161b22] border-2 border-[#30363d] hover:border-emerald-500/60 hover:bg-emerald-600/5 rounded-2xl p-6 text-left transition-all active:scale-[0.98] group">
+          <div className="flex items-start gap-4">
+            <div className="relative w-12 h-12 rounded-xl bg-emerald-600/20 flex items-center justify-center shrink-0 group-hover:bg-emerald-600/30 transition-colors">
+              <svg className="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5M21 12a8.5 8.5 0 01-12.4 7.6L3 21l1.4-5.6A8.5 8.5 0 1121 12z" />
+              </svg>
+              {unread > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
+            </div>
+            <div>
+              <p className="text-base font-bold text-white">{CHAT_STRINGS.title[lang]}</p>
+              <p className="text-sm text-gray-500 mt-0.5">Message the team and the CEO, and share photos</p>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-xs font-semibold text-emerald-400">
+            {unread > 0 ? `${unread > 99 ? "99+" : unread} new message${unread === 1 ? "" : "s"}` : "Open chat"}
             <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
           </div>
         </button>
@@ -1490,9 +1648,17 @@ function clearSession() { localStorage.removeItem(SESSION_KEY); }
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("login");
-  const [employeeName, setEmployeeName] = useState("");
-  const [email, setEmail] = useState("");
+  // The signed-in staff member, read from this device's saved sign-in, so the
+  // app still opens offline (shifts are queued and sent later, as before).
+  const [staff, setStaff] = useState<{ id: string; email: string } | null>(() => storedStaffUser());
+  const [screen, setScreen] = useState<Screen>(() => (storedStaffUser() ? "mode-select" : "login"));
+  const [employeeName, setEmployeeName] = useState(() => {
+    const u = storedStaffUser();
+    if (!u) return "";
+    const saved = loadSession();
+    return saved?.mail === u.email ? saved.name : u.email.split("@")[0];
+  });
+  const [email, setEmail] = useState(() => storedStaffUser()?.email ?? "");
   const [formData, setFormData] = useState<FormData>(EMPTY);
   const [grandTotal, setGrandTotal] = useState(0);
   const [difference, setDifference] = useState(0);
@@ -1506,32 +1672,60 @@ export default function App() {
     return (saved === "my" ? "my" : "en") as Lang;
   });
 
-  // Restore saved session on first load
+  const unread = useChatUnread(authClient, staff?.id ?? null, screen === "mode-select");
+
+  async function signOutStaff() {
+    await authClient.auth.signOut({ scope: "local" }).catch(() => {});
+    // Offline, signOut can't reach the server and leaves the saved sign-in; drop it anyway.
+    try { localStorage.removeItem(AUTH_STORAGE_KEY); } catch { /* storage blocked */ }
+    setStaff(null);
+  }
+
   useEffect(() => {
-    const saved = loadSession();
-    if (saved) {
-      setEmployeeName(saved.name);
-      setEmail(saved.mail);
-      setScreen("mode-select");
+    // Email-only sign-ins from before passwords don't count any more.
+    if (!storedStaffUser()) clearSession();
+
+    // A password reset or revoked sign-in signs this device out.
+    const { data: { subscription } } = authClient.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") setStaff(null);
+      else if (session?.user?.email) setStaff({ id: session.user.id, email: session.user.email.toLowerCase() });
+    });
+
+    // Opened with a saved sign-in: still on the STM Daily list, and still the same login?
+    const u = storedStaffUser();
+    if (u && navigator.onLine) {
+      staffAuth<{ state: StaffLoginState }>({ action: "status", email: u.email })
+        .then(({ state }) => {
+          if (state === "not_allowed") { signOutStaff(); setEmail(u.email); setScreen("denied"); }
+          else if (state === "needs_password") signOutStaff();   // their password was reset
+        })
+        .catch(() => { /* offline or a server hiccup: carry on */ });
     }
+    return () => subscription.unsubscribe();
   }, []);
 
-  async function handleLogin(name: string, mail: string) {
+  // Signed out on a screen that needs the sign-in → back to sign-in. A shift
+  // being filled in is left alone (it doesn't need the sign-in) until they leave it.
+  useEffect(() => {
+    if (!staff && (screen === "mode-select" || screen === "chat" || screen === "settings")) {
+      clearSession();
+      setEmployeeName("");
+      setEmail("");
+      setScreen("login");
+    }
+  }, [staff, screen]);
+
+  function handleSignedIn(mail: string, userId: string) {
+    const name = mail.split("@")[0];
+    saveSession(name, mail);
+    setStaff({ id: userId, email: mail });
     setEmployeeName(name);
     setEmail(mail);
-    setScreen("checking");
-
-    const { data, error } = await supabase.rpc("is_employee_allowed", { check_email: mail });
-
-    if (error || !data) {
-      setScreen("denied");
-    } else {
-      saveSession(name, mail);
-      setScreen("mode-select");
-    }
+    setScreen("mode-select");
   }
 
   function handleLogout() {
+    signOutStaff();
     clearSession();
     setEmployeeName("");
     setEmail("");
@@ -1699,13 +1893,21 @@ export default function App() {
 
   return (
     <>
-      {screen === "login"       && <LoginScreen onLogin={handleLogin} lang={lang} setLang={setLang} />}
+      {screen === "login"       && (
+        <LoginScreen
+          onSignedIn={handleSignedIn}
+          onDenied={mail => { setEmail(mail); setScreen("denied"); }}
+          lang={lang} setLang={setLang}
+        />
+      )}
       {screen === "checking"    && <CheckingScreen />}
       {screen === "denied"      && <DeniedScreen email={email} onBack={() => setScreen("login")} />}
       {screen === "mode-select" && (
         <ModeSelectScreen
           employeeName={employeeName}
           onShift={() => setScreen("form")}
+          onChat={() => setScreen("chat")}
+          unread={unread}
           onSettings={() => setScreen("settings")}
           onLogout={handleLogout}
           lang={lang} setLang={setLang}
@@ -1737,6 +1939,17 @@ export default function App() {
       )}
       {screen === "success"  && <SuccessScreen employeeName={employeeName} onNewShift={handleNewShift} queuedItemId={lastQueuedId} lang={lang} />}
       {screen === "settings" && <AppSettingsScreen onBack={() => setScreen("mode-select")} />}
+      {screen === "chat" && staff && (
+        <div className="h-[100dvh]">
+          <TeamChat
+            client={authClient}
+            me={{ id: staff.id, email: staff.email, role: "staff" }}
+            theme="dark"
+            lang={lang}
+            onBack={() => setScreen("mode-select")}
+          />
+        </div>
+      )}
 
       <SyncStatusBanner isOnline={isOnline} pendingCount={pendingCount} justSynced={justSynced} lang={lang} />
     </>

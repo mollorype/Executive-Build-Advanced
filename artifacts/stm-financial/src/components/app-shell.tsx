@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import ChangePasswordDialog from "@/components/change-password-dialog";
+import { useChatUnread } from "@/components/team-chat";
 import { useAuth } from "@/lib/auth-context";
-import type { Role } from "@/lib/supabase";
+import { supabase, type Role } from "@/lib/supabase";
 import {
-  Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, PackageSearch, CreditCard, Receipt, Home, Cylinder, KeyRound,
+  Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, PackageSearch, CreditCard, Receipt, Home, Cylinder, KeyRound, MessageCircle,
 } from "lucide-react";
 
 type Props = { children: React.ReactNode };
@@ -16,12 +17,20 @@ const navItems: { path: string; label: string; icon: typeof LayoutDashboard; rol
   { path: "/pipa-ledger", label: "Pipa Ledger", icon: Cylinder, roles: ["ceo"] },
   { path: "/debt-tracker", label: "Debt Tracker", icon: CreditCard, roles: ["ceo", "accountant"] },
   { path: "/home-expenses", label: "I/C", icon: Home, roles: ["ceo"] },
+  { path: "/chat", label: "Team Chat", icon: MessageCircle, roles: ["ceo"] },
   { path: "/manage-access", label: "Staff Access", icon: Users, roles: ["ceo"] },
 ];
 
 export default function AppShell({ children }: Props) {
-  const { profile, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const [location, setLocation] = useLocation();
+  const unread = useChatUnread(supabase, profile?.role === "ceo" ? user?.id ?? null : null, location !== "/chat");
+  const badge = (path: string) =>
+    path === "/chat" && unread > 0 ? (
+      <span className="ml-auto min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">
+        {unread > 99 ? "99+" : unread}
+      </span>
+    ) : null;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const visibleNavItems = navItems.filter(item => !profile || item.roles.includes(profile.role));
@@ -74,7 +83,7 @@ export default function AppShell({ children }: Props) {
               >
                 <Icon className="w-4 h-4 shrink-0" />
                 {label}
-                {active && <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-60" />}
+                {badge(path) ?? (active && <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-60" />)}
               </button>
             );
           })}
@@ -104,9 +113,12 @@ export default function AppShell({ children }: Props) {
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
           aria-expanded={mobileOpen}
-          className="text-slate-500 hover:text-slate-900 p-1"
+          className="relative text-slate-500 hover:text-slate-900 p-1"
         >
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          {!mobileOpen && unread > 0 && (
+            <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white" aria-label={`${unread} new team chat messages`} />
+          )}
         </button>
       </div>
 
@@ -129,6 +141,7 @@ export default function AppShell({ children }: Props) {
                 >
                   <Icon className="w-4 h-4" />
                   {label}
+                  {badge(path)}
                 </button>
               );
             })}

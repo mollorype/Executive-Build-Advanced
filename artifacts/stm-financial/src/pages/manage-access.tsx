@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { UserPlus, Calculator, Check, AlertCircle, Shield, Trash2, Mail, RefreshCw, Copy, Crown, type LucideIcon } from "lucide-react";
 import CeoAccessSection from "@/components/ceo-access-section";
+import StaffLoginsSection from "@/components/staff-logins-section";
 
 type AllowlistEntry = {
   id: string;
@@ -316,6 +317,9 @@ export default function ManageAccess() {
             deleteConfirm={email => `Remove ${email} from the allowlist?\nThey will no longer be able to submit shifts.`}
             setupSql={EMPLOYEE_SETUP_SQL}
           />
+          <div className="mt-4">
+            <StaffLoginsSection />
+          </div>
         </section>
 
         <section>

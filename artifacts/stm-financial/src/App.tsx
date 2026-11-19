@@ -14,6 +14,7 @@ import PORegistry from "@/pages/po-registry";
 import PipaLedger from "@/pages/pipa-ledger";
 import DebtTracker from "@/pages/debt-tracker";
 import HomeExpenses from "@/pages/home-expenses";
+import ChatPage from "@/pages/chat";
 
 const queryClient = new QueryClient();
 
@@ -133,6 +134,12 @@ function Router() {
       <Route path="/home-expenses">
         <ProtectedRoute>
           <HomeExpenses />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/chat">
+        <ProtectedRoute>
+          <ChatPage />
         </ProtectedRoute>
       </Route>
 
