@@ -79,7 +79,7 @@ export const DEBT_TABLES = {
 export type DebtRelation = "Friends" | "Family" | "Own" | "Contract" | "Vendor" | "Employee" | "On Paper" | "Other";
 export const RELATIONS: DebtRelation[] = ["Friends", "Family", "Own", "Contract", "Vendor", "Employee", "On Paper", "Other"];
 
-/** Simple-expense flow: no fuel/product fields, no credit score, no ScoreGauge. */
+/** Simple-expense flow: no fuel/product fields. */
 export const NO_SCORE_RELATIONS = new Set<DebtRelation>(["Own", "Family", "On Paper"]);
 
 export type DebtProfile = {
@@ -167,32 +167,47 @@ export function generateTxnNumber(): string {
   return `TXN-${d}-${r}`;
 }
 
-export function calculateScore(transactions: DebtTransaction[], currentBalance: number): number {
-  let score = 50;
-  const payments = transactions.filter(t => t.amount < 0);
-  score += payments.length * 5;
-  if (currentBalance <= 0 && payments.length > 0) score += 10;
-  if (payments.length > 0 && currentBalance > 0) {
-    const sorted = [...payments].sort((a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-    const daysSince = Math.floor((Date.now() - new Date(sorted[0].created_at).getTime()) / 86400000);
-    if (daysSince >= 60) score -= 10;
-    else if (daysSince >= 30) score -= 5;
+export type RepaymentSummary = {
+  /** Everything they've owed: debts recorded as transactions, plus any starting balance that has no transaction. */
+  borrowed: number;
+  /** Everything they've paid back. */
+  repaid: number;
+  /** Still owed (never below 0). */
+  remaining: number;
+  /** Paid more than they owed. */
+  overpaid: number;
+  /** Share of `borrowed` that has been repaid, 0–100. */
+  percent: number;
+};
+
+/**
+ * How much of a person's debt has been repaid, from their transactions
+ * (debts are positive amounts, payments negative) and current balance.
+ * A starting balance entered without a transaction (e.g. Family/Own
+ * profiles) counts as borrowed, so borrowed − repaid always equals the balance.
+ */
+export function repaymentSummary(amounts: number[], currentBalance: number): RepaymentSummary {
+  let fromTxns = 0;
+  let repaid = 0;
+  let net = 0;
+  for (const a of amounts) {
+    if (!Number.isFinite(a)) continue;
+    net += a;
+    if (a > 0) fromTxns += a;
+    else repaid += -a;
   }
-  return Math.max(0, Math.min(100, score));
+  const opening = currentBalance - net;          // balance not explained by transactions
+  const borrowed = fromTxns + Math.max(0, opening);
+  const remaining = Math.max(0, currentBalance);
+  const overpaid = Math.max(0, -currentBalance);
+  const percent = borrowed > 0 ? Math.min(100, (repaid / borrowed) * 100) : repaid > 0 ? 100 : 0;
+  return { borrowed, repaid, remaining, overpaid, percent };
 }
 
-export function scoreColor(score: number) {
-  if (score >= 80) return "#10b981";
-  if (score >= 40) return "#f59e0b";
-  return "#ef4444";
-}
-
-export function scoreTier(score: number) {
-  if (score >= 80) return "Excellent";
-  if (score >= 40) return "Average";
-  return "High Risk";
+/** "72%", "99.5%", "100%" — never rounds up to 100% while something is still owed. */
+export function fmtPercent(p: number, remaining = 0): string {
+  if (remaining > 0 && p >= 99.5) return `${Math.min(99.9, Math.floor(p * 10) / 10)}%`;
+  return `${Math.round(p)}%`;
 }
 
 export function mmkFmt(val: number | null | undefined, showSign = false) {

@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { type ShiftPayload, supabase, submitShift } from "./lib/supabase";
+import { type ShiftPayload, type StaffLoginState, AUTH_STORAGE_KEY, authClient, staffAuth, storedStaffUser, supabase, submitShift } from "./lib/supabase";
+import TeamChat, { useChatKeyMaintenance, useChatUnread } from "./components/team-chat";
+import { CHAT_STRINGS } from "./lib/team-chat-core";
 import { enqueueShift, flushQueue, useOfflineSync, useQueueItemStatus, type LinkedExpensePayload } from "./lib/offlineQueue";
 import "./index.css";
 
@@ -20,7 +22,7 @@ function fmtSigned(v: number): string {
 }
 
 // ─── types ───────────────────────────────────────────────────────────────────
-type Screen = "login" | "checking" | "denied" | "mode-select" | "form" | "confirm" | "success" | "settings";
+type Screen = "login" | "checking" | "denied" | "mode-select" | "form" | "confirm" | "success" | "settings" | "chat";
 
 interface FuelRow { totalAmount: string; price: string; liters: string; }
 interface DieselRow { cash: string; price: string; }
@@ -29,7 +31,9 @@ type PipaProduct = "92" | "95" | "PD" | "D";
 interface PipaItem { product: PipaProduct; containers: string; price: string; }
 interface JellyCanItem { product: PipaProduct; pieces: string; liters: string; price: string; }
 interface FormData {
-  fuel92: FuelRow;
+  fuel92: FuelRow;          // Fuel 92 — normal pump
+  fuel92New: FuelRow;       // Fuel 92 — new pump (closable)
+  fuel92NewOpen: boolean;
   fuel95: FuelRow;
   premiumDiesel: FuelRow;
   pipa: PipaItem[];
@@ -50,10 +54,18 @@ type Lang = "en" | "my";
 const STRINGS = {
   signInTitle:          { en: "Sign in to continue",       my: "အကောင့်ဝင်ပါ။" },
   workEmail:            { en: "Work Email",                 my: "အကောင့်အီးမေးထည့်ပါ" },
+  password:             { en: "Password",                   my: "စကားဝှက်" },
+  confirmPassword:      { en: "Type it again",              my: "စကားဝှက် ထပ်ရိုက်ပါ" },
+  createPassword:       { en: "Create your password",       my: "စကားဝှက် အသစ်ဖန်တီးပါ" },
+  enterPassword:        { en: "Enter your password",        my: "စကားဝှက် ထည့်ပါ" },
+  signIn:               { en: "Sign in →",                  my: "ဝင်မည် →" },
   fuelProducts:         { en: "Fuel Products",             my: "ဆီ အမျိုးအစား" },
   totalAmount:          { en: "Total Amount",              my: "ရောင်းရငွေ" },
   literPrice:           { en: "Liter Price",               my: "လီတာစျေးနှုန်း" },
   literSold:            { en: "Liters Sold",               my: "ရောင်းရလီတာ" },
+  normalPump:           { en: "Normal Pump",               my: "ပုံမှန်ပန့်" },
+  newPump:              { en: "New Pump",                  my: "ပန့်အသစ်" },
+  addNewPump:           { en: "Add New Pump",              my: "ပန့်အသစ် ထည့်ရန်" },
   pipa:                 { en: "Pipa",                      my: "ပီပါ" },
   addPipaEntry:         { en: "Add Pipa Entry",            my: "ပီပါထည့်ရန်" },
   cashAmount:           { en: "Cash Amount",               my: "ငွေပမာဏ" },
@@ -98,6 +110,8 @@ function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void 
 
 const EMPTY: FormData = {
   fuel92:         { totalAmount: "", price: "", liters: "" },
+  fuel92New:      { totalAmount: "", price: "", liters: "" },
+  fuel92NewOpen:  true,
   fuel95:         { totalAmount: "", price: "", liters: "" },
   premiumDiesel:  { totalAmount: "", price: "", liters: "" },
   pipa:           [],
@@ -107,6 +121,29 @@ const EMPTY: FormData = {
   actualCash:     "",
   shiftDate:      "",
 };
+
+/** Litres for one pump row: entered/auto-filled litres, else derived from total ÷ price. */
+function fuelRowLiters(row: FuelRow): number {
+  return n(row.liters) > 0 ? n(row.liters) : (n(row.price) > 0 ? n(row.totalAmount) / n(row.price) : 0);
+}
+
+type Pump92 = { key: "normal" | "new"; row: FuelRow };
+
+/** The Fuel 92 pumps that count: the normal pump always, the new pump only while its card is open. */
+function fuel92Pumps(form: FormData): Pump92[] {
+  return form.fuel92NewOpen
+    ? [{ key: "normal", row: form.fuel92 }, { key: "new", row: form.fuel92New }]
+    : [{ key: "normal", row: form.fuel92 }];
+}
+
+/** Whether the "new pump" card is shown — remembered per device, since a station either has it or doesn't. */
+const NEW_PUMP_KEY = "stm_daily_92_new_pump_open";
+function loadNewPumpOpen(): boolean {
+  try { return localStorage.getItem(NEW_PUMP_KEY) !== "0"; } catch { return true; }
+}
+function saveNewPumpOpen(open: boolean) {
+  try { localStorage.setItem(NEW_PUMP_KEY, open ? "1" : "0"); } catch { /* storage unavailable — default next time */ }
+}
 
 // ─── Input component ─────────────────────────────────────────────────────────
 function GoldInput({
@@ -396,6 +433,20 @@ function ProductCard({ label, badge, accentText, accentBorder, totalAmount, pric
           </span>
         )}
       </div>
+      <PumpInputs totalAmount={totalAmount} price={price} liters={liters}
+        onTotalAmount={onTotalAmount} onPrice={onPrice} onLiters={onLiters} lang={lang} />
+    </div>
+  );
+}
+
+/** Total / price / litres inputs for one pump. */
+function PumpInputs({ totalAmount, price, liters, onTotalAmount, onPrice, onLiters, lang }: {
+  totalAmount: string; price: string; liters: string;
+  onTotalAmount: (v: string) => void; onPrice: (v: string) => void; onLiters: (v: string) => void;
+  lang: Lang;
+}) {
+  return (
+    <>
       <div className="px-5 pb-3 grid grid-cols-2 gap-4">
         <GoldInput label={t(lang, "totalAmount")} value={totalAmount} onChange={onTotalAmount} prefix="K" />
         <GoldInput label={t(lang, "literPrice")} value={price} onChange={onPrice} prefix="K" />
@@ -403,6 +454,70 @@ function ProductCard({ label, badge, accentText, accentBorder, totalAmount, pric
       <div className="px-5 pb-5">
         <GoldInput label={t(lang, "literSold")} value={liters} onChange={onLiters} />
       </div>
+    </>
+  );
+}
+
+type FuelField = "totalAmount" | "price" | "liters";
+
+// ─── Fuel 92 card — normal pump + closable new pump ────────────────────────────
+function Fuel92Card({ normal, fresh, newOpen, total, onField, onOpenNew, onCloseNew, lang }: {
+  normal: FuelRow; fresh: FuelRow; newOpen: boolean; total: number;
+  onField: (key: "fuel92" | "fuel92New", field: FuelField, v: string) => void;
+  onOpenNew: () => void; onCloseNew: () => void;
+  lang: Lang;
+}) {
+  const pumpHeader = (label: string, amount: number, close?: () => void) => (
+    <div className="px-5 pb-2 flex items-center justify-between gap-2">
+      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">{label}</span>
+      <div className="flex items-center gap-2">
+        {amount > 0 && <span className="text-xs font-semibold text-blue-300 tabular-nums">{fmt(amount)}</span>}
+        {close && (
+          <button type="button" onClick={close} aria-label={`Close ${t(lang, "newPump")}`}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="bg-[#161b22] rounded-2xl border border-[#30363d] overflow-hidden border-l-4 border-l-blue-500">
+      <div className="px-5 pt-4 pb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="text-[11px] font-black px-2 py-0.5 rounded-md bg-white/5 text-blue-400">92</span>
+          <span className="text-sm font-bold text-white uppercase tracking-wide">Fuel 92</span>
+        </div>
+        {total > 0 && (
+          <span className="text-base font-bold tabular-nums text-blue-400">
+            {fmt(total)} <span className="text-gray-600 text-xs font-normal">MMK</span>
+          </span>
+        )}
+      </div>
+
+      {pumpHeader(t(lang, "normalPump"), n(normal.totalAmount))}
+      <PumpInputs totalAmount={normal.totalAmount} price={normal.price} liters={normal.liters}
+        onTotalAmount={v => onField("fuel92", "totalAmount", v)} onPrice={v => onField("fuel92", "price", v)}
+        onLiters={v => onField("fuel92", "liters", v)} lang={lang} />
+
+      {newOpen ? (
+        <div className="border-t border-[#30363d] pt-3">
+          {pumpHeader(t(lang, "newPump"), n(fresh.totalAmount), onCloseNew)}
+          <PumpInputs totalAmount={fresh.totalAmount} price={fresh.price} liters={fresh.liters}
+            onTotalAmount={v => onField("fuel92New", "totalAmount", v)} onPrice={v => onField("fuel92New", "price", v)}
+            onLiters={v => onField("fuel92New", "liters", v)} lang={lang} />
+        </div>
+      ) : (
+        <div className="px-5 pb-5">
+          <button type="button" onClick={onOpenNew}
+            className="w-full py-2.5 rounded-xl border border-dashed border-[#30363d] hover:border-blue-500/60 text-sm font-semibold text-gray-400 hover:text-blue-300 transition-colors">
+            + {t(lang, "addNewPump")}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -472,9 +587,11 @@ function ExpensesPanel({ items, onChange, lang }: {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex gap-2">
+      {/* Phones: the name/profile search gets its own full-width row, with Amount + Add
+          below it. sm+: one row, as before ("sm:contents" dissolves the inner wrapper). */}
+      <div className="flex flex-col sm:flex-row gap-2">
         {/* Name / search combobox */}
-        <div className="flex-1 flex flex-col gap-1.5 relative" ref={wrapRef}>
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5 relative" ref={wrapRef}>
           <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "expenseName")}</label>
           <div className="relative">
             <input
@@ -484,7 +601,7 @@ function ExpensesPanel({ items, onChange, lang }: {
               onKeyDown={e => e.key === "Enter" && addItem()}
               onFocus={() => { if (hits.length > 0) setShowDrop(true); }}
               placeholder="Search a profile or type a new name…"
-              className={`w-full rounded-xl border px-3 py-3 text-sm font-medium outline-none bg-[#0d1117] text-white placeholder:text-gray-700 transition-colors ${
+              className={`w-full rounded-xl border px-3 ${profileId ? "pr-16" : ""} py-3 text-sm font-medium outline-none bg-[#0d1117] text-white placeholder:text-gray-700 transition-colors ${
                 profileId
                   ? "border-blue-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
                   : "border-[#30363d] focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
@@ -519,8 +636,9 @@ function ExpensesPanel({ items, onChange, lang }: {
           )}
         </div>
 
+        <div className="flex gap-2 sm:contents">
         {/* Amount */}
-        <div className="w-32 flex flex-col gap-1.5">
+        <div className="flex-1 sm:flex-none sm:w-32 flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "amount")}</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
@@ -548,6 +666,7 @@ function ExpensesPanel({ items, onChange, lang }: {
             </svg>
             Add
           </button>
+        </div>
         </div>
       </div>
 
@@ -635,20 +754,89 @@ function ExpensesPanel({ items, onChange, lang }: {
 }
 
 // ─── Login screen ─────────────────────────────────────────────────────────────
-function LoginScreen({ onLogin, lang, setLang }: {
-  onLogin: (name: string, email: string) => void;
+const MIN_STAFF_PASSWORD = 6;
+const LOGIN_FIELD_CLS = "w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-3 text-base sm:text-sm font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-gray-700";
+const LOGIN_LABEL_CLS = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5";
+
+type LoginStep = "email" | "password" | "create";
+
+// Email first; then the password — or, the first time, choosing one.
+// Supabase Auth checks the password; the staff-auth function only creates the
+// login, and only for an email on the STM Daily allowlist with no login yet.
+function LoginScreen({ onSignedIn, onDenied, lang, setLang }: {
+  onSignedIn: (email: string, userId: string) => void;
+  onDenied: (email: string) => void;
   lang: Lang; setLang: (l: Lang) => void;
 }) {
+  const [step, setStep] = useState<LoginStep>("email");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const mail = email.trim().toLowerCase();
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = email.trim().toLowerCase();
-    if (!trimmed.includes("@")) { setError("Please enter a valid email address."); return; }
-    const name = trimmed.split("@")[0];
-    onLogin(name, trimmed);
+  async function signIn() {
+    const { data, error: err } = await authClient.auth.signInWithPassword({ email: mail, password });
+    if (err || !data.user) {
+      const msg = err?.message ?? "";
+      setError(/invalid login/i.test(msg) ? "Wrong password. Try again, or ask your manager to reset it."
+        : !navigator.onLine || /fetch|network/i.test(msg) ? "No internet connection. Connect and try again."
+        : msg || "Couldn't sign in. Try again.");
+      return;
+    }
+    onSignedIn(mail, data.user.id);
   }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (step === "email") {
+      if (!mail.includes("@")) { setError("Please enter a valid email address."); return; }
+      setBusy(true);
+      try {
+        const { state } = await staffAuth<{ state: StaffLoginState }>({ action: "status", email: mail });
+        if (state === "not_allowed") { onDenied(mail); return; }
+        setPassword(""); setConfirmPw(""); setShow(false);
+        setStep(state === "has_password" ? "password" : "create");
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    if (step === "create") {
+      if (password.length < MIN_STAFF_PASSWORD) { setError(`Use at least ${MIN_STAFF_PASSWORD} characters.`); return; }
+      if (password !== confirmPw) { setError("The two passwords don't match."); return; }
+      setBusy(true);
+      try {
+        await staffAuth({ action: "set_password", email: mail, password });
+      } catch (err) {
+        setError((err as Error).message);
+        setBusy(false);
+        return;
+      }
+      await signIn();
+      setBusy(false);
+      return;
+    }
+    setBusy(true);
+    await signIn();
+    setBusy(false);
+  }
+
+  const eye = (
+    <button type="button" onClick={() => setShow(v => !v)} aria-label={show ? "Hide password" : "Show password"}
+      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white p-1">
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        {show
+          ? <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 5.1A9.5 9.5 0 0112 5c5 0 9 4.5 10 7-.4 1-1.2 2.3-2.4 3.6M6.1 6.1C4.2 7.4 2.8 9.4 2 12c1 2.5 5 7 10 7 1.7 0 3.3-.5 4.6-1.3" />
+          : <><path strokeLinecap="round" strokeLinejoin="round" d="M2 12c1-2.5 5-7 10-7s9 4.5 10 7c-1 2.5-5 7-10 7S3 14.5 2 12z" /><circle cx="12" cy="12" r="3" /></>}
+      </svg>
+    </button>
+  );
 
   return (
     <div className="min-h-screen bg-[#0f111a] flex flex-col items-center justify-center px-4">
@@ -665,28 +853,85 @@ function LoginScreen({ onLogin, lang, setLang }: {
         <p className="text-sm text-gray-500 mt-1">Daily Shift Report Portal</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-[#161b22] rounded-2xl border border-[#30363d] p-8">
-        <h2 className="text-lg font-bold text-white mb-1">{t(lang, "signInTitle")}</h2>
-        <p className="text-sm text-gray-500 mb-6">Enter your work email to start your shift report.</p>
+      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-[#161b22] rounded-2xl border border-[#30363d] p-6 sm:p-8">
+        {step === "email" ? (
+          <>
+            <h2 className="text-lg font-bold text-white mb-1">{t(lang, "signInTitle")}</h2>
+            <p className="text-sm text-gray-500 mb-6">Enter your work email to start your shift report.</p>
 
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">{t(lang, "workEmail")}</label>
-        <input
-          type="email"
-          value={email}
-          onChange={e => { setEmail(e.target.value); setError(""); }}
-          placeholder="you@company.com"
-          className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-gray-700"
-          autoFocus
-          required
-        />
-        {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
+            <label htmlFor="login-email" className={LOGIN_LABEL_CLS}>{t(lang, "workEmail")}</label>
+            <input
+              id="login-email"
+              type="email"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setError(""); }}
+              placeholder="you@company.com"
+              autoComplete="username"
+              className={LOGIN_FIELD_CLS}
+              autoFocus
+              required
+            />
+          </>
+        ) : (
+          <>
+            <h2 className="text-lg font-bold text-white mb-1">{t(lang, step === "create" ? "createPassword" : "enterPassword")}</h2>
+            <p className="text-sm text-gray-500 mb-5">
+              {step === "create"
+                ? `First time signing in — choose a password (at least ${MIN_STAFF_PASSWORD} characters; numbers are fine). You'll use it every time.`
+                : "Welcome back."}
+            </p>
+
+            <div className="flex items-center justify-between gap-2 bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-2.5 mb-4">
+              <span className="text-sm text-gray-300 truncate">{mail}</span>
+              <button type="button" onClick={() => { setStep("email"); setError(""); setPassword(""); setConfirmPw(""); }}
+                className="text-xs font-semibold text-blue-400 hover:text-blue-300 shrink-0">Change</button>
+            </div>
+
+            <label htmlFor="login-password" className={LOGIN_LABEL_CLS}>{t(lang, "password")}</label>
+            <div className="relative">
+              <input
+                id="login-password"
+                type={show ? "text" : "password"}
+                value={password}
+                onChange={e => { setPassword(e.target.value); setError(""); }}
+                autoComplete={step === "create" ? "new-password" : "current-password"}
+                className={`${LOGIN_FIELD_CLS} pr-11`}
+                autoFocus
+                required
+              />
+              {eye}
+            </div>
+
+            {step === "create" && (
+              <>
+                <label htmlFor="login-confirm" className={`${LOGIN_LABEL_CLS} mt-4`}>{t(lang, "confirmPassword")}</label>
+                <input
+                  id="login-confirm"
+                  type={show ? "text" : "password"}
+                  value={confirmPw}
+                  onChange={e => { setConfirmPw(e.target.value); setError(""); }}
+                  autoComplete="new-password"
+                  className={LOGIN_FIELD_CLS}
+                  required
+                />
+              </>
+            )}
+          </>
+        )}
+
+        {error && <p role="alert" className="text-xs text-red-400 mt-2">{error}</p>}
 
         <button
           type="submit"
-          className="mt-5 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98]"
+          disabled={busy}
+          className="mt-5 w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98]"
         >
-          Continue →
+          {busy && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+          {step === "email" ? "Continue →" : step === "create" ? "Save password & sign in →" : t(lang, "signIn")}
         </button>
+        {step === "password" && (
+          <p className="text-xs text-gray-600 mt-3 text-center">Forgot it? Ask your manager to reset your password.</p>
+        )}
       </form>
       <p className="text-xs text-gray-700 mt-6">STM Daily · Confidential</p>
     </div>
@@ -749,6 +994,8 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
       ...EMPTY,
       shiftDate: localDt,
       fuel92: { ...EMPTY.fuel92, price: cfg.price92 },
+      fuel92New: { ...EMPTY.fuel92New, price: cfg.price92 },
+      fuel92NewOpen: loadNewPumpOpen(),
       fuel95: { ...EMPTY.fuel95, price: cfg.price95 },
       premiumDiesel: { ...EMPTY.premiumDiesel, price: cfg.pricePD },
       diesel: { ...EMPTY.diesel, price: cfg.priceHSD },
@@ -762,8 +1009,8 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
   }
 
   const setFuelField = useCallback((
-    key: "fuel92" | "fuel95" | "premiumDiesel",
-    field: "totalAmount" | "price" | "liters",
+    key: "fuel92" | "fuel92New" | "fuel95" | "premiumDiesel",
+    field: FuelField,
     val: string,
   ) => {
     setForm(f => {
@@ -784,12 +1031,12 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
     });
   }, []);
 
-  // Totals are the entered totalAmount directly
-  const t92   = n(form.fuel92.totalAmount);
+  // Totals are the entered totalAmount directly; Fuel 92 adds up every open pump
+  const t92   = fuel92Pumps(form).reduce((s, p) => s + n(p.row.totalAmount), 0);
   const t95   = n(form.fuel95.totalAmount);
   const tPD   = n(form.premiumDiesel.totalAmount);
   // Liters: use the stored (entered or auto-calculated) value
-  const l92   = n(form.fuel92.liters);
+  const l92   = fuel92Pumps(form).reduce((s, p) => s + n(p.row.liters), 0);
   const l95   = n(form.fuel95.liters);
   const lPD   = n(form.premiumDiesel.liters);
 
@@ -809,6 +1056,20 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     onSubmit(form, grandTotal, difference);
+  }
+
+  function openNewPump() {
+    saveNewPumpOpen(true);
+    setForm(f => ({ ...f, fuel92NewOpen: true }));
+  }
+
+  function closeNewPump() {
+    const r = form.fuel92New;
+    if ((n(r.totalAmount) > 0 || n(r.liters) > 0)
+        && !window.confirm(lang === "my" ? "ပန့်အသစ်ကို ပိတ်မလား? ထည့်ထားသော ပမာဏများ ဖျက်ပါမည်။" : "Close the New Pump? Its numbers will be cleared.")) return;
+    saveNewPumpOpen(false);
+    // Clear it, so nothing hidden is ever counted; keep the price for next time.
+    setForm(f => ({ ...f, fuel92NewOpen: false, fuel92New: { ...EMPTY.fuel92New, price: f.fuel92New.price } }));
   }
 
   return (
@@ -862,9 +1123,8 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
           <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">{t(lang, "fuelProducts")}</h3>
           {/* Fuel rows — full-width vertical stack */}
           <div className="space-y-3">
-            <ProductCard label="Fuel 92" badge="92" accentText="text-blue-400" accentBorder="border-l-blue-500"
-              totalAmount={form.fuel92.totalAmount} price={form.fuel92.price} liters={form.fuel92.liters} total={t92}
-              onTotalAmount={v => setFuelField("fuel92", "totalAmount", v)} onPrice={v => setFuelField("fuel92", "price", v)} onLiters={v => setFuelField("fuel92", "liters", v)} lang={lang} />
+            <Fuel92Card normal={form.fuel92} fresh={form.fuel92New} newOpen={form.fuel92NewOpen} total={t92}
+              onField={setFuelField} onOpenNew={openNewPump} onCloseNew={closeNewPump} lang={lang} />
             <ProductCard label="Fuel 95" badge="95" accentText="text-emerald-400" accentBorder="border-l-emerald-500"
               totalAmount={form.fuel95.totalAmount} price={form.fuel95.price} liters={form.fuel95.liters} total={t95}
               onTotalAmount={v => setFuelField("fuel95", "totalAmount", v)} onPrice={v => setFuelField("fuel95", "price", v)} onLiters={v => setFuelField("fuel95", "liters", v)} lang={lang} />
@@ -955,10 +1215,11 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
   employeeName: string; email: string; form: FormData; grandTotal: number; difference: number;
   onConfirm: () => void; onBack: () => void; submitting: boolean; lang: Lang;
 }) {
-  const t92   = n(form.fuel92.totalAmount);
+  const pumps92 = fuel92Pumps(form);
+  const t92   = pumps92.reduce((s, p) => s + n(p.row.totalAmount), 0);
   const t95   = n(form.fuel95.totalAmount);
   const tPD   = n(form.premiumDiesel.totalAmount);
-  const l92   = n(form.fuel92.liters)        || (n(form.fuel92.price)        > 0 ? t92 / n(form.fuel92.price)        : 0);
+  const l92   = pumps92.reduce((s, p) => s + fuelRowLiters(p.row), 0);
   const l95   = n(form.fuel95.liters)        || (n(form.fuel95.price)        > 0 ? t95 / n(form.fuel95.price)        : 0);
   const lPD   = n(form.premiumDiesel.liters) || (n(form.premiumDiesel.price) > 0 ? tPD / n(form.premiumDiesel.price) : 0);
   const tPipa           = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
@@ -970,7 +1231,13 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
   const actualCash      = n(form.actualCash);
 
   const rows = [
-    { label: "Fuel 92",        liters: l92,  price: form.fuel92.price,         total: t92,   color: "text-blue-400" },
+    // With the new pump open, each pump gets its own line (empty ones are hidden below).
+    ...(pumps92.length > 1
+      ? pumps92.map(p => ({
+          label: `Fuel 92 · ${t(lang, p.key === "new" ? "newPump" : "normalPump")}`,
+          liters: fuelRowLiters(p.row), price: p.row.price, total: n(p.row.totalAmount), color: "text-blue-400",
+        }))
+      : [{ label: "Fuel 92", liters: l92, price: form.fuel92.price, total: t92, color: "text-blue-400" }]),
     { label: "Fuel 95",        liters: l95,  price: form.fuel95.price,         total: t95,   color: "text-emerald-400" },
     { label: "Premium Diesel", liters: lPD,  price: form.premiumDiesel.price,  total: tPD,   color: "text-purple-400" },
   ];
@@ -1158,8 +1425,8 @@ function loadConfig(): AppConfig {
 function saveConfig(cfg: AppConfig) { localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg)); }
 
 // ─── Mode Select Screen ───────────────────────────────────────────────────────
-function ModeSelectScreen({ employeeName, onShift, onSettings, onLogout, lang, setLang }: {
-  employeeName: string; onShift: () => void;
+function ModeSelectScreen({ employeeName, onShift, onChat, unread, onSettings, onLogout, lang, setLang }: {
+  employeeName: string; onShift: () => void; onChat: () => void; unread: number;
   onSettings: () => void; onLogout: () => void; lang: Lang; setLang: (l: Lang) => void;
 }) {
   return (
@@ -1212,6 +1479,31 @@ function ModeSelectScreen({ employeeName, onShift, onSettings, onLogout, lang, s
           </div>
           <div className="mt-4 flex items-center text-xs font-semibold text-blue-400">
             Open form
+            <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+          </div>
+        </button>
+
+        <button type="button" onClick={onChat}
+          aria-label={unread > 0 ? `${CHAT_STRINGS.title[lang]}, ${unread} new` : CHAT_STRINGS.title[lang]}
+          className="w-full bg-[#161b22] border-2 border-[#30363d] hover:border-emerald-500/60 hover:bg-emerald-600/5 rounded-2xl p-6 text-left transition-all active:scale-[0.98] group">
+          <div className="flex items-start gap-4">
+            <div className="relative w-12 h-12 rounded-xl bg-emerald-600/20 flex items-center justify-center shrink-0 group-hover:bg-emerald-600/30 transition-colors">
+              <svg className="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5M21 12a8.5 8.5 0 01-12.4 7.6L3 21l1.4-5.6A8.5 8.5 0 1121 12z" />
+              </svg>
+              {unread > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
+            </div>
+            <div>
+              <p className="text-base font-bold text-white">{CHAT_STRINGS.title[lang]}</p>
+              <p className="text-sm text-gray-500 mt-0.5">Message the team and the CEO, and share photos</p>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-xs font-semibold text-emerald-400">
+            {unread > 0 ? `${unread > 99 ? "99+" : unread} new message${unread === 1 ? "" : "s"}` : "Open chat"}
             <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
           </div>
         </button>
@@ -1356,9 +1648,17 @@ function clearSession() { localStorage.removeItem(SESSION_KEY); }
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("login");
-  const [employeeName, setEmployeeName] = useState("");
-  const [email, setEmail] = useState("");
+  // The signed-in staff member, read from this device's saved sign-in, so the
+  // app still opens offline (shifts are queued and sent later, as before).
+  const [staff, setStaff] = useState<{ id: string; email: string } | null>(() => storedStaffUser());
+  const [screen, setScreen] = useState<Screen>(() => (storedStaffUser() ? "mode-select" : "login"));
+  const [employeeName, setEmployeeName] = useState(() => {
+    const u = storedStaffUser();
+    if (!u) return "";
+    const saved = loadSession();
+    return saved?.mail === u.email ? saved.name : u.email.split("@")[0];
+  });
+  const [email, setEmail] = useState(() => storedStaffUser()?.email ?? "");
   const [formData, setFormData] = useState<FormData>(EMPTY);
   const [grandTotal, setGrandTotal] = useState(0);
   const [difference, setDifference] = useState(0);
@@ -1372,32 +1672,62 @@ export default function App() {
     return (saved === "my" ? "my" : "en") as Lang;
   });
 
-  // Restore saved session on first load
+  const unread = useChatUnread(authClient, staff?.id ?? null, screen === "mode-select");
+  // While the app is open, hand the chat's encryption key to teammates' new phones.
+  useChatKeyMaintenance(authClient, staff?.id ?? null);
+
+  async function signOutStaff() {
+    await authClient.auth.signOut({ scope: "local" }).catch(() => {});
+    // Offline, signOut can't reach the server and leaves the saved sign-in; drop it anyway.
+    try { localStorage.removeItem(AUTH_STORAGE_KEY); } catch { /* storage blocked */ }
+    setStaff(null);
+  }
+
   useEffect(() => {
-    const saved = loadSession();
-    if (saved) {
-      setEmployeeName(saved.name);
-      setEmail(saved.mail);
-      setScreen("mode-select");
+    // Email-only sign-ins from before passwords don't count any more.
+    if (!storedStaffUser()) clearSession();
+
+    // A password reset or revoked sign-in signs this device out.
+    const { data: { subscription } } = authClient.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") setStaff(null);
+      else if (session?.user?.email) setStaff({ id: session.user.id, email: session.user.email.toLowerCase() });
+    });
+
+    // Opened with a saved sign-in: still on the STM Daily list, and still the same login?
+    const u = storedStaffUser();
+    if (u && navigator.onLine) {
+      staffAuth<{ state: StaffLoginState }>({ action: "status", email: u.email })
+        .then(({ state }) => {
+          if (state === "not_allowed") { signOutStaff(); setEmail(u.email); setScreen("denied"); }
+          else if (state === "needs_password") signOutStaff();   // their password was reset
+        })
+        .catch(() => { /* offline or a server hiccup: carry on */ });
     }
+    return () => subscription.unsubscribe();
   }, []);
 
-  async function handleLogin(name: string, mail: string) {
+  // Signed out on a screen that needs the sign-in → back to sign-in. A shift
+  // being filled in is left alone (it doesn't need the sign-in) until they leave it.
+  useEffect(() => {
+    if (!staff && (screen === "mode-select" || screen === "chat" || screen === "settings")) {
+      clearSession();
+      setEmployeeName("");
+      setEmail("");
+      setScreen("login");
+    }
+  }, [staff, screen]);
+
+  function handleSignedIn(mail: string, userId: string) {
+    const name = mail.split("@")[0];
+    saveSession(name, mail);
+    setStaff({ id: userId, email: mail });
     setEmployeeName(name);
     setEmail(mail);
-    setScreen("checking");
-
-    const { data, error } = await supabase.rpc("is_employee_allowed", { check_email: mail });
-
-    if (error || !data) {
-      setScreen("denied");
-    } else {
-      saveSession(name, mail);
-      setScreen("mode-select");
-    }
+    setScreen("mode-select");
   }
 
   function handleLogout() {
+    signOutStaff();
     clearSession();
     setEmployeeName("");
     setEmail("");
@@ -1420,10 +1750,18 @@ export default function App() {
     setSubmitting(true);
     setSubmitError("");
 
-    const t92   = n(formData.fuel92.totalAmount);
+    // Fuel 92 is saved combined (what the CEO portal, FIFO profit and alerts read),
+    // with the per-pump split alongside whenever the new pump was used.
+    const pumps92 = fuel92Pumps(formData)
+      .map(p => ({ pump: p.key, liters: fuelRowLiters(p.row), price: n(p.row.price), total: n(p.row.totalAmount) }))
+      .filter(p => p.total > 0 || p.liters > 0);
+    const t92   = pumps92.reduce((s, p) => s + p.total, 0);
+    const l92   = pumps92.reduce((s, p) => s + p.liters, 0);
+    const usedNewPump = pumps92.some(p => p.pump === "new");
+    // One pump: its own price, exactly as before. Two pumps: the litre-weighted price, so litres × price = total.
+    const p92   = usedNewPump && l92 > 0 ? Math.round((t92 / l92) * 100) / 100 : n(formData.fuel92.price);
     const t95   = n(formData.fuel95.totalAmount);
     const tPD   = n(formData.premiumDiesel.totalAmount);
-    const l92   = n(formData.fuel92.liters)   > 0 ? n(formData.fuel92.liters)   : (n(formData.fuel92.price)   > 0 ? t92 / n(formData.fuel92.price)   : 0);
     const l95   = n(formData.fuel95.liters)   > 0 ? n(formData.fuel95.liters)   : (n(formData.fuel95.price)   > 0 ? t95 / n(formData.fuel95.price)   : 0);
     const lPD   = n(formData.premiumDiesel.liters) > 0 ? n(formData.premiumDiesel.liters) : (n(formData.premiumDiesel.price) > 0 ? tPD / n(formData.premiumDiesel.price) : 0);
     const pipaItems = formData.pipa.map(item => ({
@@ -1459,8 +1797,9 @@ export default function App() {
       timestamp: formData.shiftDate ? new Date(formData.shiftDate).toISOString() : new Date().toISOString(),
       fuel_data: {
         fuel_92_liters:        l92,
-        fuel_92_price:         n(formData.fuel92.price),
+        fuel_92_price:         p92,
         fuel_92_total:         t92,
+        ...(usedNewPump ? { fuel_92_pumps: pumps92 } : {}),
         fuel_95_liters:        l95,
         fuel_95_price:         n(formData.fuel95.price),
         fuel_95_total:         t95,
@@ -1556,13 +1895,21 @@ export default function App() {
 
   return (
     <>
-      {screen === "login"       && <LoginScreen onLogin={handleLogin} lang={lang} setLang={setLang} />}
+      {screen === "login"       && (
+        <LoginScreen
+          onSignedIn={handleSignedIn}
+          onDenied={mail => { setEmail(mail); setScreen("denied"); }}
+          lang={lang} setLang={setLang}
+        />
+      )}
       {screen === "checking"    && <CheckingScreen />}
       {screen === "denied"      && <DeniedScreen email={email} onBack={() => setScreen("login")} />}
       {screen === "mode-select" && (
         <ModeSelectScreen
           employeeName={employeeName}
           onShift={() => setScreen("form")}
+          onChat={() => setScreen("chat")}
+          unread={unread}
           onSettings={() => setScreen("settings")}
           onLogout={handleLogout}
           lang={lang} setLang={setLang}
@@ -1594,6 +1941,17 @@ export default function App() {
       )}
       {screen === "success"  && <SuccessScreen employeeName={employeeName} onNewShift={handleNewShift} queuedItemId={lastQueuedId} lang={lang} />}
       {screen === "settings" && <AppSettingsScreen onBack={() => setScreen("mode-select")} />}
+      {screen === "chat" && staff && (
+        <div className="h-[100dvh]">
+          <TeamChat
+            client={authClient}
+            me={{ id: staff.id, email: staff.email, role: "staff" }}
+            theme="dark"
+            lang={lang}
+            onBack={() => setScreen("mode-select")}
+          />
+        </div>
+      )}
 
       <SyncStatusBanner isOnline={isOnline} pendingCount={pendingCount} justSynced={justSynced} lang={lang} />
     </>

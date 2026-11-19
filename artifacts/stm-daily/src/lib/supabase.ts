@@ -13,6 +13,46 @@ const supabaseKey =
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
+/**
+ * Staff sign-in (password) — used for the team chat and for checking who is
+ * signed in. Kept separate from `supabase` above, which stays signed out so
+ * shift submission and the offline queue keep working exactly as before.
+ */
+export const AUTH_STORAGE_KEY = "stm-daily-auth";
+export const authClient = createClient(supabaseUrl, supabaseKey, {
+  auth: { storageKey: AUTH_STORAGE_KEY, persistSession: true, autoRefreshToken: true },
+});
+
+/** The signed-in staff member saved on this device, read straight from storage so it works offline. */
+export function storedStaffUser(): { id: string; email: string } | null {
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    const s = raw ? JSON.parse(raw) : null;
+    const id = s?.user?.id;
+    const email = s?.user?.email;
+    return s?.refresh_token && typeof id === "string" && typeof email === "string" ? { id, email: email.toLowerCase() } : null;
+  } catch {
+    return null;
+  }
+}
+
+export type StaffLoginState = "not_allowed" | "needs_password" | "has_password";
+
+/** Calls the staff-auth Edge Function, surfacing its own error text. Retries once on a server hiccup. */
+export async function staffAuth<T = Record<string, unknown>>(body: Record<string, unknown>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    const { data, error } = await authClient.functions.invoke("staff-auth", { body });
+    if (!error) return (data ?? {}) as T;
+    const ctx = (error as { context?: unknown }).context;
+    const res = typeof Response !== "undefined" && ctx instanceof Response ? ctx : undefined;   // no Response = never reached the server
+    let message = "";
+    try { message = (await res?.json())?.error ?? ""; } catch { /* not JSON */ }
+    if (attempt === 0 && (!res || res.status >= 500)) continue;
+    if (!res) throw new Error("No internet connection. Connect and try again.");
+    throw new Error(message || "Something went wrong. Try again.");
+  }
+}
+
 export interface ShiftPayload {
   employee_name: string;
   employee_id: string;
@@ -21,6 +61,8 @@ export interface ShiftPayload {
     fuel_92_liters: number;
     fuel_92_price: number;
     fuel_92_total: number;
+    /** Per-pump split, present only when the "new pump" was used. The fuel_92_* fields above stay the combined totals. */
+    fuel_92_pumps?: { pump: "normal" | "new"; liters: number; price: number; total: number }[];
     fuel_95_liters: number;
     fuel_95_price: number;
     fuel_95_total: number;

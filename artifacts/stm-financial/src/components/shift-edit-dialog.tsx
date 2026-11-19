@@ -138,6 +138,10 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
       diesel_cash: n(dieselCash), diesel_price: shift.diesel_price ?? 0,
       pipa_items: shift.pipa_items ?? [],
       jelly_can_items: shift.jelly_can_items ?? [],
+      // Keep STM Daily's per-pump Fuel 92 split only while Fuel 92 is unchanged;
+      // after an edit it would no longer add up, so it's dropped.
+      ...(shift.fuel_92_pumps && f92l === fmtInput(shift.fuel_92_liters) && f92p === fmtInput(shift.fuel_92_price)
+        ? { fuel_92_pumps: shift.fuel_92_pumps } : {}),
     };
 
     const cleanedExpenses = expenses.filter(e => e.name.trim() || e.amount > 0);
