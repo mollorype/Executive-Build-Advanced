@@ -24,14 +24,13 @@ function fmtSigned(v: number): string {
 // ─── types ───────────────────────────────────────────────────────────────────
 type Screen = "login" | "checking" | "denied" | "mode-select" | "form" | "confirm" | "success" | "settings" | "chat";
 
-interface FuelRow { totalAmount: string; price: string; liters: string; }
+/** `auto` names the box that was calculated rather than typed (see linkFields). */
+interface FuelRow { totalAmount: string; price: string; liters: string; auto?: "totalAmount" | "liters" | null; }
 interface DieselRow { cash: string; price: string; }
 interface ExpenseItem { name: string; amount: string; profileId?: string; txnType?: "payment" | "debt"; }
 type PipaProduct = "92" | "95" | "PD" | "D";
-interface PipaItem { product: PipaProduct; containers: string; price: string; total: string; src?: QtySource; }
-interface JellyCanItem { product: PipaProduct; pieces: string; liters: string; price: string; total: string; src?: QtySource; }
-/** Which of quantity / ရောင်းရငွေ was typed last, so a price change recalculates the other one. */
-type QtySource = "qty" | "total";
+interface PipaItem { product: PipaProduct; containers: string; price: string; total: string; auto?: "containers" | "total" | null; }
+interface JellyCanItem { product: PipaProduct; pieces: string; liters: string; price: string; total: string; auto?: "pieces" | "total" | null; }
 interface FormData {
   fuel92: FuelRow;          // Fuel 92 — normal pump
   fuel92New: FuelRow;       // Fuel 92 — new pump (closable)
@@ -61,6 +60,7 @@ const STRINGS = {
   totalAmount:          { en: "Total Amount",              my: "ရောင်းရငွေ" },
   literPrice:           { en: "Liter Price",               my: "လီတာစျေးနှုန်း" },
   literSold:            { en: "Liters Sold",               my: "ရောင်းရလီတာ" },
+  autoCalc:             { en: "auto",                      my: "အလိုအလျောက်" },
   normalPump:           { en: "Normal Pump",               my: "ပုံမှန်ပန့်" },
   newPump:              { en: "New Pump",                  my: "ပန့်အသစ်" },
   addNewPump:           { en: "Add New Pump",              my: "ပန့်အသစ် ထည့်ရန်" },
@@ -283,15 +283,32 @@ function saveNewPumpOpen(open: boolean) {
 }
 
 // ─── Input component ─────────────────────────────────────────────────────────
+/** Field label, with a small tag when the box holds a calculated value rather than a typed one. */
+function FieldLabel({ label, autoHint }: { label: string; autoHint?: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+      <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{label}</label>
+      {autoHint && (
+        <span className="text-[10px] font-semibold text-blue-300 bg-blue-500/10 rounded px-1.5 py-px leading-tight">{autoHint}</span>
+      )}
+    </div>
+  );
+}
+
+/** Text colour for a number box: calculated values are tinted so they read differently from typed ones. */
+const autoText = (isAuto: boolean) => (isAuto ? "text-blue-300" : "text-white");
+
 function GoldInput({
-  label, value, onChange, placeholder = "0", readOnly = false, prefix
+  label, value, onChange, placeholder = "0", readOnly = false, prefix, autoHint
 }: {
   label: string; value: string; onChange?: (v: string) => void;
   placeholder?: string; readOnly?: boolean; prefix?: string;
+  /** Shown beside the label while the value was filled in automatically. */
+  autoHint?: string;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{label}</label>
+      <FieldLabel label={label} autoHint={autoHint} />
       <div className="relative">
         {prefix && (
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">{prefix}</span>
@@ -307,7 +324,7 @@ function GoldInput({
             prefix ? "pl-8" : "",
             readOnly
               ? "bg-[#0d1117] border-[#30363d] text-gray-500 cursor-default"
-              : "bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-gray-700",
+              : `bg-[#0d1117] border-[#30363d] ${autoText(!!autoHint)} focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-gray-700`,
           ].join(" ")}
         />
       </div>
@@ -326,27 +343,53 @@ function jellyItemTotal(i: JellyCanItem): number {
 
 const qtyStr = (v: number) => (v > 0 ? parseFloat(v.toFixed(3)).toString() : "");
 const moneyStr = (v: number) => (v > 0 ? String(Math.round(v)) : "");
+/** Fuel cards keep their existing precision: up to 6 decimals, no trailing zeros. */
+const fuelNumStr = (v: number) => (v > 0 ? parseFloat(v.toFixed(6)).toString() : "");
+
+type LinkKeys = { total: string; qty: string };
+type LinkFmt = { total: (v: number) => string; qty: (v: number) => string };
+const FUEL_LINK: LinkKeys = { total: "totalAmount", qty: "liters" };
+const FUEL_FMT: LinkFmt = { total: fuelNumStr, qty: fuelNumStr };
+const PIPA_LINK: LinkKeys = { total: "total", qty: "containers" };
+const JELLY_LINK: LinkKeys = { total: "total", qty: "pieces" };
+const PIECE_FMT: LinkFmt = { total: moneyStr, qty: qtyStr };
 
 /**
- * Like the fuel cards: type the quantity or the ရောင်းရငွေ and the other is
- * filled in from the price; a price change recalculates whichever wasn't typed last.
+ * Two boxes tied together by a price (ရောင်းရငွေ = quantity × price), as on the
+ * fuel cards and each Pipa / Jelly Can entry.
+ *
+ * Auto-calculation only ever fills a box that is empty or was itself filled
+ * automatically (`auto` names that box). A value the person typed is never
+ * overwritten, so a mistake in either box can always be corrected by hand.
  */
-function linkPipaFields<T extends { price: string; total: string; src?: QtySource }>(
-  item: T, qtyKey: keyof T & string, field: string, val: string,
+function linkFields<T extends { price: string; auto?: string | null }>(
+  item: T, keys: LinkKeys, field: string, val: string, fmt: LinkFmt,
 ): T {
-  const next = { ...item, [field]: val } as T & Record<string, string>;
-  const price = n(next.price);
-  if (field === "total") {
-    next.src = "total";
-    if (price > 0) (next as Record<string, string>)[qtyKey] = qtyStr(n(val) / price);
-  } else if (field === qtyKey) {
-    next.src = "qty";
-    if (price > 0) next.total = moneyStr(n(val) * price);
-  } else if (field === "price" && price > 0) {
-    if (next.src === "total" && n(next.total) > 0) (next as Record<string, string>)[qtyKey] = qtyStr(n(next.total) / price);
-    else if (n(next[qtyKey] as string) > 0) next.total = moneyStr(n(next[qtyKey] as string) * price);
+  const r: Record<string, string | null | undefined> = { ...item, [field]: val };
+  const price = n(r.price ?? "");
+  const has = (key: string) => (r[key] ?? "").trim() !== "";
+  const fill = (key: string) => {
+    r[key] = key === keys.total
+      ? fmt.total(n(r[keys.qty] ?? "") * price)
+      : fmt.qty(n(r[keys.total] ?? "") / price);
+    r.auto = key;
+  };
+
+  if (field === "price") {
+    if (price > 0) {
+      if (r.auto === keys.total || r.auto === keys.qty) fill(r.auto);       // keep the calculated box in step
+      else if (!has(keys.total) && n(r[keys.qty] ?? "") > 0) fill(keys.total);
+      else if (!has(keys.qty) && n(r[keys.total] ?? "") > 0) fill(keys.qty);
+    }
+  } else if (field === keys.total || field === keys.qty) {
+    if (r.auto === field) r.auto = null;                                     // typed by hand — it's theirs now
+    const other = field === keys.total ? keys.qty : keys.total;
+    if (r.auto === other || !has(other)) {                                   // only an empty or calculated box is filled
+      if (n(val) > 0 && price > 0) fill(other);
+      else if (r.auto === other) { r[other] = ""; r.auto = null; }           // nothing left to calculate it from
+    }
   }
-  return next;
+  return r as unknown as T;
 }
 
 // ─── Pipa panel — multi-item, each with product dropdown + containers + price ──
@@ -366,7 +409,7 @@ function PipaPanel({ items, onChange, lang }: {
     onChange(items.filter((_, idx) => idx !== i));
   }
   function update(i: number, field: keyof PipaItem, val: string) {
-    onChange(items.map((item, idx) => idx === i ? linkPipaFields(item, "containers", field, val) : item));
+    onChange(items.map((item, idx) => idx === i ? linkFields(item, PIPA_LINK, field, val, PIECE_FMT) : item));
   }
 
   return (
@@ -417,13 +460,13 @@ function PipaPanel({ items, onChange, lang }: {
               </div>
               {/* Containers */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "containers")}</label>
+                <FieldLabel label={t(lang, "containers")} autoHint={item.auto === "containers" ? t(lang, "autoCalc") : undefined} />
                 <input
                   type="number"
                   value={item.containers}
                   onChange={e => update(i, "containers", e.target.value)}
                   placeholder="0"
-                  className="w-full rounded-xl border px-3 py-3 text-base font-semibold outline-none transition-all tabular-nums bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-gray-700"
+                  className={`w-full rounded-xl border px-3 py-3 text-base font-semibold outline-none transition-all tabular-nums bg-[#0d1117] border-[#30363d] ${autoText(item.auto === "containers")} focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-gray-700`}
                 />
                 {containers > 0 && (
                   <p className="text-[10px] text-amber-400 font-semibold">{(containers * 215).toLocaleString()} L</p>
@@ -442,6 +485,7 @@ function PipaPanel({ items, onChange, lang }: {
                 value={item.total ?? ""}
                 onChange={v => update(i, "total", v)}
                 prefix="K"
+                autoHint={item.auto === "total" ? t(lang, "autoCalc") : undefined}
               />
             </div>
           </div>
@@ -480,7 +524,7 @@ function JellyCanPanel({ items, onChange, lang }: {
   }
   function remove(i: number) { onChange(items.filter((_, idx) => idx !== i)); }
   function update(i: number, field: keyof JellyCanItem, val: string) {
-    onChange(items.map((item, idx) => idx === i ? linkPipaFields(item, "pieces", field, val) : item));
+    onChange(items.map((item, idx) => idx === i ? linkFields(item, JELLY_LINK, field, val, PIECE_FMT) : item));
   }
 
   const panelTotal = items.reduce((s, item) => s + jellyItemTotal(item), 0);
@@ -529,11 +573,11 @@ function JellyCanPanel({ items, onChange, lang }: {
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "pieces")}</label>
+                <FieldLabel label={t(lang, "pieces")} autoHint={item.auto === "pieces" ? t(lang, "autoCalc") : undefined} />
                 <input type="number" value={item.pieces}
                   onChange={e => update(i, "pieces", e.target.value)}
                   placeholder="0"
-                  className="w-full rounded-xl border px-3 py-3 text-base font-semibold outline-none tabular-nums bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-gray-700"
+                  className={`w-full rounded-xl border px-3 py-3 text-base font-semibold outline-none tabular-nums bg-[#0d1117] border-[#30363d] ${autoText(item.auto === "pieces")} focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-gray-700`}
                 />
               </div>
             </div>
@@ -564,7 +608,8 @@ function JellyCanPanel({ items, onChange, lang }: {
             </div>
             {/* Row 3: ရောင်းရငွေ — type the money directly, or let pieces × price fill it */}
             <div className="mt-3">
-              <GoldInput label={t(lang, "totalAmount")} value={item.total ?? ""} onChange={v => update(i, "total", v)} prefix="K" />
+              <GoldInput label={t(lang, "totalAmount")} value={item.total ?? ""} onChange={v => update(i, "total", v)} prefix="K"
+                autoHint={item.auto === "total" ? t(lang, "autoCalc") : undefined} />
             </div>
           </div>
         );
@@ -587,9 +632,9 @@ function JellyCanPanel({ items, onChange, lang }: {
 }
 
 // ─── Product card — full-width horizontal row, dark themed ────────────────────
-function ProductCard({ label, badge, accentText, accentBorder, totalAmount, price, liters, total, onTotalAmount, onPrice, onLiters, lang }: {
+function ProductCard({ label, badge, accentText, accentBorder, totalAmount, price, liters, auto, total, onTotalAmount, onPrice, onLiters, lang }: {
   label: string; badge: string; accentText: string; accentBorder: string;
-  totalAmount: string; price: string; liters: string; total: number;
+  totalAmount: string; price: string; liters: string; auto?: FuelRow["auto"]; total: number;
   onTotalAmount: (v: string) => void; onPrice: (v: string) => void; onLiters: (v: string) => void;
   lang: Lang;
 }) {
@@ -606,26 +651,27 @@ function ProductCard({ label, badge, accentText, accentBorder, totalAmount, pric
           </span>
         )}
       </div>
-      <PumpInputs totalAmount={totalAmount} price={price} liters={liters}
+      <PumpInputs totalAmount={totalAmount} price={price} liters={liters} auto={auto}
         onTotalAmount={onTotalAmount} onPrice={onPrice} onLiters={onLiters} lang={lang} />
     </div>
   );
 }
 
 /** Total / price / litres inputs for one pump. */
-function PumpInputs({ totalAmount, price, liters, onTotalAmount, onPrice, onLiters, lang }: {
-  totalAmount: string; price: string; liters: string;
+function PumpInputs({ totalAmount, price, liters, auto, onTotalAmount, onPrice, onLiters, lang }: {
+  totalAmount: string; price: string; liters: string; auto?: FuelRow["auto"];
   onTotalAmount: (v: string) => void; onPrice: (v: string) => void; onLiters: (v: string) => void;
   lang: Lang;
 }) {
+  const hint = (field: "totalAmount" | "liters") => (auto === field ? t(lang, "autoCalc") : undefined);
   return (
     <>
       <div className="px-5 pb-3 grid grid-cols-2 gap-4">
-        <GoldInput label={t(lang, "totalAmount")} value={totalAmount} onChange={onTotalAmount} prefix="K" />
+        <GoldInput label={t(lang, "totalAmount")} value={totalAmount} onChange={onTotalAmount} prefix="K" autoHint={hint("totalAmount")} />
         <GoldInput label={t(lang, "literPrice")} value={price} onChange={onPrice} prefix="K" />
       </div>
       <div className="px-5 pb-5">
-        <GoldInput label={t(lang, "literSold")} value={liters} onChange={onLiters} />
+        <GoldInput label={t(lang, "literSold")} value={liters} onChange={onLiters} autoHint={hint("liters")} />
       </div>
     </>
   );
@@ -672,14 +718,14 @@ function Fuel92Card({ normal, fresh, newOpen, total, onField, onOpenNew, onClose
       </div>
 
       {pumpHeader(t(lang, "normalPump"), n(normal.totalAmount))}
-      <PumpInputs totalAmount={normal.totalAmount} price={normal.price} liters={normal.liters}
+      <PumpInputs totalAmount={normal.totalAmount} price={normal.price} liters={normal.liters} auto={normal.auto}
         onTotalAmount={v => onField("fuel92", "totalAmount", v)} onPrice={v => onField("fuel92", "price", v)}
         onLiters={v => onField("fuel92", "liters", v)} lang={lang} />
 
       {newOpen ? (
         <div className="border-t border-[#30363d] pt-3">
           {pumpHeader(t(lang, "newPump"), n(fresh.totalAmount), onCloseNew)}
-          <PumpInputs totalAmount={fresh.totalAmount} price={fresh.price} liters={fresh.liters}
+          <PumpInputs totalAmount={fresh.totalAmount} price={fresh.price} liters={fresh.liters} auto={fresh.auto}
             onTotalAmount={v => onField("fuel92New", "totalAmount", v)} onPrice={v => onField("fuel92New", "price", v)}
             onLiters={v => onField("fuel92New", "liters", v)} lang={lang} />
         </div>
@@ -1173,33 +1219,13 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
     };
   });
 
-  // Helper to format auto-calculated numbers nicely (no trailing zeros)
-  function autoNum(v: number): string {
-    if (v === 0) return "";
-    return parseFloat(v.toFixed(6)).toString();
-  }
-
+  // Typed values are never overwritten — only an empty or calculated box is filled (see linkFields)
   const setFuelField = useCallback((
     key: "fuel92" | "fuel92New" | "fuel95" | "premiumDiesel",
     field: FuelField,
     val: string,
   ) => {
-    setForm(f => {
-      const row = { ...(f[key] as FuelRow), [field]: val };
-      const p = n(row.price);
-      if (field === "totalAmount" && p > 0) {
-        row.liters = n(val) > 0 ? autoNum(n(val) / p) : row.liters;
-      } else if (field === "liters" && p > 0) {
-        row.totalAmount = n(val) > 0 ? autoNum(n(val) * p) : row.totalAmount;
-      } else if (field === "price" && n(val) > 0) {
-        if (n(row.totalAmount) > 0) {
-          row.liters = autoNum(n(row.totalAmount) / n(val));
-        } else if (n(row.liters) > 0) {
-          row.totalAmount = autoNum(n(row.liters) * n(val));
-        }
-      }
-      return { ...f, [key]: row };
-    });
+    setForm(f => ({ ...f, [key]: linkFields(f[key] as FuelRow, FUEL_LINK, field, val, FUEL_FMT) }));
   }, []);
 
   // Totals are the entered totalAmount directly; Fuel 92 adds up every open pump
@@ -1296,10 +1322,10 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
             <Fuel92Card normal={form.fuel92} fresh={form.fuel92New} newOpen={form.fuel92NewOpen} total={t92}
               onField={setFuelField} onOpenNew={openNewPump} onCloseNew={closeNewPump} lang={lang} />
             <ProductCard label={t(lang, "fuel95")} badge="95" accentText="text-emerald-400" accentBorder="border-l-emerald-500"
-              totalAmount={form.fuel95.totalAmount} price={form.fuel95.price} liters={form.fuel95.liters} total={t95}
+              totalAmount={form.fuel95.totalAmount} price={form.fuel95.price} liters={form.fuel95.liters} auto={form.fuel95.auto} total={t95}
               onTotalAmount={v => setFuelField("fuel95", "totalAmount", v)} onPrice={v => setFuelField("fuel95", "price", v)} onLiters={v => setFuelField("fuel95", "liters", v)} lang={lang} />
             <ProductCard label={t(lang, "premiumDiesel")} badge="PD" accentText="text-purple-400" accentBorder="border-l-purple-500"
-              totalAmount={form.premiumDiesel.totalAmount} price={form.premiumDiesel.price} liters={form.premiumDiesel.liters} total={tPD}
+              totalAmount={form.premiumDiesel.totalAmount} price={form.premiumDiesel.price} liters={form.premiumDiesel.liters} auto={form.premiumDiesel.auto} total={tPD}
               onTotalAmount={v => setFuelField("premiumDiesel", "totalAmount", v)} onPrice={v => setFuelField("premiumDiesel", "price", v)} onLiters={v => setFuelField("premiumDiesel", "liters", v)} lang={lang} />
           </div>
           <div className="space-y-3 mt-3">
