@@ -28,8 +28,10 @@ interface FuelRow { totalAmount: string; price: string; liters: string; }
 interface DieselRow { cash: string; price: string; }
 interface ExpenseItem { name: string; amount: string; profileId?: string; txnType?: "payment" | "debt"; }
 type PipaProduct = "92" | "95" | "PD" | "D";
-interface PipaItem { product: PipaProduct; containers: string; price: string; }
-interface JellyCanItem { product: PipaProduct; pieces: string; liters: string; price: string; }
+interface PipaItem { product: PipaProduct; containers: string; price: string; total: string; src?: QtySource; }
+interface JellyCanItem { product: PipaProduct; pieces: string; liters: string; price: string; total: string; src?: QtySource; }
+/** Which of quantity / ရောင်းရငွေ was typed last, so a price change recalculates the other one. */
+type QtySource = "qty" | "total";
 interface FormData {
   fuel92: FuelRow;          // Fuel 92 — normal pump
   fuel92New: FuelRow;       // Fuel 92 — new pump (closable)
@@ -313,6 +315,40 @@ function GoldInput({
   );
 }
 
+// ─── Pipa / Jelly Can money ─────────────────────────────────────────────────
+/** An entry's ရောင်းရငွေ: what was typed, else quantity × price. */
+function pipaItemTotal(i: PipaItem): number {
+  return n(i.total ?? "") > 0 ? n(i.total) : n(i.containers) * n(i.price);
+}
+function jellyItemTotal(i: JellyCanItem): number {
+  return n(i.total ?? "") > 0 ? n(i.total) : n(i.pieces) * n(i.price);
+}
+
+const qtyStr = (v: number) => (v > 0 ? parseFloat(v.toFixed(3)).toString() : "");
+const moneyStr = (v: number) => (v > 0 ? String(Math.round(v)) : "");
+
+/**
+ * Like the fuel cards: type the quantity or the ရောင်းရငွေ and the other is
+ * filled in from the price; a price change recalculates whichever wasn't typed last.
+ */
+function linkPipaFields<T extends { price: string; total: string; src?: QtySource }>(
+  item: T, qtyKey: keyof T & string, field: string, val: string,
+): T {
+  const next = { ...item, [field]: val } as T & Record<string, string>;
+  const price = n(next.price);
+  if (field === "total") {
+    next.src = "total";
+    if (price > 0) (next as Record<string, string>)[qtyKey] = qtyStr(n(val) / price);
+  } else if (field === qtyKey) {
+    next.src = "qty";
+    if (price > 0) next.total = moneyStr(n(val) * price);
+  } else if (field === "price" && price > 0) {
+    if (next.src === "total" && n(next.total) > 0) (next as Record<string, string>)[qtyKey] = qtyStr(n(next.total) / price);
+    else if (n(next[qtyKey] as string) > 0) next.total = moneyStr(n(next[qtyKey] as string) * price);
+  }
+  return next;
+}
+
 // ─── Pipa panel — multi-item, each with product dropdown + containers + price ──
 const PIPA_COLORS: Record<PipaProduct, string> = {
   "92": "bg-blue-500", "95": "bg-emerald-500", "PD": "bg-purple-500", "D": "bg-orange-500",
@@ -324,13 +360,13 @@ function PipaPanel({ items, onChange, lang }: {
   lang: Lang;
 }) {
   function add() {
-    onChange([...items, { product: "92", containers: "", price: "" }]);
+    onChange([...items, { product: "92", containers: "", price: "", total: "" }]);
   }
   function remove(i: number) {
     onChange(items.filter((_, idx) => idx !== i));
   }
   function update(i: number, field: keyof PipaItem, val: string) {
-    onChange(items.map((item, idx) => idx === i ? { ...item, [field]: val } : item));
+    onChange(items.map((item, idx) => idx === i ? linkPipaFields(item, "containers", field, val) : item));
   }
 
   return (
@@ -346,8 +382,6 @@ function PipaPanel({ items, onChange, lang }: {
 
       {items.map((item, i) => {
         const containers = n(item.containers);
-        const price = n(item.price);
-        const total = containers * price;
         return (
           <div key={i} className="px-4 pt-4 pb-3 border-b border-[#30363d] last:border-0">
             <div className="flex items-center gap-2 mb-3">
@@ -366,7 +400,7 @@ function PipaPanel({ items, onChange, lang }: {
                 </svg>
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {/* Product dropdown */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "product")}</label>
@@ -402,10 +436,14 @@ function PipaPanel({ items, onChange, lang }: {
                 onChange={v => update(i, "price", v)}
                 prefix="K"
               />
+              {/* ရောင်းရငွေ — type the money directly, or let quantity × price fill it */}
+              <GoldInput
+                label={t(lang, "totalAmount")}
+                value={item.total ?? ""}
+                onChange={v => update(i, "total", v)}
+                prefix="K"
+              />
             </div>
-            {total > 0 && (
-              <p className="text-xs text-amber-400 font-semibold text-right mt-2">{fmt(total)} MMK</p>
-            )}
           </div>
         );
       })}
@@ -423,7 +461,7 @@ function PipaPanel({ items, onChange, lang }: {
         </button>
         {items.length > 0 && (
           <span className="text-xs font-bold text-amber-400">
-            {t(lang, "totalMMK", { a: fmt(items.reduce((s, item) => s + n(item.containers) * n(item.price), 0)) })}
+            {t(lang, "totalMMK", { a: fmt(items.reduce((s, item) => s + pipaItemTotal(item), 0)) })}
           </span>
         )}
       </div>
@@ -438,14 +476,14 @@ function JellyCanPanel({ items, onChange, lang }: {
   lang: Lang;
 }) {
   function add() {
-    onChange([...items, { product: "92", pieces: "", liters: "", price: "" }]);
+    onChange([...items, { product: "92", pieces: "", liters: "", price: "", total: "" }]);
   }
   function remove(i: number) { onChange(items.filter((_, idx) => idx !== i)); }
   function update(i: number, field: keyof JellyCanItem, val: string) {
-    onChange(items.map((item, idx) => idx === i ? { ...item, [field]: val } : item));
+    onChange(items.map((item, idx) => idx === i ? linkPipaFields(item, "pieces", field, val) : item));
   }
 
-  const panelTotal = items.reduce((s, item) => s + n(item.pieces) * n(item.price), 0);
+  const panelTotal = items.reduce((s, item) => s + jellyItemTotal(item), 0);
 
   return (
     <div className="bg-[#161b22] rounded-2xl border border-[#30363d] overflow-hidden">
@@ -461,9 +499,7 @@ function JellyCanPanel({ items, onChange, lang }: {
       {items.map((item, i) => {
         const pieces = n(item.pieces);
         const litersPerCan = n(item.liters);
-        const price = n(item.price);
         const totalLiters = pieces * litersPerCan;
-        const totalAmt = pieces * price;
         return (
           <div key={i} className="px-4 pt-4 pb-3 border-b border-[#30363d] last:border-0">
             <div className="flex items-center gap-2 mb-3">
@@ -526,9 +562,10 @@ function JellyCanPanel({ items, onChange, lang }: {
                 </div>
               </div>
             </div>
-            {totalAmt > 0 && (
-              <p className="text-xs text-teal-400 font-semibold text-right mt-2">{fmt(totalAmt)} MMK</p>
-            )}
+            {/* Row 3: ရောင်းရငွေ — type the money directly, or let pieces × price fill it */}
+            <div className="mt-3">
+              <GoldInput label={t(lang, "totalAmount")} value={item.total ?? ""} onChange={v => update(i, "total", v)} prefix="K" />
+            </div>
           </div>
         );
       })}
@@ -1174,8 +1211,8 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
   const l95   = n(form.fuel95.liters);
   const lPD   = n(form.premiumDiesel.liters);
 
-  const tPipa           = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
-  const tJelly          = form.jellyCan.reduce((s, item) => s + n(item.pieces) * n(item.price), 0);
+  const tPipa           = form.pipa.reduce((s, item) => s + pipaItemTotal(item), 0);
+  const tJelly          = form.jellyCan.reduce((s, item) => s + jellyItemTotal(item), 0);
   const tD              = n(form.diesel.cash);
   const grandTotal      = t92 + t95 + tPD + tPipa + tJelly + tD;
   const actualCash      = n(form.actualCash);
@@ -1344,8 +1381,8 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
   const l92   = pumps92.reduce((s, p) => s + fuelRowLiters(p.row), 0);
   const l95   = n(form.fuel95.liters)        || (n(form.fuel95.price)        > 0 ? t95 / n(form.fuel95.price)        : 0);
   const lPD   = n(form.premiumDiesel.liters) || (n(form.premiumDiesel.price) > 0 ? tPD / n(form.premiumDiesel.price) : 0);
-  const tPipa           = form.pipa.reduce((s, item) => s + n(item.containers) * n(item.price), 0);
-  const tJelly          = form.jellyCan.reduce((s, item) => s + n(item.pieces) * n(item.price), 0);
+  const tPipa           = form.pipa.reduce((s, item) => s + pipaItemTotal(item), 0);
+  const tJelly          = form.jellyCan.reduce((s, item) => s + jellyItemTotal(item), 0);
   const tD              = n(form.diesel.cash);
   const totalDeductions = form.expenses.reduce((s, i) => s + (i.txnType !== "payment" ? n(i.amount) : 0), 0);
   const totalIncome     = form.expenses.reduce((s, i) => s + (i.txnType === "payment"  ? n(i.amount) : 0), 0);
@@ -1397,7 +1434,7 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
             {form.pipa.map((item, i) => {
               const containers = n(item.containers);
               const price = n(item.price);
-              const total = containers * price;
+              const total = pipaItemTotal(item);
               if (total <= 0) return null;
               return (
                 <div key={`pipa-${i}`} className="px-4 py-3 flex items-center justify-between">
@@ -1405,9 +1442,11 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
                     <p className="text-sm font-semibold text-white">
                       {t(lang, "pipa")} · <span className="text-amber-400">{t(lang, PRODUCT_KEY[item.product])}</span>
                     </p>
-                    <p className="text-xs text-gray-400">
-                      {t(lang, "containersLine", { c: containers, l: (containers * 215).toLocaleString(), p: fmt(price) })}
-                    </p>
+                    {containers > 0 && (
+                      <p className="text-xs text-gray-400">
+                        {t(lang, "containersLine", { c: containers, l: (containers * 215).toLocaleString(), p: fmt(price) })}
+                      </p>
+                    )}
                   </div>
                   <p className="text-sm font-bold text-amber-400">{fmt(total)} MMK</p>
                 </div>
@@ -1417,7 +1456,7 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
               const pieces = n(item.pieces);
               const litersPerCan = n(item.liters);
               const price = n(item.price);
-              const total = pieces * price;
+              const total = jellyItemTotal(item);
               const totalLiters = pieces * litersPerCan;
               if (total <= 0) return null;
               return (
@@ -1426,9 +1465,11 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
                     <p className="text-sm font-semibold text-white">
                       {t(lang, "jellyCan")} · <span className="text-teal-400">{t(lang, PRODUCT_KEY[item.product])}</span>
                     </p>
-                    <p className="text-xs text-gray-400">
-                      {t(lang, "jellyLine", { c: pieces, lpc: litersPerCan, l: totalLiters.toLocaleString("en-US", { maximumFractionDigits: 2 }), p: fmt(price) })}
-                    </p>
+                    {pieces > 0 && (
+                      <p className="text-xs text-gray-400">
+                        {t(lang, "jellyLine", { c: pieces, lpc: litersPerCan, l: totalLiters.toLocaleString("en-US", { maximumFractionDigits: 2 }), p: fmt(price) })}
+                      </p>
+                    )}
                   </div>
                   <p className="text-sm font-bold text-teal-400">{fmt(total)} MMK</p>
                 </div>
@@ -1890,8 +1931,8 @@ export default function App() {
       product: item.product,
       containers: n(item.containers),
       price: n(item.price),
-      total: n(item.containers) * n(item.price),
-    })).filter(item => item.containers > 0 || item.price > 0);
+      total: pipaItemTotal(item),
+    })).filter(item => item.containers > 0 || item.price > 0 || item.total > 0);
     const tPipa = pipaItems.reduce((s, item) => s + item.total, 0);
     const totalPipaContainers = pipaItems.reduce((s, item) => s + item.containers, 0);
 
@@ -1901,8 +1942,8 @@ export default function App() {
       liters_per_can: n(item.liters),
       total_liters: n(item.pieces) * n(item.liters),
       price: n(item.price),
-      total: n(item.pieces) * n(item.price),
-    })).filter(item => item.pieces > 0 || item.price > 0);
+      total: jellyItemTotal(item),
+    })).filter(item => item.pieces > 0 || item.price > 0 || item.total > 0);
 
     const tJelly = jellyCanItems.reduce((s, item) => s + item.total, 0);
 
