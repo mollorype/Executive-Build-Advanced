@@ -44,10 +44,6 @@ interface FormData {
   shiftDate: string;
 }
 
-const PIPA_PRODUCT_LABELS: Record<PipaProduct, string> = {
-  "92": "Fuel 92", "95": "Fuel 95", "PD": "Premium Diesel", "D": "Diesel",
-};
-
 // ─── Language / i18n ──────────────────────────────────────────────────────────
 type Lang = "en" | "my";
 
@@ -82,10 +78,151 @@ const STRINGS = {
   syncedLabel:          { en: "Synced",                    my: "ပေးပို့ပြီး" },
   pendingSyncLabel:     { en: "Pending sync",               my: "ပေးပို့ရန် စောင့်ဆိုင်းနေသည်" },
   offlineLabel:         { en: "Offline",                    my: "အင်တာနက် မရှိပါ" },
+  // Sign-in
+  appTagline:           { en: "Daily Shift Report Portal", my: "နေ့စဉ် ဆိုင်းအစီရင်ခံစာ" },
+  loginIntro:           { en: "Enter your work email to start your shift report.", my: "ဆိုင်းအစီရင်ခံစာ စတင်ရန် အလုပ်အီးမေးလ် ထည့်ပါ။" },
+  continueBtn:          { en: "Continue →", my: "ဆက်လုပ်မည် →" },
+  firstTimeHelp:        { en: "First time signing in — choose a password (at least {n} characters; numbers are fine). You'll use it every time.", my: "ပထမဆုံးအကြိမ် ဝင်ခြင်းဖြစ်၍ စကားဝှက် ရွေးပါ (အနည်းဆုံး {n} လုံး၊ ဂဏန်းလည်း ရသည်)။ နောက်တိုင်း ဒီစကားဝှက်ဖြင့် ဝင်ရပါမည်။" },
+  welcomeBack:          { en: "Welcome back.", my: "ပြန်လည် ကြိုဆိုပါသည်။" },
+  change:               { en: "Change", my: "ပြောင်းရန်" },
+  savePwSignIn:         { en: "Save password & sign in →", my: "စကားဝှက် သိမ်းပြီး ဝင်မည် →" },
+  forgotPw:             { en: "Forgot it? Ask your manager to reset your password.", my: "စကားဝှက် မေ့သွားလျှင် မန်နေဂျာကို ပြန်သတ်မှတ်ပေးရန် ပြောပါ။" },
+  confidential:         { en: "STM Daily · Confidential", my: "STM Daily · လျှို့ဝှက်" },
+  showPw:               { en: "Show password", my: "စကားဝှက် ပြရန်" },
+  hidePw:               { en: "Hide password", my: "စကားဝှက် ဖျောက်ရန်" },
+  errWrongPw:           { en: "Wrong password. Try again, or ask your manager to reset it.", my: "စကားဝှက် မှားနေသည်။ ထပ်ကြိုးစားပါ (သို့) မန်နေဂျာကို ပြန်သတ်မှတ်ပေးရန် ပြောပါ။" },
+  errNoInternet:        { en: "No internet connection. Connect and try again.", my: "အင်တာနက် မရှိပါ။ ချိတ်ဆက်ပြီး ထပ်ကြိုးစားပါ။" },
+  errSignIn:            { en: "Couldn't sign in. Try again.", my: "ဝင်၍ မရပါ။ ထပ်ကြိုးစားပါ။" },
+  errEmail:             { en: "Please enter a valid email address.", my: "မှန်ကန်သော အီးမေးလ် ထည့်ပါ။" },
+  errPwShort:           { en: "Use at least {n} characters.", my: "အနည်းဆုံး {n} လုံး ထည့်ပါ။" },
+  errPwMatch:           { en: "The two passwords don't match.", my: "စကားဝှက် နှစ်ခု မတူပါ။" },
+  errHasPw:             { en: "This email already has a password. Sign in with it, or ask your manager to reset it.", my: "ဒီအီးမေးလ်တွင် စကားဝှက် ရှိပြီးသားပါ။ ထိုစကားဝှက်ဖြင့် ဝင်ပါ (သို့) မန်နေဂျာကို ပြန်သတ်မှတ်ပေးရန် ပြောပါ။" },
+  errNotListed:         { en: "This email isn't on the STM Daily list. Ask your manager.", my: "ဒီအီးမေးလ်သည် STM Daily စာရင်းတွင် မပါပါ။ မန်နေဂျာကို မေးပါ။" },
+  errGeneric:           { en: "Something went wrong. Try again.", my: "အမှားတစ်ခု ဖြစ်သွားသည်။ ထပ်ကြိုးစားပါ။" },
+  verifying:            { en: "Verifying access…", my: "စစ်ဆေးနေသည်…" },
+  accessNotGranted:     { en: "Access Not Granted", my: "ဝင်ခွင့် မရှိပါ" },
+  notOnList:            { en: "{email} is not on the approved list.", my: "{email} သည် ခွင့်ပြုစာရင်းတွင် မပါပါ။" },
+  contactManager:       { en: "Contact your manager to get access.", my: "ဝင်ခွင့်ရရန် မန်နေဂျာကို ဆက်သွယ်ပါ။" },
+  tryDifferent:         { en: "← Try a Different Email", my: "← အခြား အီးမေးလ်ဖြင့် ဝင်ရန်" },
+  switchLanguage:       { en: "Switch language (currently English)", my: "ဘာသာစကား ပြောင်းရန် (လက်ရှိ မြန်မာ)" },
+  // Menu
+  switchUser:           { en: "Switch User", my: "အကောင့် ပြောင်းရန်" },
+  appSettings:          { en: "App Settings", my: "ဆက်တင်များ" },
+  openSettings:         { en: "Open app settings", my: "ဆက်တင် ဖွင့်ရန်" },
+  selectMode:           { en: "Select Mode", my: "လုပ်ဆောင်ချက် ရွေးပါ" },
+  whatToDo:             { en: "What would you like to do?", my: "ဘာလုပ်ချင်ပါသလဲ?" },
+  shiftSubmission:      { en: "Daily Shift Submission", my: "နေ့စဉ် ဆိုင်းစာရင်း တင်ရန်" },
+  shiftSubmissionDesc:  { en: "Record end-of-shift meter readings, fuel sales & expenses", my: "ဆိုင်းပြီးချိန် မီတာ၊ ဆီရောင်းအားနှင့် ကုန်ကျစရိတ်များ မှတ်ရန်" },
+  openForm:             { en: "Open form", my: "ဖောင် ဖွင့်ရန်" },
+  chatDesc:             { en: "Message the team and the CEO, and share photos", my: "အဖွဲ့နှင့် CEO ထံ စာနှင့် ဓာတ်ပုံ ပို့ရန်" },
+  openChat:             { en: "Open chat", my: "Chat ဖွင့်ရန်" },
+  newMessages1:         { en: "{n} new message", my: "စာအသစ် {n} စောင်" },
+  newMessagesN:         { en: "{n} new messages", my: "စာအသစ် {n} စောင်" },
+  chatNewAria:          { en: "{title}, {n} new", my: "{title}၊ စာအသစ် {n}" },
+  // Shift form
+  shiftReportOf:        { en: "{name}'s Shift Report", my: "{name} ၏ ဆိုင်းအစီရင်ခံစာ" },
+  shiftDateTime:        { en: "Shift date and time", my: "ဆိုင်း ရက်စွဲနှင့် အချိန်" },
+  switchMode:           { en: "Switch mode", my: "ရွေးချယ်မှုသို့ ပြန်ရန်" },
+  modeShort:            { en: "← Mode", my: "← နောက်သို့" },
+  switchModeLong:       { en: "← Switch Mode", my: "← ရွေးချယ်မှုသို့" },
+  fuel92:               { en: "Fuel 92", my: "ဓာတ်ဆီ 92" },
+  fuel95:               { en: "Fuel 95", my: "ဓာတ်ဆီ 95" },
+  premiumDiesel:        { en: "Premium Diesel", my: "ပရီမီယံ ဒီဇယ်" },
+  diesel:               { en: "Diesel", my: "ဒီဇယ်" },
+  closeThing:           { en: "Close {x}", my: "{x} ပိတ်ရန်" },
+  closeNewPumpQ:        { en: "Close the New Pump? Its numbers will be cleared.", my: "ပန့်အသစ်ကို ပိတ်မလား? ထည့်ထားသော ပမာဏများ ဖျက်ပါမည်။" },
+  noPipa:               { en: "No Pipa entries — tap + to add one", my: "ပီပါ မရှိသေးပါ — + နှိပ်၍ ထည့်ပါ" },
+  entryN:               { en: "Entry {n}", my: "အမှတ် {n}" },
+  removePipaN:          { en: "Remove Pipa entry {n}", my: "ပီပါ {n} ဖယ်ရန်" },
+  product:              { en: "Product", my: "ဆီအမျိုးအစား" },
+  containers:           { en: "Containers", my: "ပီပါ အရေအတွက်" },
+  pricePerPipa:         { en: "Price / Pipa", my: "ပီပါ တစ်လုံးဈေး" },
+  totalMMK:             { en: "Total: {a} MMK", my: "စုစုပေါင်း: {a} MMK" },
+  jellyCan:             { en: "Jelly Can", my: "ပုံးဝါ" },
+  jellyManual:          { en: "Enter liters manually", my: "လီတာ ကိုယ်တိုင် ထည့်ပါ" },
+  noJelly:              { en: "No jelly can entries — tap + to add one", my: "ပုံးဝါ မရှိသေးပါ — + နှိပ်၍ ထည့်ပါ" },
+  removeJellyN:         { en: "Remove jelly can entry {n}", my: "ပုံးဝါ {n} ဖယ်ရန်" },
+  pieces:               { en: "Pieces", my: "အရေအတွက်" },
+  litersPerCan:         { en: "Liters / Can", my: "တစ်ပုံး လီတာ" },
+  litersTotal:          { en: "{l} L total", my: "စုစုပေါင်း {l} L" },
+  pricePerCan:          { en: "Price / Can", my: "တစ်ပုံး ဈေး" },
+  addJelly:             { en: "Add Jelly Can", my: "ပုံးဝါ ထည့်ရန်" },
+  pricePerL:            { en: "Price / L", my: "တစ်လီတာ ဈေး" },
+  cashSummary:          { en: "Cash Summary", my: "ငွေသား အကျဉ်းချုပ်" },
+  pipaJelly:            { en: "Pipa / Jelly Can", my: "ပီပါ / ပုံးဝါ" },
+  prepaidNote:          { en: "Pre-paid — not included in cash", my: "ကြိုပေးပြီး — ငွေသားတွင် မပါ" },
+  expenseSearchPh:      { en: "Search a profile or type a new name…", my: "အမည် ရှာပါ (သို့) အမည်သစ် ရိုက်ပါ…" },
+  linked:               { en: "LINKED", my: "ချိတ်ပြီး" },
+  debtProfiles:         { en: "Debt Profiles", my: "အကြွေးစာရင်းများ" },
+  add:                  { en: "Add", my: "ထည့်" },
+  linkedToDebt:         { en: "✓ Linked to Debt Tracker", my: "✓ အကြွေးစာရင်းနှင့် ချိတ်ပြီး" },
+  addDebtIncrease:      { en: "↑ Add Debt (increase balance)", my: "↑ အကြွေး ထည့် (ကျန်ငွေ တိုး)" },
+  paymentReduce:        { en: "↓ Payment (reduce debt)", my: "↓ ငွေပေးချေ (အကြွေး လျော့)" },
+  debtTag:              { en: "↑ DEBT", my: "↑ အကြွေး" },
+  payTag:               { en: "↓ PAY", my: "↓ ပေးချေ" },
+  removeThing:          { en: "Remove {x}", my: "{x} ဖယ်ရန်" },
+  income:               { en: "+ Income", my: "+ ဝင်ငွေ" },
+  costs:                { en: "− Costs", my: "− ကုန်ကျစရိတ်" },
+  // Review
+  back:                 { en: "← Back", my: "← နောက်သို့" },
+  reviewSubmission:     { en: "Review Submission", my: "စစ်ဆေးပြီး ပေးပို့ရန်" },
+  products:             { en: "Products", my: "ထုတ်ကုန်များ" },
+  litersAtPrice:        { en: "{l} L · {p} MMK/L", my: "{l} L · တစ်လီတာ {p} MMK" },
+  containersLine:       { en: "{c} containers · {l} L · {p} MMK/pipa", my: "ပီပါ {c} လုံး · {l} L · တစ်လုံး {p} MMK" },
+  jellyLine:            { en: "{c} cans · {lpc} L/can · {l} L total · {p} MMK/can", my: "{c} ပုံး · တစ်ပုံး {lpc} L · စုစုပေါင်း {l} L · တစ်ပုံး {p} MMK" },
+  cashOnly:             { en: "Cash only · {p} MMK/L", my: "ငွေသားသာ · တစ်လီတာ {p} MMK" },
+  expenses:             { en: "Expenses", my: "ကုန်ကျစရိတ်များ" },
+  paymentIncome:        { en: "+ Payment Income", my: "+ ပေးချေမှု ဝင်ငွေ" },
+  otherCosts:           { en: "− Other Costs", my: "− အခြား ကုန်ကျစရိတ်" },
+  submitting:           { en: "Submitting…", my: "ပေးပို့နေသည်…" },
+  confirmSubmit:        { en: "✓ Confirm & Submit", my: "✓ အတည်ပြု ပေးပို့မည်" },
+  // Done
+  submitted:            { en: "Shift Report Submitted", my: "ဆိုင်းအစီရင်ခံစာ ပေးပို့ပြီးပါပြီ" },
+  savedFor:             { en: "Saved for {name}.", my: "{name} အတွက် သိမ်းပြီးပါပြီ။" },
+  savedOnDevice:        { en: "saved on this device", my: "ဤဖုန်းတွင် သိမ်းထားသည်" },
+  submitAnother:        { en: "Submit Another Shift", my: "နောက်ဆိုင်း တင်ရန်" },
+  // Settings
+  defaultPrices:        { en: "Default Prices Per Liter (MMK)", my: "ပုံသေ တစ်လီတာ ဈေး (ကျပ်)" },
+  autoFilled:           { en: "Auto-filled in the shift form per product", my: "ဆိုင်းဖောင်တွင် အလိုအလျောက် ဖြည့်ပေးပါမည်" },
+  savedBang:            { en: "✓ Saved!", my: "✓ သိမ်းပြီး!" },
+  saveChanges:          { en: "Save Changes", my: "သိမ်းမည်" },
+  // Sync
+  offlineShiftsSaved1:  { en: "{n} shift saved, will sync automatically", my: "ဆိုင်း {n} ခု သိမ်းထားသည်၊ အလိုအလျောက် ပို့ပါမည်" },
+  offlineShiftsSavedN:  { en: "{n} shifts saved, will sync automatically", my: "ဆိုင်း {n} ခု သိမ်းထားသည်၊ အလိုအလျောက် ပို့ပါမည်" },
+  shifts1:              { en: "{n} shift", my: "ဆိုင်း {n} ခု" },
+  shiftsN:              { en: "{n} shifts", my: "ဆိုင်း {n} ခု" },
 } as const;
 
-function t(lang: Lang, key: keyof typeof STRINGS): string {
-  return STRINGS[key][lang];
+type StrKey = keyof typeof STRINGS;
+
+function t(lang: Lang, key: StrKey, vars?: Record<string, string | number>): string {
+  let out: string = STRINGS[key][lang];
+  if (vars) for (const [k, v] of Object.entries(vars)) out = out.split(`{${k}}`).join(String(v));
+  return out;
+}
+
+/** Text with one bold part, e.g. "<b>kyaw@stm</b> is not on the list" in either language. */
+function tBold(lang: Lang, key: StrKey, name: string, value: string, boldCls: string) {
+  const [before, after = ""] = t(lang, key, { [name]: "\u0000" }).split("\u0000");
+  return <>{before}<strong className={boldCls}>{value}</strong>{after}</>;
+}
+
+const PRODUCT_KEY: Record<PipaProduct, StrKey> = { "92": "fuel92", "95": "fuel95", PD: "premiumDiesel", D: "diesel" };
+
+const RELATION_MY: Record<string, string> = {
+  Friends: "သူငယ်ချင်း", Family: "မိသားစု", Own: "ကိုယ်ပိုင်", Contract: "စာချုပ်",
+  Vendor: "ရောင်းသူ", Employee: "ဝန်ထမ်း", "On Paper": "စာရွက်ပေါ်", Other: "အခြား",
+};
+
+/** Server/sign-in messages come back in English; show them in the chosen language. */
+function localizeError(lang: Lang, msg: string): string {
+  if (lang === "en") return msg;
+  if (/No internet/i.test(msg)) return t(lang, "errNoInternet");
+  if (/already has a password/i.test(msg)) return t(lang, "errHasPw");
+  if (/isn't on the STM Daily list/i.test(msg)) return t(lang, "errNotListed");
+  if (/at least \d+ characters/i.test(msg)) return t(lang, "errPwShort", { n: MIN_STAFF_PASSWORD });
+  if (/valid email/i.test(msg)) return t(lang, "errEmail");
+  return t(lang, "errGeneric");
 }
 
 const LANG_KEY = "stm_daily_lang";
@@ -99,7 +236,7 @@ function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void 
         setLang(next);
         localStorage.setItem(LANG_KEY, next);
       }}
-      aria-label={`Switch language (currently ${lang === "en" ? "English" : "Burmese"})`}
+      aria-label={t(lang, "switchLanguage")}
       className="flex items-center gap-0.5 bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] rounded-lg p-0.5 transition-colors"
     >
       <span className={`text-[11px] font-bold rounded px-1.5 py-0.5 ${lang === "en" ? "bg-blue-600 text-white" : "text-gray-600"}`}>EN</span>
@@ -206,7 +343,7 @@ function PipaPanel({ items, onChange, lang }: {
       </div>
 
       {items.length === 0 && (
-        <p className="text-xs text-gray-600 text-center py-5">No {t(lang, "pipa")} entries — tap + to add one</p>
+        <p className="text-xs text-gray-600 text-center py-5">{t(lang, "noPipa")}</p>
       )}
 
       {items.map((item, i) => {
@@ -219,11 +356,11 @@ function PipaPanel({ items, onChange, lang }: {
               <span className={`text-[10px] font-bold text-white rounded px-1.5 py-0.5 ${PIPA_COLORS[item.product]}`}>
                 {item.product}
               </span>
-              <span className="text-xs font-semibold text-gray-500">Entry {i + 1}</span>
+              <span className="text-xs font-semibold text-gray-500">{t(lang, "entryN", { n: i + 1 })}</span>
               <button
                 type="button"
                 onClick={() => remove(i)}
-                aria-label={`Remove ${t(lang, "pipa")} entry ${i + 1}`}
+                aria-label={t(lang, "removePipaN", { n: i + 1 })}
                 className="ml-auto text-gray-600 hover:text-red-400 transition-colors p-0.5"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -234,21 +371,21 @@ function PipaPanel({ items, onChange, lang }: {
             <div className="grid grid-cols-3 gap-3">
               {/* Product dropdown */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Product</label>
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "product")}</label>
                 <select
                   value={item.product}
                   onChange={e => update(i, "product", e.target.value as PipaProduct)}
                   className="w-full rounded-xl border px-3 py-3 text-sm font-semibold outline-none transition-all bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                 >
-                  <option value="92">Fuel 92</option>
-                  <option value="95">Fuel 95</option>
-                  <option value="PD">Premium Diesel</option>
-                  <option value="D">Diesel</option>
+                  <option value="92">{t(lang, "fuel92")}</option>
+                  <option value="95">{t(lang, "fuel95")}</option>
+                  <option value="PD">{t(lang, "premiumDiesel")}</option>
+                  <option value="D">{t(lang, "diesel")}</option>
                 </select>
               </div>
               {/* Containers */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Containers</label>
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "containers")}</label>
                 <input
                   type="number"
                   value={item.containers}
@@ -262,7 +399,7 @@ function PipaPanel({ items, onChange, lang }: {
               </div>
               {/* Price per pipa */}
               <GoldInput
-                label="Price / Pipa"
+                label={t(lang, "pricePerPipa")}
                 value={item.price}
                 onChange={v => update(i, "price", v)}
                 prefix="K"
@@ -288,7 +425,7 @@ function PipaPanel({ items, onChange, lang }: {
         </button>
         {items.length > 0 && (
           <span className="text-xs font-bold text-amber-400">
-            Total: {fmt(items.reduce((s, item) => s + n(item.containers) * n(item.price), 0))} MMK
+            {t(lang, "totalMMK", { a: fmt(items.reduce((s, item) => s + n(item.containers) * n(item.price), 0)) })}
           </span>
         )}
       </div>
@@ -297,9 +434,10 @@ function PipaPanel({ items, onChange, lang }: {
 }
 
 // ─── Jelly Can panel — multi-item, each with product + pieces + L/can + price ──
-function JellyCanPanel({ items, onChange }: {
+function JellyCanPanel({ items, onChange, lang }: {
   items: JellyCanItem[];
   onChange: (items: JellyCanItem[]) => void;
+  lang: Lang;
 }) {
   function add() {
     onChange([...items, { product: "92", pieces: "", liters: "", price: "" }]);
@@ -314,12 +452,12 @@ function JellyCanPanel({ items, onChange }: {
   return (
     <div className="bg-[#161b22] rounded-2xl border border-[#30363d] overflow-hidden">
       <div className="px-4 py-2.5 flex items-center gap-2 bg-[#1c2433] border-b border-[#30363d]">
-        <span className="text-xs font-bold text-teal-400 uppercase tracking-widest">Jelly Can · ပုံးဝါ</span>
-        <span className="ml-auto text-[10px] text-gray-600">Enter liters manually</span>
+        <span className="text-xs font-bold text-teal-400 uppercase tracking-widest">{t(lang, "jellyCan")}</span>
+        <span className="ml-auto text-[10px] text-gray-600">{t(lang, "jellyManual")}</span>
       </div>
 
       {items.length === 0 && (
-        <p className="text-xs text-gray-600 text-center py-5">No jelly can entries — tap + to add one</p>
+        <p className="text-xs text-gray-600 text-center py-5">{t(lang, "noJelly")}</p>
       )}
 
       {items.map((item, i) => {
@@ -334,9 +472,9 @@ function JellyCanPanel({ items, onChange }: {
               <span className={`text-[10px] font-bold text-white rounded px-1.5 py-0.5 ${PIPA_COLORS[item.product]}`}>
                 {item.product}
               </span>
-              <span className="text-xs font-semibold text-gray-500">Entry {i + 1}</span>
+              <span className="text-xs font-semibold text-gray-500">{t(lang, "entryN", { n: i + 1 })}</span>
               <button type="button" onClick={() => remove(i)}
-                aria-label={`Remove jelly can entry ${i + 1}`}
+                aria-label={t(lang, "removeJellyN", { n: i + 1 })}
                 className="ml-auto text-gray-600 hover:text-red-400 transition-colors p-0.5">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -346,18 +484,18 @@ function JellyCanPanel({ items, onChange }: {
             {/* Row 1: Product + Pieces */}
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Product</label>
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "product")}</label>
                 <select value={item.product}
                   onChange={e => update(i, "product", e.target.value as PipaProduct)}
                   className="w-full rounded-xl border px-3 py-3 text-sm font-semibold outline-none bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
-                  <option value="92">Fuel 92</option>
-                  <option value="95">Fuel 95</option>
-                  <option value="PD">Premium Diesel</option>
-                  <option value="D">Diesel</option>
+                  <option value="92">{t(lang, "fuel92")}</option>
+                  <option value="95">{t(lang, "fuel95")}</option>
+                  <option value="PD">{t(lang, "premiumDiesel")}</option>
+                  <option value="D">{t(lang, "diesel")}</option>
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Pieces (အရေအတွက်)</label>
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "pieces")}</label>
                 <input type="number" value={item.pieces}
                   onChange={e => update(i, "pieces", e.target.value)}
                   placeholder="0"
@@ -368,18 +506,18 @@ function JellyCanPanel({ items, onChange }: {
             {/* Row 2: Liters per can + Price */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Liters / Can (ပါရှိသောလီတာ)</label>
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "litersPerCan")}</label>
                 <input type="number" value={item.liters}
                   onChange={e => update(i, "liters", e.target.value)}
                   placeholder="0"
                   className="w-full rounded-xl border px-3 py-3 text-base font-semibold outline-none tabular-nums bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-gray-700"
                 />
                 {totalLiters > 0 && (
-                  <p className="text-[10px] text-teal-400 font-semibold">{totalLiters.toLocaleString("en-US", { maximumFractionDigits: 2 })} L total</p>
+                  <p className="text-[10px] text-teal-400 font-semibold">{t(lang, "litersTotal", { l: totalLiters.toLocaleString("en-US", { maximumFractionDigits: 2 }) })}</p>
                 )}
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Price / Can</label>
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "pricePerCan")}</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
                   <input type="number" value={item.price}
@@ -403,10 +541,10 @@ function JellyCanPanel({ items, onChange }: {
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          Add Jelly Can · ပုံးဝါထည့်ရန်
+          {t(lang, "addJelly")}
         </button>
         {items.length > 0 && (
-          <span className="text-xs font-bold text-teal-400">Total: {fmt(panelTotal)} MMK</span>
+          <span className="text-xs font-bold text-teal-400">{t(lang, "totalMMK", { a: fmt(panelTotal) })}</span>
         )}
       </div>
     </div>
@@ -473,7 +611,7 @@ function Fuel92Card({ normal, fresh, newOpen, total, onField, onOpenNew, onClose
       <div className="flex items-center gap-2">
         {amount > 0 && <span className="text-xs font-semibold text-blue-300 tabular-nums">{fmt(amount)}</span>}
         {close && (
-          <button type="button" onClick={close} aria-label={`Close ${t(lang, "newPump")}`}
+          <button type="button" onClick={close} aria-label={t(lang, "closeThing", { x: t(lang, "newPump") })}
             className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -489,7 +627,7 @@ function Fuel92Card({ normal, fresh, newOpen, total, onField, onOpenNew, onClose
       <div className="px-5 pt-4 pb-3 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <span className="text-[11px] font-black px-2 py-0.5 rounded-md bg-white/5 text-blue-400">92</span>
-          <span className="text-sm font-bold text-white uppercase tracking-wide">Fuel 92</span>
+          <span className="text-sm font-bold text-white uppercase tracking-wide">{t(lang, "fuel92")}</span>
         </div>
         {total > 0 && (
           <span className="text-base font-bold tabular-nums text-blue-400">
@@ -600,7 +738,7 @@ function ExpensesPanel({ items, onChange, lang }: {
               onChange={e => handleNameChange(e.target.value)}
               onKeyDown={e => e.key === "Enter" && addItem()}
               onFocus={() => { if (hits.length > 0) setShowDrop(true); }}
-              placeholder="Search a profile or type a new name…"
+              placeholder={t(lang, "expenseSearchPh")}
               className={`w-full rounded-xl border px-3 ${profileId ? "pr-16" : ""} py-3 text-sm font-medium outline-none bg-[#0d1117] text-white placeholder:text-gray-700 transition-colors ${
                 profileId
                   ? "border-blue-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
@@ -609,7 +747,7 @@ function ExpensesPanel({ items, onChange, lang }: {
             />
             {profileId && (
               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold bg-blue-500/20 text-blue-400 rounded px-1.5 py-0.5 pointer-events-none">
-                LINKED
+                {t(lang, "linked")}
               </span>
             )}
             {searching && !profileId && (
@@ -619,7 +757,7 @@ function ExpensesPanel({ items, onChange, lang }: {
           {showDrop && hits.length > 0 && (
             <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl overflow-hidden">
               <p className="px-3 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-[#1c2433] border-b border-[#30363d]">
-                Debt Profiles
+                {t(lang, "debtProfiles")}
               </p>
               {hits.map(h => (
                 <button
@@ -629,7 +767,7 @@ function ExpensesPanel({ items, onChange, lang }: {
                   className="w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-[#1c2433] transition-colors text-left border-t border-[#30363d]"
                 >
                   <span className="font-semibold text-white">{h.name}</span>
-                  <span className="text-xs text-gray-500 ml-2 shrink-0">{h.relation}</span>
+                  <span className="text-xs text-gray-500 ml-2 shrink-0">{lang === "my" ? RELATION_MY[h.relation] ?? h.relation : h.relation}</span>
                 </button>
               ))}
             </div>
@@ -655,7 +793,7 @@ function ExpensesPanel({ items, onChange, lang }: {
 
         {/* Add button */}
         <div className="flex flex-col gap-1.5">
-          <label aria-hidden="true" className="text-[11px] font-bold text-transparent uppercase tracking-widest select-none">Add</label>
+          <label aria-hidden="true" className="text-[11px] font-bold text-transparent uppercase tracking-widest select-none">{t(lang, "add")}</label>
           <button
             type="button"
             onClick={addItem}
@@ -664,7 +802,7 @@ function ExpensesPanel({ items, onChange, lang }: {
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            Add
+            {t(lang, "add")}
           </button>
         </div>
         </div>
@@ -673,7 +811,7 @@ function ExpensesPanel({ items, onChange, lang }: {
       {/* Linked profile: payment/debt toggle */}
       {profileId && (
         <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-3 py-2.5 space-y-2">
-          <p className="text-[11px] font-bold text-blue-400">✓ Linked to Debt Tracker</p>
+          <p className="text-[11px] font-bold text-blue-400">{t(lang, "linkedToDebt")}</p>
           <div className="flex gap-2">
             <button
               type="button"
@@ -684,7 +822,7 @@ function ExpensesPanel({ items, onChange, lang }: {
                   : "bg-transparent text-gray-500 border-[#30363d] hover:text-gray-300"
               }`}
             >
-              ↑ Add Debt (increase balance)
+              {t(lang, "addDebtIncrease")}
             </button>
             <button
               type="button"
@@ -695,7 +833,7 @@ function ExpensesPanel({ items, onChange, lang }: {
                   : "bg-transparent text-gray-500 border-[#30363d] hover:text-gray-300"
               }`}
             >
-              ↓ Payment (reduce debt)
+              {t(lang, "paymentReduce")}
             </button>
           </div>
         </div>
@@ -712,7 +850,7 @@ function ExpensesPanel({ items, onChange, lang }: {
                   <span className={`text-[9px] font-bold rounded px-1 py-0.5 shrink-0 ${
                     item.txnType === "debt" ? "bg-red-500/20 text-red-400" : "bg-emerald-500/20 text-emerald-400"
                   }`}>
-                    {item.txnType === "debt" ? "↑ DEBT" : "↓ PAY"}
+                    {item.txnType === "debt" ? t(lang, "debtTag") : t(lang, "payTag")}
                   </span>
                 )}
               </div>
@@ -723,7 +861,7 @@ function ExpensesPanel({ items, onChange, lang }: {
                 <button
                   type="button"
                   onClick={() => removeItem(idx)}
-                  aria-label={`Remove ${item.name}`}
+                  aria-label={t(lang, "removeThing", { x: item.name })}
                   className="w-6 h-6 flex items-center justify-center rounded-full bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -736,13 +874,13 @@ function ExpensesPanel({ items, onChange, lang }: {
           <div className="bg-[#1c2433] border-t border-[#30363d] px-4 py-2.5 space-y-1">
             {totalIncome > 0 && (
               <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">+ Income</span>
+                <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">{t(lang, "income")}</span>
                 <span className="text-sm font-bold text-emerald-400 tabular-nums">+{fmt(totalIncome)} MMK</span>
               </div>
             )}
             {totalCosts > 0 && (
               <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">− Costs</span>
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t(lang, "costs")}</span>
                 <span className="text-sm font-bold text-red-400 tabular-nums">−{fmt(totalCosts)} MMK</span>
               </div>
             )}
@@ -781,9 +919,9 @@ function LoginScreen({ onSignedIn, onDenied, lang, setLang }: {
     const { data, error: err } = await authClient.auth.signInWithPassword({ email: mail, password });
     if (err || !data.user) {
       const msg = err?.message ?? "";
-      setError(/invalid login/i.test(msg) ? "Wrong password. Try again, or ask your manager to reset it."
-        : !navigator.onLine || /fetch|network/i.test(msg) ? "No internet connection. Connect and try again."
-        : msg || "Couldn't sign in. Try again.");
+      setError(/invalid login/i.test(msg) ? t(lang, "errWrongPw")
+        : !navigator.onLine || /fetch|network/i.test(msg) ? t(lang, "errNoInternet")
+        : lang === "my" ? t(lang, "errSignIn") : msg || t(lang, "errSignIn"));
       return;
     }
     onSignedIn(mail, data.user.id);
@@ -793,7 +931,7 @@ function LoginScreen({ onSignedIn, onDenied, lang, setLang }: {
     e.preventDefault();
     setError("");
     if (step === "email") {
-      if (!mail.includes("@")) { setError("Please enter a valid email address."); return; }
+      if (!mail.includes("@")) { setError(t(lang, "errEmail")); return; }
       setBusy(true);
       try {
         const { state } = await staffAuth<{ state: StaffLoginState }>({ action: "status", email: mail });
@@ -801,20 +939,20 @@ function LoginScreen({ onSignedIn, onDenied, lang, setLang }: {
         setPassword(""); setConfirmPw(""); setShow(false);
         setStep(state === "has_password" ? "password" : "create");
       } catch (err) {
-        setError((err as Error).message);
+        setError(localizeError(lang, (err as Error).message));
       } finally {
         setBusy(false);
       }
       return;
     }
     if (step === "create") {
-      if (password.length < MIN_STAFF_PASSWORD) { setError(`Use at least ${MIN_STAFF_PASSWORD} characters.`); return; }
-      if (password !== confirmPw) { setError("The two passwords don't match."); return; }
+      if (password.length < MIN_STAFF_PASSWORD) { setError(t(lang, "errPwShort", { n: MIN_STAFF_PASSWORD })); return; }
+      if (password !== confirmPw) { setError(t(lang, "errPwMatch")); return; }
       setBusy(true);
       try {
         await staffAuth({ action: "set_password", email: mail, password });
       } catch (err) {
-        setError((err as Error).message);
+        setError(localizeError(lang, (err as Error).message));
         setBusy(false);
         return;
       }
@@ -828,7 +966,7 @@ function LoginScreen({ onSignedIn, onDenied, lang, setLang }: {
   }
 
   const eye = (
-    <button type="button" onClick={() => setShow(v => !v)} aria-label={show ? "Hide password" : "Show password"}
+    <button type="button" onClick={() => setShow(v => !v)} aria-label={show ? t(lang, "hidePw") : t(lang, "showPw")}
       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white p-1">
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         {show
@@ -850,14 +988,14 @@ function LoginScreen({ onSignedIn, onDenied, lang, setLang }: {
           </svg>
         </div>
         <h1 className="text-3xl font-bold text-white tracking-tight">STM <span className="text-blue-400">Daily</span></h1>
-        <p className="text-sm text-gray-500 mt-1">Daily Shift Report Portal</p>
+        <p className="text-sm text-gray-500 mt-1">{t(lang, "appTagline")}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="w-full max-w-sm bg-[#161b22] rounded-2xl border border-[#30363d] p-6 sm:p-8">
         {step === "email" ? (
           <>
             <h2 className="text-lg font-bold text-white mb-1">{t(lang, "signInTitle")}</h2>
-            <p className="text-sm text-gray-500 mb-6">Enter your work email to start your shift report.</p>
+            <p className="text-sm text-gray-500 mb-6">{t(lang, "loginIntro")}</p>
 
             <label htmlFor="login-email" className={LOGIN_LABEL_CLS}>{t(lang, "workEmail")}</label>
             <input
@@ -876,15 +1014,13 @@ function LoginScreen({ onSignedIn, onDenied, lang, setLang }: {
           <>
             <h2 className="text-lg font-bold text-white mb-1">{t(lang, step === "create" ? "createPassword" : "enterPassword")}</h2>
             <p className="text-sm text-gray-500 mb-5">
-              {step === "create"
-                ? `First time signing in — choose a password (at least ${MIN_STAFF_PASSWORD} characters; numbers are fine). You'll use it every time.`
-                : "Welcome back."}
+              {step === "create" ? t(lang, "firstTimeHelp", { n: MIN_STAFF_PASSWORD }) : t(lang, "welcomeBack")}
             </p>
 
             <div className="flex items-center justify-between gap-2 bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-2.5 mb-4">
               <span className="text-sm text-gray-300 truncate">{mail}</span>
               <button type="button" onClick={() => { setStep("email"); setError(""); setPassword(""); setConfirmPw(""); }}
-                className="text-xs font-semibold text-blue-400 hover:text-blue-300 shrink-0">Change</button>
+                className="text-xs font-semibold text-blue-400 hover:text-blue-300 shrink-0">{t(lang, "change")}</button>
             </div>
 
             <label htmlFor="login-password" className={LOGIN_LABEL_CLS}>{t(lang, "password")}</label>
@@ -927,31 +1063,31 @@ function LoginScreen({ onSignedIn, onDenied, lang, setLang }: {
           className="mt-5 w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98]"
         >
           {busy && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-          {step === "email" ? "Continue →" : step === "create" ? "Save password & sign in →" : t(lang, "signIn")}
+          {step === "email" ? t(lang, "continueBtn") : step === "create" ? t(lang, "savePwSignIn") : t(lang, "signIn")}
         </button>
         {step === "password" && (
-          <p className="text-xs text-gray-600 mt-3 text-center">Forgot it? Ask your manager to reset your password.</p>
+          <p className="text-xs text-gray-600 mt-3 text-center">{t(lang, "forgotPw")}</p>
         )}
       </form>
-      <p className="text-xs text-gray-700 mt-6">STM Daily · Confidential</p>
+      <p className="text-xs text-gray-700 mt-6">{t(lang, "confidential")}</p>
     </div>
   );
 }
 
 // ─── Checking screen ──────────────────────────────────────────────────────────
-function CheckingScreen() {
+function CheckingScreen({ lang }: { lang: Lang }) {
   return (
     <div className="min-h-screen bg-[#0f111a] flex items-center justify-center">
       <div className="text-center">
         <div className="w-12 h-12 border-4 border-[#30363d] border-t-blue-500 rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-gray-400 font-semibold">Verifying access…</p>
+        <p className="text-gray-400 font-semibold">{t(lang, "verifying")}</p>
       </div>
     </div>
   );
 }
 
 // ─── Access Denied screen ─────────────────────────────────────────────────────
-function DeniedScreen({ email, onBack }: { email: string; onBack: () => void }) {
+function DeniedScreen({ email, onBack, lang }: { email: string; onBack: () => void; lang: Lang }) {
   return (
     <div className="min-h-screen bg-[#0f111a] flex flex-col items-center justify-center px-4 text-center">
       <div className="w-20 h-20 rounded-3xl bg-red-500/10 flex items-center justify-center mb-6">
@@ -959,16 +1095,16 @@ function DeniedScreen({ email, onBack }: { email: string; onBack: () => void }) 
           <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
         </svg>
       </div>
-      <h1 className="text-3xl font-bold text-white mb-2">Access Not Granted</h1>
+      <h1 className="text-3xl font-bold text-white mb-2">{t(lang, "accessNotGranted")}</h1>
       <p className="text-gray-500 text-sm mb-1">
-        <span className="font-semibold text-gray-300">{email}</span> is not on the approved list.
+        {tBold(lang, "notOnList", "email", email, "font-semibold text-gray-300")}
       </p>
-      <p className="text-gray-600 text-sm mb-8">Contact your manager to get access.</p>
+      <p className="text-gray-600 text-sm mb-8">{t(lang, "contactManager")}</p>
       <button
         onClick={onBack}
         className="bg-[#161b22] border border-[#30363d] hover:border-gray-500 text-gray-300 hover:text-white font-bold rounded-xl px-8 py-3 text-sm transition-colors"
       >
-        ← Try a Different Email
+        {t(lang, "tryDifferent")}
       </button>
     </div>
   );
@@ -1066,7 +1202,7 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
   function closeNewPump() {
     const r = form.fuel92New;
     if ((n(r.totalAmount) > 0 || n(r.liters) > 0)
-        && !window.confirm(lang === "my" ? "ပန့်အသစ်ကို ပိတ်မလား? ထည့်ထားသော ပမာဏများ ဖျက်ပါမည်။" : "Close the New Pump? Its numbers will be cleared.")) return;
+        && !window.confirm(t(lang, "closeNewPumpQ"))) return;
     saveNewPumpOpen(false);
     // Clear it, so nothing hidden is ever counted; keep the price for next time.
     setForm(f => ({ ...f, fuel92NewOpen: false, fuel92New: { ...EMPTY.fuel92New, price: f.fuel92New.price } }));
@@ -1085,7 +1221,7 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs text-gray-500 font-semibold uppercase tracking-widest">STM Daily</p>
-            <p className="text-sm font-bold text-white capitalize truncate">{employeeName}'s Shift Report</p>
+            <p className="text-sm font-bold text-white capitalize truncate">{t(lang, "shiftReportOf", { name: employeeName })}</p>
           </div>
           <div className="shrink-0">
             <LangToggle lang={lang} setLang={setLang} />
@@ -1096,24 +1232,24 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
             type="datetime-local"
             value={form.shiftDate}
             onChange={e => setForm(f => ({ ...f, shiftDate: e.target.value }))}
-            aria-label="Shift date and time"
+            aria-label={t(lang, "shiftDateTime")}
             className="flex-1 min-w-[10rem] md:flex-none text-xs text-gray-400 bg-[#161b22] border border-[#30363d] hover:border-gray-500 focus:border-blue-500 focus:outline-none rounded-lg px-2 py-1.5 cursor-pointer"
           />
           <button
             type="button"
             onClick={onBack}
-            aria-label="Switch mode"
+            aria-label={t(lang, "switchMode")}
             className="shrink-0 whitespace-nowrap text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1.5 transition-colors"
           >
-            <span className="md:hidden">← Mode</span>
-            <span className="hidden md:inline">← Switch Mode</span>
+            <span className="md:hidden">{t(lang, "modeShort")}</span>
+            <span className="hidden md:inline">{t(lang, "switchModeLong")}</span>
           </button>
           <button
             type="button"
             onClick={onLogout}
             className="shrink-0 whitespace-nowrap text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1.5 transition-colors"
           >
-            Switch User
+            {t(lang, "switchUser")}
           </button>
         </div>
       </div>
@@ -1125,10 +1261,10 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
           <div className="space-y-3">
             <Fuel92Card normal={form.fuel92} fresh={form.fuel92New} newOpen={form.fuel92NewOpen} total={t92}
               onField={setFuelField} onOpenNew={openNewPump} onCloseNew={closeNewPump} lang={lang} />
-            <ProductCard label="Fuel 95" badge="95" accentText="text-emerald-400" accentBorder="border-l-emerald-500"
+            <ProductCard label={t(lang, "fuel95")} badge="95" accentText="text-emerald-400" accentBorder="border-l-emerald-500"
               totalAmount={form.fuel95.totalAmount} price={form.fuel95.price} liters={form.fuel95.liters} total={t95}
               onTotalAmount={v => setFuelField("fuel95", "totalAmount", v)} onPrice={v => setFuelField("fuel95", "price", v)} onLiters={v => setFuelField("fuel95", "liters", v)} lang={lang} />
-            <ProductCard label="Premium Diesel" badge="PD" accentText="text-purple-400" accentBorder="border-l-purple-500"
+            <ProductCard label={t(lang, "premiumDiesel")} badge="PD" accentText="text-purple-400" accentBorder="border-l-purple-500"
               totalAmount={form.premiumDiesel.totalAmount} price={form.premiumDiesel.price} liters={form.premiumDiesel.liters} total={tPD}
               onTotalAmount={v => setFuelField("premiumDiesel", "totalAmount", v)} onPrice={v => setFuelField("premiumDiesel", "price", v)} onLiters={v => setFuelField("premiumDiesel", "liters", v)} lang={lang} />
           </div>
@@ -1138,20 +1274,20 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
               onChange={items => setForm(f => ({ ...f, pipa: items }))} lang={lang} />
             <JellyCanPanel
               items={form.jellyCan}
-              onChange={items => setForm(f => ({ ...f, jellyCan: items }))} />
+              onChange={items => setForm(f => ({ ...f, jellyCan: items }))} lang={lang} />
 
             {/* Diesel — cash only */}
             <div className="bg-[#161b22] rounded-2xl border border-[#30363d] border-l-4 border-l-orange-500 overflow-hidden">
               <div className="px-5 pt-4 pb-2 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <span className="text-[11px] font-black px-2 py-0.5 rounded-md bg-white/5 text-orange-400">D</span>
-                  <span className="text-sm font-bold text-white uppercase tracking-wide">Diesel</span>
+                  <span className="text-sm font-bold text-white uppercase tracking-wide">{t(lang, "diesel")}</span>
                 </div>
                 {tD > 0 && <span className="text-base font-bold tabular-nums text-orange-400">{fmt(tD)} <span className="text-gray-600 text-xs font-normal">MMK</span></span>}
               </div>
               <div className="px-5 pb-5 grid grid-cols-2 gap-4">
                 <GoldInput label={t(lang, "cashAmount")} value={form.diesel.cash} onChange={v => setForm(f => ({ ...f, diesel: { ...f.diesel, cash: v } }))} prefix="K" />
-                <GoldInput label="Price / L" value={form.diesel.price} onChange={v => setForm(f => ({ ...f, diesel: { ...f.diesel, price: v } }))} prefix="K" />
+                <GoldInput label={t(lang, "pricePerL")} value={form.diesel.price} onChange={v => setForm(f => ({ ...f, diesel: { ...f.diesel, price: v } }))} prefix="K" />
               </div>
             </div>
           </div>
@@ -1165,7 +1301,7 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
 
         {/* Cash Summary */}
         <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
-          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Cash Summary</h3>
+          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">{t(lang, "cashSummary")}</h3>
 
           {/* Expenses — itemized */}
           <div>
@@ -1177,8 +1313,8 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
           {(tPipa > 0 || tJelly > 0) && (
             <div className="flex items-center justify-between bg-violet-500/10 border border-violet-500/20 rounded-xl px-4 py-2.5">
               <div>
-                <p className="text-xs font-semibold text-violet-300">Pipa / Jelly Can</p>
-                <p className="text-[10px] text-violet-400/60 mt-0.5">Pre-paid — not included in cash</p>
+                <p className="text-xs font-semibold text-violet-300">{t(lang, "pipaJelly")}</p>
+                <p className="text-[10px] text-violet-400/60 mt-0.5">{t(lang, "prepaidNote")}</p>
               </div>
               <span className="text-sm font-bold text-violet-300 tabular-nums">− {fmt(tPipa + tJelly)} MMK</span>
             </div>
@@ -1234,19 +1370,19 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
     // With the new pump open, each pump gets its own line (empty ones are hidden below).
     ...(pumps92.length > 1
       ? pumps92.map(p => ({
-          label: `Fuel 92 · ${t(lang, p.key === "new" ? "newPump" : "normalPump")}`,
+          label: `${t(lang, "fuel92")} · ${t(lang, p.key === "new" ? "newPump" : "normalPump")}`,
           liters: fuelRowLiters(p.row), price: p.row.price, total: n(p.row.totalAmount), color: "text-blue-400",
         }))
-      : [{ label: "Fuel 92", liters: l92, price: form.fuel92.price, total: t92, color: "text-blue-400" }]),
-    { label: "Fuel 95",        liters: l95,  price: form.fuel95.price,         total: t95,   color: "text-emerald-400" },
-    { label: "Premium Diesel", liters: lPD,  price: form.premiumDiesel.price,  total: tPD,   color: "text-purple-400" },
+      : [{ label: t(lang, "fuel92"), liters: l92, price: form.fuel92.price, total: t92, color: "text-blue-400" }]),
+    { label: t(lang, "fuel95"),        liters: l95,  price: form.fuel95.price,         total: t95,   color: "text-emerald-400" },
+    { label: t(lang, "premiumDiesel"), liters: lPD,  price: form.premiumDiesel.price,  total: tPD,   color: "text-purple-400" },
   ];
 
   return (
     <div className="min-h-screen bg-[#0f111a]">
       <div className="sticky top-0 z-10 bg-[#0f111a]/95 backdrop-blur border-b border-[#30363d] px-4 py-3 flex items-center gap-3">
-        <button onClick={onBack} className="text-gray-400 hover:text-white text-sm font-semibold flex items-center gap-1 transition-colors">← Back</button>
-        <p className="text-sm font-bold text-white mx-auto">Review Submission</p>
+        <button onClick={onBack} className="text-gray-400 hover:text-white text-sm font-semibold flex items-center gap-1 transition-colors">{t(lang, "back")}</button>
+        <p className="text-sm font-bold text-white mx-auto">{t(lang, "reviewSubmission")}</p>
         <div className="w-14" />
       </div>
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
@@ -1261,13 +1397,13 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
         </div>
 
         <div className="bg-[#161b22] border border-[#30363d] rounded-2xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-[#30363d]"><h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Products</h3></div>
+          <div className="px-4 py-3 border-b border-[#30363d]"><h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">{t(lang, "products")}</h3></div>
           <div className="divide-y divide-[#30363d]">
             {rows.map(r => r.total > 0 && (
               <div key={r.label} className="px-4 py-3 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-white">{r.label}</p>
-                  <p className="text-xs text-gray-400">{r.liters.toLocaleString("en-US", { maximumFractionDigits: 2 })} L · {fmt(n(r.price))} MMK/L</p>
+                  <p className="text-xs text-gray-400">{t(lang, "litersAtPrice", { l: r.liters.toLocaleString("en-US", { maximumFractionDigits: 2 }), p: fmt(n(r.price)) })}</p>
                 </div>
                 <p className={`text-sm font-bold ${r.color}`}>{fmt(r.total)} MMK</p>
               </div>
@@ -1281,10 +1417,10 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
                 <div key={`pipa-${i}`} className="px-4 py-3 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-white">
-                      Pipa · <span className="text-amber-400">{PIPA_PRODUCT_LABELS[item.product]}</span>
+                      {t(lang, "pipa")} · <span className="text-amber-400">{t(lang, PRODUCT_KEY[item.product])}</span>
                     </p>
                     <p className="text-xs text-gray-400">
-                      {containers} containers · {(containers * 215).toLocaleString()} L · {fmt(price)} MMK/pipa
+                      {t(lang, "containersLine", { c: containers, l: (containers * 215).toLocaleString(), p: fmt(price) })}
                     </p>
                   </div>
                   <p className="text-sm font-bold text-amber-400">{fmt(total)} MMK</p>
@@ -1302,10 +1438,10 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
                 <div key={`jelly-${i}`} className="px-4 py-3 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-white">
-                      Jelly Can · <span className="text-teal-400">{PIPA_PRODUCT_LABELS[item.product]}</span>
+                      {t(lang, "jellyCan")} · <span className="text-teal-400">{t(lang, PRODUCT_KEY[item.product])}</span>
                     </p>
                     <p className="text-xs text-gray-400">
-                      {pieces} cans · {litersPerCan} L/can · {totalLiters.toLocaleString("en-US", { maximumFractionDigits: 2 })} L total · {fmt(price)} MMK/can
+                      {t(lang, "jellyLine", { c: pieces, lpc: litersPerCan, l: totalLiters.toLocaleString("en-US", { maximumFractionDigits: 2 }), p: fmt(price) })}
                     </p>
                   </div>
                   <p className="text-sm font-bold text-teal-400">{fmt(total)} MMK</p>
@@ -1315,8 +1451,8 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
             {tD > 0 && (
               <div className="px-4 py-3 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-white">Diesel</p>
-                  <p className="text-xs text-gray-400">Cash only · {fmt(n(form.diesel.price))} MMK/L</p>
+                  <p className="text-sm font-semibold text-white">{t(lang, "diesel")}</p>
+                  <p className="text-xs text-gray-400">{t(lang, "cashOnly", { p: fmt(n(form.diesel.price)) })}</p>
                 </div>
                 <p className="text-sm font-bold text-orange-400">{fmt(tD)} MMK</p>
               </div>
@@ -1327,7 +1463,7 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
         {/* Expenses breakdown */}
         {form.expenses.length > 0 && (
           <div className="bg-[#161b22] border border-[#30363d] rounded-2xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-[#30363d]"><h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Expenses</h3></div>
+            <div className="px-4 py-3 border-b border-[#30363d]"><h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">{t(lang, "expenses")}</h3></div>
             <div className="divide-y divide-[#30363d]">
               {form.expenses.map((exp, idx) => (
                 <div key={idx} className="px-4 py-3 flex justify-between text-sm">
@@ -1342,14 +1478,14 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
         )}
 
         <div className="bg-[#161b22] border border-[#30363d] rounded-2xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-[#30363d]"><h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Cash Summary</h3></div>
+          <div className="px-4 py-3 border-b border-[#30363d]"><h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">{t(lang, "cashSummary")}</h3></div>
           <div className="divide-y divide-[#30363d]">
             <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "grandTotalShort")}</span><span className="font-bold text-white tabular-nums">{fmt(grandTotal)} MMK</span></div>
             {totalIncome > 0 && (
-              <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">+ Payment Income</span><span className="font-semibold text-emerald-400 tabular-nums">+{fmt(totalIncome)} MMK</span></div>
+              <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "paymentIncome")}</span><span className="font-semibold text-emerald-400 tabular-nums">+{fmt(totalIncome)} MMK</span></div>
             )}
             {totalDeductions > 0 && (
-              <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">− Other Costs</span><span className="font-semibold text-red-400 tabular-nums">−{fmt(totalDeductions)} MMK</span></div>
+              <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "otherCosts")}</span><span className="font-semibold text-red-400 tabular-nums">−{fmt(totalDeductions)} MMK</span></div>
             )}
             <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "netExpected")}</span><span className="font-bold text-white tabular-nums">{fmt(grandTotal - tPipa - tJelly - totalDeductions + totalIncome)} MMK</span></div>
             <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "actualCollected")}</span><span className="font-bold text-white tabular-nums">{fmt(actualCash)} MMK</span></div>
@@ -1362,7 +1498,7 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
 
         <button onClick={onConfirm} disabled={submitting}
           className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98]">
-          {submitting ? "Submitting…" : "✓ Confirm & Submit"}
+          {submitting ? t(lang, "submitting") : t(lang, "confirmSubmit")}
         </button>
       </div>
     </div>
@@ -1379,8 +1515,8 @@ function SuccessScreen({ employeeName, onNewShift, queuedItemId, lang }: { emplo
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
         </svg>
       </div>
-      <h1 className="text-3xl font-bold text-white mb-2">Shift Report Submitted</h1>
-      <p className="text-sm text-gray-400 mb-4 capitalize">Saved for <strong className="text-white">{employeeName}</strong>.</p>
+      <h1 className="text-3xl font-bold text-white mb-2">{t(lang, "submitted")}</h1>
+      <p className="text-sm text-gray-400 mb-4 capitalize">{tBold(lang, "savedFor", "name", employeeName, "text-white")}</p>
       {status && (
         <div className="mb-8">
           {status === "synced" ? (
@@ -1395,7 +1531,7 @@ function SuccessScreen({ employeeName, onNewShift, queuedItemId, lang }: { emplo
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2M12 2a10 10 0 100 20A10 10 0 0012 2z" />
               </svg>
-              {t(lang, "pendingSyncLabel")} — saved on this device
+              {t(lang, "pendingSyncLabel")} — {t(lang, "savedOnDevice")}
             </span>
           )}
         </div>
@@ -1403,7 +1539,7 @@ function SuccessScreen({ employeeName, onNewShift, queuedItemId, lang }: { emplo
       <div className="space-y-3 w-full max-w-xs">
         <button onClick={onNewShift}
           className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98]">
-          Submit Another Shift
+          {t(lang, "submitAnother")}
         </button>
         <p className="text-xs text-gray-400">STM Daily · {new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</p>
       </div>
@@ -1445,7 +1581,7 @@ function ModeSelectScreen({ employeeName, onShift, onChat, unread, onSettings, o
           <LangToggle lang={lang} setLang={setLang} />
           <button type="button" onClick={onSettings}
             className="w-8 h-8 flex items-center justify-center rounded-xl bg-[#161b22] border border-[#30363d] hover:border-gray-500 text-gray-400 hover:text-white transition-colors"
-            title="App Settings" aria-label="Open app settings">
+            title={t(lang, "appSettings")} aria-label={t(lang, "openSettings")}>
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1453,15 +1589,15 @@ function ModeSelectScreen({ employeeName, onShift, onChat, unread, onSettings, o
           </button>
           <button type="button" onClick={onLogout}
             className="text-xs text-gray-500 hover:text-white font-semibold border border-[#30363d] hover:border-gray-500 rounded-lg px-2.5 py-1 transition-colors">
-            Switch User
+            {t(lang, "switchUser")}
           </button>
         </div>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 gap-5 max-w-sm mx-auto w-full">
         <div className="text-center mb-2">
-          <h1 className="text-3xl font-bold text-white">Select Mode</h1>
-          <p className="text-sm text-gray-500 mt-1">What would you like to do?</p>
+          <h1 className="text-3xl font-bold text-white">{t(lang, "selectMode")}</h1>
+          <p className="text-sm text-gray-500 mt-1">{t(lang, "whatToDo")}</p>
         </div>
 
         <button type="button" onClick={onShift}
@@ -1473,18 +1609,18 @@ function ModeSelectScreen({ employeeName, onShift, onChat, unread, onSettings, o
               </svg>
             </div>
             <div>
-              <p className="text-base font-bold text-white">Daily Shift Submission</p>
-              <p className="text-sm text-gray-500 mt-0.5">Record end-of-shift meter readings, fuel sales &amp; expenses</p>
+              <p className="text-base font-bold text-white">{t(lang, "shiftSubmission")}</p>
+              <p className="text-sm text-gray-500 mt-0.5">{t(lang, "shiftSubmissionDesc")}</p>
             </div>
           </div>
           <div className="mt-4 flex items-center text-xs font-semibold text-blue-400">
-            Open form
+            {t(lang, "openForm")}
             <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
           </div>
         </button>
 
         <button type="button" onClick={onChat}
-          aria-label={unread > 0 ? `${CHAT_STRINGS.title[lang]}, ${unread} new` : CHAT_STRINGS.title[lang]}
+          aria-label={unread > 0 ? t(lang, "chatNewAria", { title: CHAT_STRINGS.title[lang], n: unread }) : CHAT_STRINGS.title[lang]}
           className="w-full bg-[#161b22] border-2 border-[#30363d] hover:border-emerald-500/60 hover:bg-emerald-600/5 rounded-2xl p-6 text-left transition-all active:scale-[0.98] group">
           <div className="flex items-start gap-4">
             <div className="relative w-12 h-12 rounded-xl bg-emerald-600/20 flex items-center justify-center shrink-0 group-hover:bg-emerald-600/30 transition-colors">
@@ -1499,11 +1635,11 @@ function ModeSelectScreen({ employeeName, onShift, onChat, unread, onSettings, o
             </div>
             <div>
               <p className="text-base font-bold text-white">{CHAT_STRINGS.title[lang]}</p>
-              <p className="text-sm text-gray-500 mt-0.5">Message the team and the CEO, and share photos</p>
+              <p className="text-sm text-gray-500 mt-0.5">{t(lang, "chatDesc")}</p>
             </div>
           </div>
           <div className="mt-4 flex items-center text-xs font-semibold text-emerald-400">
-            {unread > 0 ? `${unread > 99 ? "99+" : unread} new message${unread === 1 ? "" : "s"}` : "Open chat"}
+            {unread > 0 ? t(lang, unread === 1 ? "newMessages1" : "newMessagesN", { n: unread > 99 ? "99+" : unread }) : t(lang, "openChat")}
             <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
           </div>
         </button>
@@ -1537,7 +1673,7 @@ function PriceField({ label, value, onChange, placeholder }: {
   );
 }
 
-function AppSettingsScreen({ onBack }: { onBack: () => void }) {
+function AppSettingsScreen({ onBack, lang }: { onBack: () => void; lang: Lang }) {
   const [cfg, setCfg] = useState<AppConfig>(loadConfig);
   const [saved, setSaved] = useState(false);
 
@@ -1550,22 +1686,22 @@ function AppSettingsScreen({ onBack }: { onBack: () => void }) {
   return (
     <div className="min-h-screen bg-[#0f111a]">
       <div className="sticky top-0 z-10 bg-[#0f111a]/95 backdrop-blur border-b border-[#30363d] px-4 py-3 flex items-center">
-        <button onClick={onBack} className="text-gray-400 hover:text-white text-sm font-semibold flex items-center gap-1 transition-colors">← Back</button>
-        <p className="text-sm font-bold text-white mx-auto">App Settings</p>
+        <button onClick={onBack} className="text-gray-400 hover:text-white text-sm font-semibold flex items-center gap-1 transition-colors">{t(lang, "back")}</button>
+        <p className="text-sm font-bold text-white mx-auto">{t(lang, "appSettings")}</p>
         <div className="w-14" />
       </div>
       <div className="max-w-sm mx-auto px-4 py-8 space-y-5">
         <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Default Prices Per Liter (MMK)</p>
-          <PriceField label="Fuel 92" value={cfg.price92} onChange={v => setField("price92", v)} placeholder="1200" />
-          <PriceField label="Premium Diesel" value={cfg.pricePD} onChange={v => setField("pricePD", v)} placeholder="1400" />
-          <PriceField label="Fuel 95" value={cfg.price95} onChange={v => setField("price95", v)} placeholder="1350" />
-          <PriceField label="Diesel" value={cfg.priceHSD} onChange={v => setField("priceHSD", v)} placeholder="1100" />
-          <p className="text-xs text-gray-600">Auto-filled in the shift form per product</p>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">{t(lang, "defaultPrices")}</p>
+          <PriceField label={t(lang, "fuel92")} value={cfg.price92} onChange={v => setField("price92", v)} placeholder="1200" />
+          <PriceField label={t(lang, "premiumDiesel")} value={cfg.pricePD} onChange={v => setField("pricePD", v)} placeholder="1400" />
+          <PriceField label={t(lang, "fuel95")} value={cfg.price95} onChange={v => setField("price95", v)} placeholder="1350" />
+          <PriceField label={t(lang, "diesel")} value={cfg.priceHSD} onChange={v => setField("priceHSD", v)} placeholder="1100" />
+          <p className="text-xs text-gray-600">{t(lang, "autoFilled")}</p>
         </div>
         <button type="button" onClick={handleSave}
           className={`w-full font-bold rounded-2xl py-4 text-base transition-all active:scale-[0.98] ${saved ? "bg-emerald-600 text-white" : "bg-blue-600 hover:bg-blue-500 text-white"}`}>
-          {saved ? "✓ Saved!" : "Save Changes"}
+          {saved ? t(lang, "savedBang") : t(lang, "saveChanges")}
         </button>
       </div>
     </div>
@@ -1600,12 +1736,12 @@ function SyncStatusBanner({ isOnline, pendingCount, justSynced, lang }: { isOnli
   if (!isOnline) {
     icon = <OfflineIcon />;
     label = pendingCount > 0
-      ? `${t(lang, "offlineLabel")} — ${pendingCount} shift${pendingCount === 1 ? "" : "s"} saved, will sync automatically`
+      ? `${t(lang, "offlineLabel")} — ${t(lang, pendingCount === 1 ? "offlineShiftsSaved1" : "offlineShiftsSavedN", { n: pendingCount })}`
       : t(lang, "offlineLabel");
     className = "bg-amber-500/15 text-amber-400 border border-amber-500/30";
   } else if (pendingCount > 0) {
     icon = <SyncingIcon />;
-    label = `${t(lang, "pendingSyncLabel")} — ${pendingCount} shift${pendingCount === 1 ? "" : "s"}`;
+    label = `${t(lang, "pendingSyncLabel")} — ${t(lang, pendingCount === 1 ? "shifts1" : "shiftsN", { n: pendingCount })}`;
     className = "bg-blue-500/15 text-blue-400 border border-blue-500/30";
   } else {
     icon = <SyncedIcon />;
@@ -1669,7 +1805,7 @@ export default function App() {
   const { isOnline, pendingCount, justSynced } = useOfflineSync();
   const [lang, setLang] = useState<Lang>(() => {
     const saved = localStorage.getItem(LANG_KEY);
-    return (saved === "my" ? "my" : "en") as Lang;
+    return (saved === "en" ? "en" : "my") as Lang;   // Myanmar unless this phone chose English
   });
 
   const unread = useChatUnread(authClient, staff?.id ?? null, screen === "mode-select");
@@ -1902,8 +2038,8 @@ export default function App() {
           lang={lang} setLang={setLang}
         />
       )}
-      {screen === "checking"    && <CheckingScreen />}
-      {screen === "denied"      && <DeniedScreen email={email} onBack={() => setScreen("login")} />}
+      {screen === "checking"    && <CheckingScreen lang={lang} />}
+      {screen === "denied"      && <DeniedScreen email={email} onBack={() => setScreen("login")} lang={lang} />}
       {screen === "mode-select" && (
         <ModeSelectScreen
           employeeName={employeeName}
@@ -1940,7 +2076,7 @@ export default function App() {
         </>
       )}
       {screen === "success"  && <SuccessScreen employeeName={employeeName} onNewShift={handleNewShift} queuedItemId={lastQueuedId} lang={lang} />}
-      {screen === "settings" && <AppSettingsScreen onBack={() => setScreen("mode-select")} />}
+      {screen === "settings" && <AppSettingsScreen onBack={() => setScreen("mode-select")} lang={lang} />}
       {screen === "chat" && staff && (
         <div className="h-[100dvh]">
           <TeamChat
