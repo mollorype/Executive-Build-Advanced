@@ -3,6 +3,24 @@
 // (a test checks this), so fix both or neither.
 
 export type ChatRole = "ceo" | "staff";
+export type ChatKind = "message" | "leave" | "emergency";
+export type RequestStatus = "pending" | "approved" | "declined" | "open" | "handled";
+
+/**
+ * Emergency types. The type (not the details) is visible to the server, so the
+ * CEO's Telegram alert can say what's happening; details stay encrypted.
+ * Must match the check constraint in the team chat migration.
+ */
+export const EMERGENCY_TYPES = {
+  fire:      { icon: "🔥", en: "Fire",                   my: "မီးလောင်မှု" },
+  fuel_leak: { icon: "⛽", en: "Fuel leak / spill",      my: "ဆီယိုစိမ့်မှု" },
+  accident:  { icon: "🚑", en: "Accident / injury",      my: "မတော်တဆမှု / ဒဏ်ရာ" },
+  robbery:   { icon: "🚨", en: "Robbery / theft",        my: "လုယက်မှု / ခိုးမှု" },
+  equipment: { icon: "⚡", en: "Power / pump failure",   my: "မီးပျက် / စက်ချို့ယွင်း" },
+  other:     { icon: "❗", en: "Other emergency",        my: "အခြား အရေးပေါ်" },
+} as const;
+export type EmergencyType = keyof typeof EMERGENCY_TYPES;
+export const MAX_LEAVE_DAYS = 31;
 
 export type ChatMessage = {
   id: string;
@@ -21,6 +39,15 @@ export type ChatMessage = {
   photo_path: string | null;
   photo_iv: string | null;
   client_id: string | null;
+  /** A chat message, a day-off request, or an emergency alert. */
+  kind: ChatKind;
+  leave_from: string | null;   // YYYY-MM-DD
+  leave_to: string | null;
+  emergency_type: EmergencyType | null;
+  /** leave: pending → approved / declined; emergency: open → handled. Set by a CEO. */
+  status: RequestStatus | null;
+  decided_by_name: string | null;
+  decided_at: string | null;
   /** Local only: the decrypted text ("" for a photo with no caption); null if it couldn't be opened. */
   text?: string | null;
   /** Local only: still on its way, or failed to send. */
@@ -30,7 +57,8 @@ export type ChatMessage = {
 };
 
 export const MESSAGE_COLUMNS =
-  "id, created_at, sender_id, sender_email, sender_name, sender_role, body, ciphertext, iv, key_version, photo_path, photo_iv, client_id";
+  "id, created_at, sender_id, sender_email, sender_name, sender_role, body, ciphertext, iv, key_version, photo_path, photo_iv, client_id, " +
+  "kind, leave_from, leave_to, emergency_type, status, decided_by_name, decided_at";
 export const PAGE_SIZE = 50;
 export const MAX_BODY = 2000;
 export const PHOTO_BUCKET = "chat-photos";
@@ -54,13 +82,56 @@ export function normalizeMessage(row: unknown): ChatMessage | null {
     photo_path: typeof r.photo_path === "string" && r.photo_path ? r.photo_path : null,
     photo_iv: typeof r.photo_iv === "string" && r.photo_iv ? r.photo_iv : null,
     client_id: typeof r.client_id === "string" ? r.client_id : null,
+    kind: r.kind === "leave" || r.kind === "emergency" ? r.kind : "message",
+    leave_from: typeof r.leave_from === "string" ? r.leave_from.slice(0, 10) : null,
+    leave_to: typeof r.leave_to === "string" ? r.leave_to.slice(0, 10) : null,
+    emergency_type: typeof r.emergency_type === "string" && r.emergency_type in EMERGENCY_TYPES ? (r.emergency_type as EmergencyType) : null,
+    status: ["pending", "approved", "declined", "open", "handled"].includes(r.status as string) ? (r.status as RequestStatus) : null,
+    decided_by_name: typeof r.decided_by_name === "string" ? r.decided_by_name : null,
+    decided_at: typeof r.decided_at === "string" ? r.decided_at : null,
   };
 }
 
 /** What to show as the message text: decrypted, or the old readable text. undefined = still locked. */
 export function shownText(m: ChatMessage): string | null | undefined {
   if (m.text !== undefined) return m.text;
-  return m.ciphertext ? undefined : m.body;
+  if (m.ciphertext) return undefined;
+  return m.kind === "message" ? m.body : "";   // a request sent without details
+}
+
+// ── Day-off dates (plain calendar dates, no time zone) ──────────────────────
+const parseDay = (d: string) => new Date(`${d}T00:00:00Z`);
+
+export function leaveDays(from: string, to: string): number {
+  return Math.round((parseDay(to).getTime() - parseDay(from).getTime()) / 86_400_000) + 1;
+}
+
+export function fmtLeaveDay(d: string): string {
+  return parseDay(d).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+}
+
+export function fmtLeaveRange(from: string, to: string): string {
+  return from === to ? fmtLeaveDay(from) : `${fmtLeaveDay(from)} – ${fmtLeaveDay(to)}`;
+}
+
+/** Today in this device's time zone, YYYY-MM-DD. */
+export function todayKey(now = new Date()): string {
+  return dayKey(now.toISOString());
+}
+
+export function addDays(d: string, n: number): string {
+  const t = parseDay(d);
+  t.setUTCDate(t.getUTCDate() + n);
+  return t.toISOString().slice(0, 10);
+}
+
+/** Why a day-off range can't be sent, or null if it's fine. */
+export function leaveProblem(from: string, to: string, today = todayKey()): ChatStringKey | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return "leavePickDates";
+  if (from < today) return "leavePast";
+  if (to < from) return "leaveOrder";
+  if (leaveDays(from, to) > MAX_LEAVE_DAYS) return "leaveTooLong";
+  return null;
 }
 
 const keyOf = (m: ChatMessage) => (m.client_id ? `c:${m.client_id}` : `i:${m.id}`);
@@ -241,6 +312,38 @@ export const CHAT_STRINGS = {
   cantOpen:      { en: "🔒 Couldn't unlock this message", my: "🔒 ဒီစာကို ဖွင့်မရပါ" },
   unsupported:   { en: "This browser can't do encrypted chat. Update it, or open the app in Chrome.", my: "ဒီ browser မှာ အသုံးပြု၍မရပါ။ Chrome ဖြင့်ဖွင့်ပါ။" },
   deleteMessage: { en: "Delete message", my: "စာဖျက်ရန်" },
+  dayOff:        { en: "Day off", my: "ခွင့်" },
+  askDayOff:     { en: "Ask for a day off", my: "ခွင့်တောင်းရန်" },
+  dayOffRequest: { en: "Day-off request", my: "ခွင့်တောင်းခံချက်" },
+  from:          { en: "From", my: "မှ" },
+  to:            { en: "To", my: "အထိ" },
+  reasonOpt:     { en: "Reason (optional)", my: "အကြောင်းပြချက် (မဖြစ်မနေမဟုတ်)" },
+  sendRequest:   { en: "Send request", my: "တောင်းခံမည်" },
+  requestNote:   { en: "The CEO gets a Telegram alert and can approve or decline it here.", my: "CEO ထံ Telegram ဖြင့် အသိပေးပြီး ဒီမှာ ခွင့်ပြု/ငြင်းနိုင်ပါသည်။" },
+  day:           { en: "day", my: "ရက်" },
+  days:          { en: "days", my: "ရက်" },
+  pending:       { en: "Waiting for CEO", my: "CEO အဖြေ စောင့်နေသည်" },
+  approved:      { en: "Approved", my: "ခွင့်ပြုပြီး" },
+  declined:      { en: "Declined", my: "ငြင်းပယ်ပြီး" },
+  approve:       { en: "Approve", my: "ခွင့်ပြုမည်" },
+  decline:       { en: "Decline", my: "ငြင်းမည်" },
+  leavePickDates:{ en: "Pick the dates.", my: "ရက်စွဲ ရွေးပါ။" },
+  leavePast:     { en: "The day off can't start in the past.", my: "ပြီးခဲ့သောရက်ကို ရွေး၍မရပါ။" },
+  leaveOrder:    { en: "The last day can't be before the first day.", my: "နောက်ဆုံးရက်သည် ပထမရက်မတိုင်မီ မဖြစ်ရပါ။" },
+  leaveTooLong:  { en: "Ask for at most 31 days at a time.", my: "တစ်ကြိမ်လျှင် ရက် ၃၁ ရက်အထိသာ။" },
+  emergency:     { en: "Emergency", my: "အရေးပေါ်" },
+  emergencyAlert:{ en: "Emergency alert", my: "အရေးပေါ် အချက်ပေး" },
+  whatHappened:  { en: "What's happening?", my: "ဘာဖြစ်နေသလဲ?" },
+  detailsOpt:    { en: "Details (optional)", my: "အသေးစိတ် (မဖြစ်မနေမဟုတ်)" },
+  sendEmergency: { en: "Send emergency alert", my: "အရေးပေါ် အချက်ပေးမည်" },
+  emergencyNote: { en: "Everyone in the chat sees it, and the CEO gets a Telegram alert straight away. If someone is in danger, call them too.", my: "အားလုံး မြင်ရပြီး CEO ထံ Telegram ဖြင့် ချက်ချင်း အသိပေးပါမည်။ အန္တရာယ်ရှိပါက ဖုန်းလည်း ဆက်ပါ။" },
+  noKeyDetails:  { en: "This phone doesn't have the chat key yet, so details can't be added. The alert still goes out.", my: "chat key မရသေး၍ အသေးစိတ် မထည့်နိုင်ပါ။ အချက်ပေးချက်ကိုတော့ ပို့ပါမည်။" },
+  open:          { en: "Open", my: "ဖြေရှင်းဆဲ" },
+  handled:       { en: "Handled", my: "ဖြေရှင်းပြီး" },
+  markHandled:   { en: "Mark handled", my: "ဖြေရှင်းပြီးဟု မှတ်မည်" },
+  by:            { en: "by", my: "—" },
+  offlineCall:   { en: "You're offline, so the alert can't be sent. Call the CEO now.", my: "အင်တာနက် မရှိပါ။ CEO ကို ဖုန်းဆက်ပါ။" },
+  cancel:        { en: "Cancel", my: "မလုပ်တော့ပါ" },
   notInstalled:  { en: "Team chat isn't set up yet. The CEO needs to run the chat setup in Supabase.", my: "Team chat ကို မပြင်ဆင်ရသေးပါ" },
   noAccess:      { en: "You don't have access to the team chat. Ask the CEO.", my: "Team chat သုံးခွင့် မရှိပါ" },
   unreadable:    { en: "Couldn't read that photo. Try another one.", my: "ဓာတ်ပုံကို ဖတ်မရပါ" },

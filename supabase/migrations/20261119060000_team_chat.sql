@@ -16,6 +16,11 @@
 --   * ciphertext (chat_messages, and the files in the chat-photos bucket).
 -- Sender, time and "has a photo" stay visible, as in any end-to-end chat.
 --
+-- Besides messages, staff can ask for a day off and anyone can raise an
+-- emergency. Only those two alert the CEOs on Telegram — ordinary messages
+-- don't. Their dates / emergency type are stored readable (the alert needs
+-- them); the reason / details are encrypted like any message.
+--
 -- Safe to run more than once, and on top of the earlier (unencrypted) version.
 
 -- ── 1. Membership ────────────────────────────────────────────────────────────
@@ -278,21 +283,39 @@ alter table public.chat_messages add column if not exists ciphertext  text;
 alter table public.chat_messages add column if not exists iv          text;
 alter table public.chat_messages add column if not exists key_version int references public.chat_key_versions(version);
 alter table public.chat_messages add column if not exists photo_iv    text;
+alter table public.chat_messages add column if not exists kind            text not null default 'message';
+alter table public.chat_messages add column if not exists leave_from      date;
+alter table public.chat_messages add column if not exists leave_to        date;
+alter table public.chat_messages add column if not exists emergency_type  text;
+alter table public.chat_messages add column if not exists status          text;
+alter table public.chat_messages add column if not exists decided_by      uuid references auth.users(id) on delete set null;
+alter table public.chat_messages add column if not exists decided_by_name text;
+alter table public.chat_messages add column if not exists decided_at      timestamptz;
 
 -- New messages must be encrypted: no readable text, and photos only as
 -- encrypted .bin files. (NOT VALID: leaves any older test messages alone.)
 alter table public.chat_messages drop constraint if exists chat_messages_has_content;
 alter table public.chat_messages drop constraint if exists chat_messages_photo_path_check;
 alter table public.chat_messages drop constraint if exists chat_messages_encrypted;
+alter table public.chat_messages drop constraint if exists chat_messages_kind;
 alter table public.chat_messages add constraint chat_messages_photo_path_check
   check (photo_path is null or photo_path ~ '^[0-9a-f-]{36}/[0-9a-f-]{36}\.bin$') not valid;
 alter table public.chat_messages add constraint chat_messages_encrypted
   check (
     body is null
-    and ciphertext is not null and char_length(ciphertext) <= 12000
-    and iv is not null
-    and key_version is not null
-    and (photo_path is null or photo_iv is not null)
+    and (ciphertext is null or (char_length(ciphertext) <= 12000 and iv is not null and key_version is not null))
+    and (kind <> 'message' or ciphertext is not null)
+    and (photo_path is null or (photo_iv is not null and ciphertext is not null))
+  ) not valid;
+-- A request may go out without details (ciphertext) when the phone has no
+-- chat key yet, so an emergency always gets through.
+alter table public.chat_messages add constraint chat_messages_kind
+  check (
+    (kind = 'message' and leave_from is null and leave_to is null and emergency_type is null and status is null)
+    or (kind = 'leave' and leave_from is not null and leave_to >= leave_from and leave_to - leave_from <= 30
+        and emergency_type is null and photo_path is null and status in ('pending', 'approved', 'declined'))
+    or (kind = 'emergency' and emergency_type in ('fire', 'fuel_leak', 'accident', 'robbery', 'equipment', 'other')
+        and leave_from is null and leave_to is null and photo_path is null and status in ('open', 'handled'))
   ) not valid;
 
 create index if not exists chat_messages_created_at_idx on public.chat_messages (created_at desc);
@@ -316,9 +339,42 @@ begin
     raise exception 'Messages must be encrypted on the device' using errcode = '22023';
   end if;
   -- Only the newest chat key: someone who left can't read what's sent after.
-  if new.key_version is distinct from (select max(v.version) from public.chat_key_versions v) then
+  if new.ciphertext is null then
+    new.iv := null;
+    new.key_version := null;
+  elsif new.key_version is distinct from (select max(v.version) from public.chat_key_versions v) then
     raise exception 'The chat key has changed. Try again.' using errcode = '40001';
   end if;
+
+  new.kind := coalesce(new.kind, 'message');
+  if new.kind = 'leave' then
+    if v_role <> 'staff' then
+      raise exception 'Only staff can ask for a day off' using errcode = '22023';
+    end if;
+    if new.leave_from < (now() at time zone 'Asia/Yangon')::date then
+      raise exception 'The day off can''t start in the past' using errcode = '22023';
+    end if;
+    new.status := 'pending';
+    new.emergency_type := null;
+  elsif new.kind = 'emergency' then
+    if exists (
+      select 1 from public.chat_messages m
+      where m.sender_id = auth.uid() and m.kind = 'emergency' and m.created_at > now() - interval '1 minute'
+    ) then
+      raise exception 'You just sent an emergency alert. Wait a minute before sending another.' using errcode = '22023';
+    end if;
+    new.status := 'open';
+    new.leave_from := null;
+    new.leave_to := null;
+  else
+    new.status := null;
+    new.leave_from := null;
+    new.leave_to := null;
+    new.emergency_type := null;
+  end if;
+  new.decided_by      := null;
+  new.decided_by_name := null;
+  new.decided_at      := null;
 
   select lower(u.email) into v_email from auth.users u where u.id = auth.uid();
 
@@ -339,6 +395,42 @@ end;
 $$;
 
 revoke all on function public.chat_messages_stamp() from public, anon, authenticated;
+
+-- A CEO approves / declines a day off, or marks an emergency handled.
+-- (No one can UPDATE chat_messages directly.)
+create or replace function public.chat_decide(p_message uuid, p_status text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_kind   text;
+  v_status text;
+  v_by     text;
+begin
+  if public.chat_member_role() is distinct from 'ceo' then
+    raise exception 'Only a CEO can do this' using errcode = '42501';
+  end if;
+  select m.kind, m.status into v_kind, v_status from public.chat_messages m where m.id = p_message for update;
+  if v_kind is null then
+    raise exception 'That request was deleted' using errcode = 'P0002';
+  end if;
+  if not ((v_kind = 'leave' and p_status in ('approved', 'declined')) or (v_kind = 'emergency' and p_status = 'handled')) then
+    raise exception 'Not allowed' using errcode = '22023';
+  end if;
+  if v_status is distinct from (case v_kind when 'leave' then 'pending' else 'open' end) then
+    raise exception 'Someone already marked this %', v_status using errcode = '22023';
+  end if;
+  select split_part(lower(u.email), '@', 1) into v_by from auth.users u where u.id = auth.uid();
+  update public.chat_messages
+     set status = p_status, decided_by = auth.uid(), decided_by_name = v_by, decided_at = now()
+   where id = p_message;
+end;
+$$;
+
+revoke all on function public.chat_decide(uuid, text) from public, anon;
+grant execute on function public.chat_decide(uuid, text) to authenticated;
 
 drop trigger if exists chat_messages_stamp on public.chat_messages;
 create trigger chat_messages_stamp
@@ -419,8 +511,8 @@ create policy chat_photos_delete on storage.objects
   );
 
 -- ── 5. Telegram ──────────────────────────────────────────────────────────────
--- Each new message pings the CEOs on Telegram ("New message from …"). The
--- text and photo stay encrypted, so they aren't included.
+-- Only day-off requests and emergencies alert the CEOs on Telegram; ordinary
+-- chat messages don't. The reason / details stay encrypted and aren't sent.
 create or replace function public.notify_chat_telegram()
 returns trigger
 language plpgsql
@@ -447,4 +539,6 @@ revoke all on function public.notify_chat_telegram() from public, anon, authenti
 drop trigger if exists chat_messages_telegram on public.chat_messages;
 create trigger chat_messages_telegram
   after insert on public.chat_messages
-  for each row execute function public.notify_chat_telegram();
+  for each row
+  when (new.kind in ('leave', 'emergency'))
+  execute function public.notify_chat_telegram();

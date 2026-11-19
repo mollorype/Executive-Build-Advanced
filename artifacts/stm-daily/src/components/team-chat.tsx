@@ -13,8 +13,9 @@ import {
   CHAT_STRINGS, MAX_BODY, MAX_PHOTO_BYTES, MESSAGE_COLUMNS, PAGE_SIZE, PHOTO_BUCKET,
   chatErrorKey, compressImage, dayKey, dayLabel, loadSeen, mergeMessages, newId, normalizeMessage,
   replaceLatest, saveSeen, shownText, startsGroup, timeLabel,
-  type ChatLang, type ChatMessage, type ChatRole, type ChatStringKey,
+  type ChatKind, type ChatLang, type ChatMessage, type ChatRole, type ChatStringKey, type EmergencyType,
 } from "../lib/team-chat-core";
+import { EmergencyDialog, LeaveDialog, RequestCard } from "./team-chat-requests";
 import {
   canSend, decryptMessage, decryptPhoto, e2eSupported, encryptMessage, encryptPhoto, syncKeyring,
   type Keyring,
@@ -84,6 +85,13 @@ const Icon = {
     </>
   ),
   trash: <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4h6v3" />,
+  calendar: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 3v4M8 3v4M3 10h18" />
+    </>
+  ),
+  alert: <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" />,
 };
 const Svg = ({ children, className = "w-5 h-5" }: { children: React.ReactNode; className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">{children}</svg>
@@ -118,6 +126,7 @@ export default function TeamChat({ client, me, theme, lang = "en", onBack, class
   const [newBelow, setNewBelow] = useState(0);
   const [ring, setRing] = useState<Keyring | null>(null);
   const [ringState, setRingState] = useState<RingState>(() => (e2eSupported() ? "loading" : "unsupported"));
+  const [dialog, setDialog] = useState<"leave" | "emergency" | null>(null);
 
   const listRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -210,6 +219,10 @@ export default function TeamChat({ client, me, theme, lang = "en", onBack, class
         if (!m) return;
         setMessages(prev => mergeMessages(prev, [m]));
         if (m.sender_id !== me.id && !atBottom.current) setNewBelow(n => n + 1);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "chat_messages" }, payload => {
+        const m = normalizeMessage(payload.new);   // a day off approved/declined, an emergency handled
+        if (m) setMessages(prev => (prev.some(x => x.id === m.id) ? mergeMessages(prev, [m]) : prev));
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "chat_messages" }, payload => {
         const id = (payload.old as { id?: string } | null)?.id;
@@ -384,6 +397,7 @@ export default function TeamChat({ client, me, theme, lang = "en", onBack, class
       id: cid, client_id: cid, created_at: new Date().toISOString(),
       sender_id: me.id, sender_email: sender, sender_name: sender.split("@")[0], sender_role: me.role,
       body: null, ciphertext: null, iv: null, key_version: null, photo_path: null, photo_iv: null,
+      kind: "message", leave_from: null, leave_to: null, emergency_type: null, status: null, decided_by_name: null, decided_at: null,
       text: body, pending: "sending", localPhoto: photo?.url,
     };
     if (photo) blobs.current.set(cid, photo.blob);
@@ -401,6 +415,54 @@ export default function TeamChat({ client, me, theme, lang = "en", onBack, class
     setMessages(prev => mergeMessages(prev.filter(x => x.client_id !== m.client_id), [again]));
     setNotice("");
     deliver(again, m.client_id ? blobs.current.get(m.client_id) : undefined);
+  }
+
+  /**
+   * Send a day-off request or an emergency. Not shown until saved, so the
+   * dialog can show any error. Works without the chat key too (no details then),
+   * so an emergency always gets out.
+   */
+  async function sendRequest(
+    fields: { kind: Exclude<ChatKind, "message">; leave_from?: string; leave_to?: string; emergency_type?: EmergencyType },
+    details: string,
+  ): Promise<string | null> {
+    const client_id = newId();
+    try {
+      for (let attempt = 0; ; attempt++) {
+        let k = ringRef.current;
+        if (!canSend(k) && details) k = await refreshRing();
+        const sealed = canSend(k)
+          ? { ...(await encryptMessage(k.keys.get(k.current)!, details, sender)), key_version: k.current }
+          : { ciphertext: null, iv: null, key_version: null };
+        const { data, error } = await client
+          .from("chat_messages")
+          .insert({ ...fields, ...sealed, client_id })
+          .select(MESSAGE_COLUMNS)
+          .single();
+        if (error) {
+          if (error.code === "23505") { fetchLatest(); break; }
+          if (error.code === "40001" && attempt === 0) { await refreshRing(); continue; }
+          throw error;
+        }
+        const saved = normalizeMessage(data);
+        if (saved) setMessages(prev => mergeMessages(prev, [{ ...saved, text: sealed.ciphertext ? details : "" }]));
+        break;
+      }
+      setDialog(null);
+      scrollToBottom();
+      return null;
+    } catch (e) {
+      return say(errorFor(e));
+    }
+  }
+
+  async function decide(m: ChatMessage, status: "approved" | "declined" | "handled"): Promise<boolean> {
+    const { error } = await client.rpc("chat_decide", { p_message: m.id, p_status: status });
+    if (error) { setNotice(errorFor(error)); fetchLatest(); return false; }
+    setMessages(prev => prev.map(x => (x.id === m.id
+      ? { ...x, status, decided_by_name: sender.split("@")[0], decided_at: new Date().toISOString() }
+      : x)));
+    return true;
   }
 
   async function remove(m: ChatMessage) {
@@ -478,6 +540,11 @@ export default function TeamChat({ client, me, theme, lang = "en", onBack, class
           <Svg className="w-3.5 h-3.5">{Icon.lock}</Svg>
           <span className="hidden sm:inline">{s("e2e")}</span>
         </span>
+        <button type="button" onClick={() => { setNotice(""); setDialog("emergency"); }} disabled={!!loadError}
+          className="shrink-0 h-9 flex items-center gap-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold px-3 disabled:opacity-40">
+          <Svg className="w-4 h-4">{Icon.alert}</Svg>
+          {s("emergency")}
+        </button>
       </header>
 
       <div className="relative flex-1 min-h-0">
@@ -511,7 +578,7 @@ export default function TeamChat({ client, me, theme, lang = "en", onBack, class
                   const mine = m.sender_id === me.id;
                   const newDay = !prev || dayKey(prev.created_at) !== dayKey(m.created_at);
                   const head = startsGroup(prev, m);
-                  const ceoCanDelete = !mine && me.role === "ceo" && !m.pending;
+                  const ceoCanDelete = !mine && me.role === "ceo" && !m.pending && m.kind === "message";
                   const actionable = m.pending === "failed" || ceoCanDelete;
                   const Bubble = actionable ? "button" : "div";
                   const shown = shownText(m);
@@ -534,6 +601,10 @@ export default function TeamChat({ client, me, theme, lang = "en", onBack, class
                             {m.sender_role === "ceo" && <span className={`text-[9px] font-bold rounded px-1 py-px ${T.ceo}`}>CEO</span>}
                           </p>
                         )}
+                        {m.kind !== "message" ? (
+                          <RequestCard m={m} shown={shown} isCeo={me.role === "ceo"} lang={lang} theme={theme}
+                            onDecide={st => decide(m, st)} />
+                        ) : (
                         <Bubble
                           {...(actionable ? { type: "button" as const } : {})}
                           onClick={actionable ? () => (m.pending === "failed" ? retry(m) : setSelected(selected === m.id ? null : m.id)) : undefined}
@@ -560,6 +631,7 @@ export default function TeamChat({ client, me, theme, lang = "en", onBack, class
                             <span className="block px-3 py-2 text-[15px] leading-snug whitespace-pre-wrap break-words">{shown}</span>
                           ) : null}
                         </Bubble>
+                        )}
                         <div className={`flex items-center gap-1 mt-0.5 px-1 ${mine ? "flex-row-reverse" : ""}`}>
                           <span className={`text-[10px] ${m.pending === "failed" ? "text-red-500 font-semibold" : T.muted}`}>
                             {m.pending === "sending" ? s("sending") : m.pending === "failed" ? s("failed") : timeLabel(m.created_at)}
@@ -624,6 +696,12 @@ export default function TeamChat({ client, me, theme, lang = "en", onBack, class
             className={`w-11 h-11 shrink-0 rounded-xl flex items-center justify-center disabled:opacity-50 ${T.iconBtn}`}>
             <Svg>{Icon.photo}</Svg>
           </button>
+          {me.role === "staff" && (
+            <button type="button" onClick={() => { setNotice(""); setDialog("leave"); }} disabled={!!loadError} aria-label={s("askDayOff")} title={s("askDayOff")}
+              className={`w-11 h-11 shrink-0 rounded-xl flex items-center justify-center disabled:opacity-50 ${T.iconBtn}`}>
+              <Svg>{Icon.calendar}</Svg>
+            </button>
+          )}
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickPhoto} />
           <textarea ref={textRef} value={text} onChange={e => setText(e.target.value)} onKeyDown={onKeyDown}
             rows={1} maxLength={MAX_BODY}
@@ -635,6 +713,15 @@ export default function TeamChat({ client, me, theme, lang = "en", onBack, class
           </button>
         </div>
       </form>
+
+      {dialog === "leave" && (
+        <LeaveDialog theme={theme} lang={lang} canAddReason={ready} onClose={() => setDialog(null)}
+          onSend={r => sendRequest({ kind: "leave", leave_from: r.from, leave_to: r.to }, r.reason)} />
+      )}
+      {dialog === "emergency" && (
+        <EmergencyDialog theme={theme} lang={lang} canAddDetails={ready} onClose={() => setDialog(null)}
+          onSend={r => sendRequest({ kind: "emergency", emergency_type: r.type }, r.details)} />
+      )}
 
       {viewer && (
         <div role="dialog" aria-modal="true" aria-label={s("photo")} onClick={() => setViewer(null)}
