@@ -76,6 +76,8 @@ export interface ShiftPayload {
     jelly_can_items?: { product: string; pieces: number; liters_per_can: number; total_liters: number; price: number; total: number }[];
     /** Cash actually received for Pipa / Jelly Can (included in expected_total). Absent = all pre-paid. */
     pipa_jelly_cash?: number;
+    /** The customer whose pre-paid balance covered the non-cash Pipa / Jelly Can part. */
+    pipa_prepaid_by?: { profile_id: string; name: string; amount: number };
     diesel_cash: number;
     diesel_price: number;
   };

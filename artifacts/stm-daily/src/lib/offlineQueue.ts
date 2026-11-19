@@ -26,6 +26,8 @@ export interface LinkedExpensePayload {
   txnNumber: string;
   localDateTimeStr: string;
   employeeName: string;
+  /** What the Debt Tracker shows for this entry. Older queued items don't have it. */
+  note?: string;
 }
 
 export interface QueuedShift {
@@ -133,7 +135,7 @@ async function replayLinkedExpenses(linkedExpenses: LinkedExpensePayload[]) {
       p_profile_id: expense.profileId,
       p_amount: paymentAmt,
       p_transaction_number: expense.txnNumber,
-      p_note: `Payment via Daily Shift — ${expense.employeeName}`,
+      p_note: expense.note ?? `Payment via Daily Shift — ${expense.employeeName}`,
       p_date: expense.localDateTimeStr,
     });
   }

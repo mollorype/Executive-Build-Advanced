@@ -77,6 +77,11 @@ export function mapRowToShift(row: Record<string, unknown>): Shift {
     jelly_can_items: Array.isArray(fuel.jelly_can_items) ? fuel.jelly_can_items : null,
     pipa_jelly_cash: typeof (fuel as Record<string, unknown>).pipa_jelly_cash === "number"
       ? (fuel as Record<string, unknown>).pipa_jelly_cash as number : null,
+    pipa_prepaid_by: (() => {
+      const v = (fuel as Record<string, unknown>).pipa_prepaid_by as Record<string, unknown> | undefined;
+      return v && typeof v.name === "string" && typeof v.amount === "number"
+        ? { profile_id: String(v.profile_id ?? ""), name: v.name, amount: v.amount } : null;
+    })(),
     diesel_cash: fuel.diesel_cash ?? null,
     diesel_price: fuel.diesel_price ?? null,
   };
@@ -193,6 +198,8 @@ export type Shift = {
   jelly_can_items: { product: string; pieces: number; liters_per_can: number; total_liters: number; price: number; total: number }[] | null;
   /** Cash STM Daily staff said they received for Pipa / Jelly Can (already in expected_total). null = all pre-paid. */
   pipa_jelly_cash: number | null;
+  /** The customer whose pre-paid balance covered the non-cash Pipa / Jelly Can part. */
+  pipa_prepaid_by: { profile_id: string; name: string; amount: number } | null;
 
   diesel_cash: number | null;
   diesel_price: number | null;

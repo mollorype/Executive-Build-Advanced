@@ -546,8 +546,10 @@ export default function DebtTracker() {
               <div className="divide-y divide-slate-100">
                 {filtered.map(profile => {
                   const paid = profile.current_balance <= 0;
+                  const prepaid = profile.current_balance < 0;   // paid in advance: credit to use up
                   const rp = repayment?.byId.get(profile.id);
-                  const rpPct = rp && (rp.borrowed > 0 || rp.repaid > 0) ? fmtPercent(rp.percent, rp.remaining) : null;
+                  // Only advance payments so far (nothing borrowed yet): no "% repaid", just the pre-paid credit.
+                  const rpPct = rp && rp.borrowed > 0 ? fmtPercent(rp.percent, rp.remaining) : null;
                   return (
                     <div
                       key={profile.id}
@@ -576,7 +578,7 @@ export default function DebtTracker() {
                         {/* Mobile: balance + repaid row */}
                         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 mt-1.5 md:hidden">
                           <span className={`font-bold text-sm tabular-nums whitespace-nowrap ${paid ? "text-pale-green-foreground" : "text-slate-900"}`}>
-                            {paid ? t("cleared") : mmkFmt(profile.current_balance)}
+                            {prepaid ? t("prepaidCredit", { a: mmkFmt(-profile.current_balance) }) : paid ? t("cleared") : mmkFmt(profile.current_balance)}
                           </span>
                           {rpPct && rp && (
                             <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 whitespace-nowrap">
@@ -599,7 +601,8 @@ export default function DebtTracker() {
                       {/* Desktop: balance */}
                       <div className="hidden md:block w-36 text-right">
                         <span className={`font-bold text-sm tabular-nums flex items-center justify-end gap-1 ${paid ? "text-pale-green-foreground" : "text-slate-900"}`}>
-                          {paid ? <><CheckCircle className="w-3.5 h-3.5" /> {t("cleared")}</> : mmkFmt(profile.current_balance)}
+                          {prepaid ? t("prepaidCredit", { a: mmkFmt(-profile.current_balance) })
+                            : paid ? <><CheckCircle className="w-3.5 h-3.5" /> {t("cleared")}</> : mmkFmt(profile.current_balance)}
                         </span>
                       </div>
 

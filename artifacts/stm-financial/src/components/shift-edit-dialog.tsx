@@ -139,6 +139,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
       pipa_items: shift.pipa_items ?? [],
       jelly_can_items: shift.jelly_can_items ?? [],
       ...(shift.pipa_jelly_cash ? { pipa_jelly_cash: shift.pipa_jelly_cash } : {}),
+      ...(shift.pipa_prepaid_by ? { pipa_prepaid_by: shift.pipa_prepaid_by } : {}),
       // Keep STM Daily's per-pump Fuel 92 split only while Fuel 92 is unchanged;
       // after an edit it would no longer add up, so it's dropped.
       ...(shift.fuel_92_pumps && f92l === fmtInput(shift.fuel_92_liters) && f92p === fmtInput(shift.fuel_92_price)
