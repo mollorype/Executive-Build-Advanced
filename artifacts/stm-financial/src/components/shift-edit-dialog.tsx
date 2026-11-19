@@ -108,9 +108,14 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
   const t92 = n(f92l) * n(f92p);
   const t95 = n(f95l) * n(f95p);
   const tPD = n(fPDl) * n(fPDp);
-  const tPipa = n(pipaAmt) * n(pipaPrice);
+  // Pipa: keep STM Daily's own total (it may be several items at different prices)
+  // unless the Pipa fields were edited here.
+  const pipaUnchanged = pipaAmt === fmtInput(shift.pipa_amount) && pipaPrice === fmtInput(shift.pipa_price);
+  const tPipa = pipaUnchanged && shift.pipa_total != null ? shift.pipa_total : n(pipaAmt) * n(pipaPrice);
+  const tJelly = (shift.jelly_can_items ?? []).reduce((s, i) => s + (i.total || 0), 0);
   const tDiesel = n(dieselCash);
-  const grandTotal = t92 + t95 + tPD + tPipa + tDiesel;
+  // Every product, Pipa and Jelly Can included, is expected in cash — same as STM Daily.
+  const grandTotal = t92 + t95 + tPD + tPipa + tJelly + tDiesel;
   const totalExp = expenses.reduce((s, e) => s + (e.amount || 0), 0);
   const netExpected = grandTotal - totalExp;
   const diff = n(actualCash) - netExpected;
@@ -138,8 +143,6 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
       diesel_cash: n(dieselCash), diesel_price: shift.diesel_price ?? 0,
       pipa_items: shift.pipa_items ?? [],
       jelly_can_items: shift.jelly_can_items ?? [],
-      ...(shift.pipa_jelly_cash ? { pipa_jelly_cash: shift.pipa_jelly_cash } : {}),
-      ...(shift.pipa_prepaid_by ? { pipa_prepaid_by: shift.pipa_prepaid_by } : {}),
       // Keep STM Daily's per-pump Fuel 92 split only while Fuel 92 is unchanged;
       // after an edit it would no longer add up, so it's dropped.
       ...(shift.fuel_92_pumps && f92l === fmtInput(shift.fuel_92_liters) && f92p === fmtInput(shift.fuel_92_price)

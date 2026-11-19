@@ -42,10 +42,6 @@ interface FormData {
   expenses: ExpenseItem[];
   actualCash: string;
   shiftDate: string;
-  /** Cash actually received for Pipa / Jelly Can. Blank = all pre-paid (nothing in cash). */
-  pipaCash: string;
-  /** Who pre-paid the rest; their Debt Tracker balance is charged for it. */
-  pipaCustomer: { id: string; name: string } | null;
 }
 
 // ─── Language / i18n ──────────────────────────────────────────────────────────
@@ -153,22 +149,6 @@ const STRINGS = {
   addJelly:             { en: "Add Jelly Can", my: "ပုံးဝါ ထည့်ရန်" },
   pricePerL:            { en: "Price / L", my: "တစ်လီတာ ဈေး" },
   cashSummary:          { en: "Cash Summary", my: "ငွေသား အကျဉ်းချုပ်" },
-  pipaJelly:            { en: "Pipa / Jelly Can", my: "ပီပါ / ပုံးဝါ" },
-  prepaidNote:          { en: "Pre-paid — not included in cash", my: "ကြိုပေးပြီး — ငွေသားတွင် မပါ" },
-  pipaCashSplit:        { en: "{a} in cash · {b} pre-paid", my: "ငွေသား {a} · ကြိုပေးပြီး {b}" },
-  pipaCashAll:          { en: "All received in cash", my: "အားလုံး ငွေသားဖြင့် ရရှိ" },
-  pipaCashLabel:        { en: "Cash received", my: "ရရှိသော ငွေသား" },
-  optionalParen:        { en: "(optional)", my: "(မထည့်လည်းရ)" },
-  allCash:              { en: "All cash", my: "အားလုံး ငွေသား" },
-  pipaCashHelp:         { en: "Leave blank if it was paid before (pre-paid). Only the amount typed here is added to the cash.", my: "ကြိုပေးပြီးဖြစ်လျှင် ကွက်လပ်ထားပါ။ ဤနေရာတွင် ထည့်သော ပမာဏကိုသာ ငွေသားထဲ ပေါင်းပါမည်။" },
-  pipaCashTooMuch:      { en: "More than the Pipa / Jelly Can total — only {a} MMK is counted. Check the amount.", my: "ပီပါ / ပုံးဝါ စုစုပေါင်းထက် များနေသည် — {a} MMK သာ ထည့်တွက်ပါမည်။ ပမာဏ ပြန်စစ်ပါ။" },
-  pipaPrepaidRow:       { en: "− Pipa / Jelly Can (pre-paid)", my: "− ပီပါ / ပုံးဝါ (ကြိုပေးပြီး)" },
-  pipaWhoPrepaid:       { en: "Who pre-paid?", my: "ဘယ်သူ ကြိုပေးထားသလဲ" },
-  pipaWhoPh:            { en: "Search customer…", my: "ဖောက်သည် ရှာရန်…" },
-  pipaWhoHelp:          { en: "Pick the customer, and their pre-paid balance in the Debt Tracker goes down by {a} MMK.", my: "ဖောက်သည်ကို ရွေးလျှင် အကြွေးစာရင်းရှိ သူ၏ ကြိုပေးငွေထဲမှ {a} MMK နှုတ်ပါမည်။" },
-  pipaWhoLinked:        { en: "{a} MMK will be taken from {name}'s pre-paid balance.", my: "{name} ၏ ကြိုပေးငွေထဲမှ {a} MMK နှုတ်ပါမည်။" },
-  noCustomer:           { en: "No customer found", my: "ဖောက်သည် မတွေ့ပါ" },
-  prepaidBy:            { en: "pre-paid by {name}", my: "{name} ကြိုပေးထား" },
   expenseSearchPh:      { en: "Search a profile or type a new name…", my: "အမည် ရှာပါ (သို့) အမည်သစ် ရိုက်ပါ…" },
   linked:               { en: "LINKED", my: "ချိတ်ပြီး" },
   debtProfiles:         { en: "Debt Profiles", my: "အကြွေးစာရင်းများ" },
@@ -275,17 +255,7 @@ const EMPTY: FormData = {
   expenses:       [],
   actualCash:     "",
   shiftDate:      "",
-  pipaCash:       "",
-  pipaCustomer:   null,
 };
-
-/**
- * Pipa / Jelly Can money that came in as cash — never more than the Pipa / Jelly
- * Can sales themselves, and nothing when there are none.
- */
-function pipaCashReceived(pipaCash: string, pipaJellyTotal: number): number {
-  return pipaJellyTotal > 0 ? Math.min(pipaJellyTotal, Math.max(0, n(pipaCash ?? ""))) : 0;
-}
 
 /** Litres for one pump row: entered/auto-filled litres, else derived from total ÷ price. */
 function fuelRowLiters(row: FuelRow): number {
@@ -690,67 +660,6 @@ function Fuel92Card({ normal, fresh, newOpen, total, onField, onOpenNew, onClose
 
 // ─── Expenses panel — searchable debt profile dropdown + amount ────────────────
 type ProfileHit = { id: string; name: string; relation: string };
-
-/** Pick one Debt Tracker customer (search by name). */
-function ProfilePicker({ value, onChange, placeholder, lang }: {
-  value: { id: string; name: string } | null;
-  onChange: (p: { id: string; name: string } | null) => void;
-  placeholder: string;
-  lang: Lang;
-}) {
-  const [term, setTerm] = useState("");
-  const [hits, setHits] = useState<ProfileHit[] | null>(null);
-  const [searching, setSearching] = useState(false);
-  const seq = useRef(0);
-
-  async function search(val: string) {
-    setTerm(val);
-    if (!val.trim()) { setHits(null); return; }
-    const mine = ++seq.current;
-    setSearching(true);
-    const { data } = await supabase.rpc("search_debt_profiles_basic", { search_term: val.trim() });
-    if (mine !== seq.current) return;   // a newer search is on its way
-    setSearching(false);
-    setHits((data ?? []) as ProfileHit[]);
-  }
-
-  if (value) {
-    return (
-      <div className="flex items-center justify-between gap-2 rounded-xl border border-violet-400/50 bg-violet-500/10 px-3 py-2.5">
-        <span className="text-sm font-semibold text-white truncate">{value.name}</span>
-        <button type="button" onClick={() => { onChange(null); setTerm(""); setHits(null); }}
-          aria-label={t(lang, "removeThing", { x: value.name })}
-          className="w-6 h-6 shrink-0 flex items-center justify-center rounded-full text-violet-200 hover:bg-violet-500/20">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-    );
-  }
-  return (
-    <div className="relative">
-      <input type="text" value={term} onChange={e => search(e.target.value)} placeholder={placeholder}
-        aria-label={placeholder}
-        className="w-full rounded-xl border px-3 py-2.5 text-sm font-medium outline-none bg-[#0d1117] border-violet-500/30 text-white placeholder:text-gray-600 focus:border-violet-400 focus:ring-2 focus:ring-violet-500/20" />
-      {searching && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs animate-pulse">…</span>}
-      {hits && term.trim() && !searching && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl overflow-hidden max-h-56 overflow-y-auto">
-          {hits.length === 0 ? (
-            <p className="px-3 py-2.5 text-xs text-gray-500">{t(lang, "noCustomer")}</p>
-          ) : hits.map(h => (
-            <button key={h.id} type="button"
-              onClick={() => { onChange({ id: h.id, name: h.name }); setTerm(""); setHits(null); }}
-              className="w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-[#1c2433] text-left border-t border-[#30363d] first:border-t-0">
-              <span className="font-semibold text-white">{h.name}</span>
-              <span className="text-xs text-gray-500 ml-2 shrink-0">{lang === "my" ? RELATION_MY[h.relation] ?? h.relation : h.relation}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function ExpensesPanel({ items, onChange, lang }: {
   items: ExpenseItem[];
@@ -1273,12 +1182,8 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
   const totalDeductions = form.expenses.reduce((s, i) => s + (i.txnType !== "payment" ? n(i.amount) : 0), 0);
   const totalIncome     = form.expenses.reduce((s, i) => s + (i.txnType === "payment"  ? n(i.amount) : 0), 0);
   const totalExp        = totalDeductions;
-  // Pipa and JellyCan are pre-paid / billed separately — exclude from cash expected
-  // Pipa and JellyCan are pre-paid unless staff enter the cash they actually received for them
-  const pipaJellyTotal  = tPipa + tJelly;
-  const pipaCash        = pipaCashReceived(form.pipaCash, pipaJellyTotal);
-  const cashGrandTotal  = t92 + t95 + tPD + tD + pipaCash;
-  const netExpected     = cashGrandTotal - totalDeductions + totalIncome;
+  // Every product, Pipa and Jelly Can included, is expected in cash
+  const netExpected     = grandTotal - totalDeductions + totalIncome;
   const difference      = actualCash - netExpected;
 
   function handleSubmit(e: React.FormEvent) {
@@ -1401,59 +1306,6 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
             <ExpensesPanel items={form.expenses} onChange={items => setForm(f => ({ ...f, expenses: items }))} lang={lang} />
           </div>
 
-          {/* Pipa / JellyCan: pre-paid unless the cash actually received is entered */}
-          {pipaJellyTotal > 0 && (
-            <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl px-4 py-3 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-violet-300">{t(lang, "pipaJelly")}</p>
-                  <p className="text-[10px] text-violet-400/70 mt-0.5">
-                    {pipaCash <= 0 ? t(lang, "prepaidNote")
-                      : pipaCash >= pipaJellyTotal ? t(lang, "pipaCashAll")
-                      : t(lang, "pipaCashSplit", { a: fmt(pipaCash), b: fmt(pipaJellyTotal - pipaCash) })}
-                  </p>
-                </div>
-                <span className="text-sm font-bold text-violet-300 tabular-nums whitespace-nowrap">{fmt(pipaJellyTotal)} MMK</span>
-              </div>
-              <div>
-                <label htmlFor="pipa-cash" className="text-[11px] font-bold text-violet-300/80 uppercase tracking-widest">
-                  {t(lang, "pipaCashLabel")} <span className="normal-case font-normal tracking-normal">{t(lang, "optionalParen")}</span>
-                </label>
-                <div className="mt-1.5 flex gap-2">
-                  <div className="relative flex-1 min-w-0">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-semibold select-none">K</span>
-                    <input id="pipa-cash" type="number" inputMode="decimal" min="0" value={form.pipaCash}
-                      onChange={e => setForm(f => ({ ...f, pipaCash: e.target.value }))}
-                      placeholder="0"
-                      className="w-full rounded-xl border pl-8 pr-3 py-3 text-base font-semibold outline-none tabular-nums bg-[#0d1117] border-violet-500/30 text-white focus:border-violet-400 focus:ring-2 focus:ring-violet-500/20 placeholder:text-gray-700" />
-                  </div>
-                  <button type="button" onClick={() => setForm(f => ({ ...f, pipaCash: String(pipaJellyTotal) }))}
-                    className="shrink-0 px-3 rounded-xl border border-violet-500/40 hover:bg-violet-500/10 text-xs font-bold text-violet-200 transition-colors">
-                    {t(lang, "allCash")}
-                  </button>
-                </div>
-                <p className="text-[10px] text-violet-400/70 mt-1.5">{t(lang, "pipaCashHelp")}</p>
-                {n(form.pipaCash) > pipaJellyTotal && (
-                  <p role="alert" className="text-[11px] font-semibold text-red-400 mt-1">{t(lang, "pipaCashTooMuch", { a: fmt(pipaJellyTotal) })}</p>
-                )}
-              </div>
-              {pipaJellyTotal - pipaCash > 0 && (
-                <div className="border-t border-violet-500/20 pt-3">
-                  <p className="text-[11px] font-bold text-violet-300/80 uppercase tracking-widest mb-1.5">
-                    {t(lang, "pipaWhoPrepaid")} <span className="normal-case font-normal tracking-normal">{t(lang, "optionalParen")}</span>
-                  </p>
-                  <ProfilePicker value={form.pipaCustomer} lang={lang} placeholder={t(lang, "pipaWhoPh")}
-                    onChange={c => setForm(f => ({ ...f, pipaCustomer: c }))} />
-                  <p className="text-[10px] text-violet-400/70 mt-1.5">
-                    {form.pipaCustomer
-                      ? t(lang, "pipaWhoLinked", { a: fmt(pipaJellyTotal - pipaCash), name: form.pipaCustomer.name })
-                      : t(lang, "pipaWhoHelp", { a: fmt(pipaJellyTotal - pipaCash) })}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="flex items-center justify-between bg-[#1c2433] rounded-xl px-4 py-2.5 border border-[#30363d]">
             <span className="text-xs font-semibold text-gray-400">{t(lang, "netExpected")}</span>
             <span className="text-sm font-bold text-white tabular-nums">{fmt(netExpected)} MMK</span>
@@ -1499,8 +1351,6 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
   const totalIncome     = form.expenses.reduce((s, i) => s + (i.txnType === "payment"  ? n(i.amount) : 0), 0);
   const totalExp        = totalDeductions;
   const actualCash      = n(form.actualCash);
-  const pipaCash        = pipaCashReceived(form.pipaCash, tPipa + tJelly);
-  const pipaPrepaid     = Math.max(0, tPipa + tJelly - pipaCash);
 
   const rows = [
     // With the new pump open, each pump gets its own line (empty ones are hidden below).
@@ -1617,16 +1467,13 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
           <div className="px-4 py-3 border-b border-[#30363d]"><h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">{t(lang, "cashSummary")}</h3></div>
           <div className="divide-y divide-[#30363d]">
             <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "grandTotalShort")}</span><span className="font-bold text-white tabular-nums">{fmt(grandTotal)} MMK</span></div>
-            {pipaPrepaid > 0 && (
-              <div className="px-4 py-3 flex justify-between gap-3 text-sm"><span className="text-gray-500">{t(lang, "pipaPrepaidRow")}{form.pipaCustomer && <span className="block text-[11px] text-violet-300">{t(lang, "prepaidBy", { name: form.pipaCustomer.name })}</span>}</span><span className="font-semibold text-violet-300 tabular-nums">−{fmt(pipaPrepaid)} MMK</span></div>
-            )}
             {totalIncome > 0 && (
               <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "paymentIncome")}</span><span className="font-semibold text-emerald-400 tabular-nums">+{fmt(totalIncome)} MMK</span></div>
             )}
             {totalDeductions > 0 && (
               <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "otherCosts")}</span><span className="font-semibold text-red-400 tabular-nums">−{fmt(totalDeductions)} MMK</span></div>
             )}
-            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "netExpected")}</span><span className="font-bold text-white tabular-nums">{fmt(grandTotal - pipaPrepaid - totalDeductions + totalIncome)} MMK</span></div>
+            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "netExpected")}</span><span className="font-bold text-white tabular-nums">{fmt(grandTotal - totalDeductions + totalIncome)} MMK</span></div>
             <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "actualCollected")}</span><span className="font-bold text-white tabular-nums">{fmt(actualCash)} MMK</span></div>
             <div className={["px-4 py-3 flex justify-between text-sm font-bold", difference === 0 ? "bg-[#1c2433]" : difference > 0 ? "bg-emerald-500/10" : "bg-red-500/10"].join(" ")}>
               <span className={difference === 0 ? "text-gray-400" : difference > 0 ? "text-emerald-400" : "text-red-400"}>{t(lang, "difference")}</span>
@@ -2063,11 +1910,8 @@ export default function App() {
     const totalIncome     = formData.expenses.reduce((s, i) => s + (i.txnType === "payment"  ? n(i.amount) : 0), 0);
     const totalExp        = totalDeductions - totalIncome; // net effect on expected cash
     const actualCash      = n(formData.actualCash);
-    // Pipa and JellyCan are pre-paid — excluded from expected cash, except
-    // whatever cash staff say they actually received for them.
-    const pipaCash        = pipaCashReceived(formData.pipaCash, tPipa + tJelly);
-    const pipaPrepaid     = Math.max(0, tPipa + tJelly - pipaCash);
-    const cashGrandTotal  = t92 + t95 + tPD + n(formData.diesel.cash) + pipaCash;
+    // Every product, Pipa and Jelly Can included, is expected in cash
+    const cashGrandTotal  = t92 + t95 + tPD + n(formData.diesel.cash) + tPipa + tJelly;
 
     const payload: ShiftPayload = {
       employee_name: employeeName,
@@ -2089,10 +1933,6 @@ export default function App() {
         pipa_total:            tPipa,
         pipa_items:            pipaItems,
         jelly_can_items:       jellyCanItems,
-        ...(pipaCash > 0 ? { pipa_jelly_cash: pipaCash } : {}),
-        ...(pipaPrepaid > 0 && formData.pipaCustomer
-          ? { pipa_prepaid_by: { profile_id: formData.pipaCustomer.id, name: formData.pipaCustomer.name, amount: pipaPrepaid } }
-          : {}),
         diesel_cash:           n(formData.diesel.cash),
         diesel_price:          n(formData.diesel.price),
       },
@@ -2142,20 +1982,6 @@ export default function App() {
         employeeName,
       };
     });
-
-    // The pre-paid part of Pipa / Jelly Can comes out of the chosen customer's
-    // pre-paid balance: a debt entry for it in the Debt Tracker.
-    if (pipaPrepaid > 0 && formData.pipaCustomer) {
-      linkedExpenses.push({
-        profileId: formData.pipaCustomer.id,
-        amount: pipaPrepaid,
-        txnType: "debt",
-        txnNumber: `TXN-${localDateStr.replace(/-/g, "")}-${Math.floor(Math.random() * 90000) + 10000}`,
-        localDateTimeStr,
-        employeeName,
-        note: `Pipa / Jelly Can (pre-paid) — Daily Shift, ${employeeName}`,
-      });
-    }
 
     let queuedId: string;
     try {

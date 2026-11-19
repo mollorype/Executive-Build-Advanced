@@ -43,8 +43,7 @@ type Props = {
 function RepaymentChart({ amounts, balance }: { amounts: number[]; balance: number }) {
   const t = useDebtT();
   const r = repaymentSummary(amounts, balance);
-  if (r.borrowed <= 0) {
-    // Nothing borrowed yet — maybe only paid in advance (shown in the banner above).
+  if (r.borrowed <= 0 && r.repaid <= 0) {
     return (
       <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t("repaymentProgress")}</p>
@@ -545,7 +544,6 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   }
 
   const isCleared = profile.current_balance <= 0;
-  const prepaidCredit = profile.current_balance < 0 ? -profile.current_balance : 0;
   const today = new Date().toISOString().slice(0, 10);
   const isOverCreditLimit = profile.credit_limit != null && profile.current_balance > profile.credit_limit;
   const isPastDueDate = profile.payment_due_date != null && today > profile.payment_due_date && profile.current_balance > 0;
@@ -700,20 +698,12 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
           )}
 
           {/* Status banners */}
-          {prepaidCredit > 0 ? (
-            <div className="flex items-start gap-3 bg-pale-green border border-emerald-100 rounded-xl px-4 py-3">
-              <CheckCircle className="w-5 h-5 text-pale-green-foreground shrink-0 mt-0.5" />
-              <div>
-                <p className="text-pale-green-foreground font-semibold text-sm">{t("prepaidBanner", { a: mmkFmt(prepaidCredit) })}</p>
-                <p className="text-pale-green-foreground/80 text-xs mt-0.5">{t("prepaidBannerHelp")}</p>
-              </div>
-            </div>
-          ) : isCleared ? (
+          {isCleared && (
             <div className="flex items-center gap-3 bg-pale-green border border-emerald-100 rounded-xl px-4 py-3">
               <CheckCircle className="w-5 h-5 text-pale-green-foreground shrink-0" />
               <p className="text-pale-green-foreground font-semibold text-sm">{t("debtCleared")}</p>
             </div>
-          ) : null}
+          )}
 
           {/* Violation alerts */}
           {(isOverCreditLimit || isPastDueDate) && (
@@ -766,8 +756,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
             <div className="flex justify-between text-sm">
               <span className="text-slate-400 flex items-center gap-1.5"><CreditCard className="w-3 h-3" /> {t("currentBalance")}</span>
               <span className={`font-bold tabular-nums flex items-center gap-1 ${isCleared ? "text-pale-green-foreground" : "text-pale-red-foreground"}`}>
-                {prepaidCredit > 0 ? t("prepaidCredit", { a: mmkFmt(prepaidCredit) })
-                  : isCleared ? <><CheckCircle className="w-3.5 h-3.5" /> {t("cleared")}</> : mmkFmt(profile.current_balance)}
+                {isCleared ? <><CheckCircle className="w-3.5 h-3.5" /> {t("cleared")}</> : mmkFmt(profile.current_balance)}
               </span>
             </div>
             {profile.total_debt != null && (

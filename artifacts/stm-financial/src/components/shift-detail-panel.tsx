@@ -315,18 +315,6 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
           <div>
             <SectionHeader icon={<BadgeDollarSign className="w-3.5 h-3.5" />} label="Cash Summary" />
             <div className="bg-slate-50 border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-100">
-              {shift.pipa_prepaid_by && (
-                <div className="px-4 py-3 flex justify-between gap-3 text-sm">
-                  <span className="text-slate-400">Pipa / Jelly Can pre-paid by <span className="text-slate-700 font-medium">{shift.pipa_prepaid_by.name}</span></span>
-                  <span className="text-slate-700 tabular-nums">{mmk(shift.pipa_prepaid_by.amount)}</span>
-                </div>
-              )}
-              {shift.pipa_jelly_cash != null && shift.pipa_jelly_cash > 0 && (
-                <div className="px-4 py-3 flex justify-between text-sm">
-                  <span className="text-slate-400">Pipa / Jelly Can paid in cash</span>
-                  <span className="text-slate-700 tabular-nums">{mmk(shift.pipa_jelly_cash)}</span>
-                </div>
-              )}
               <div className="px-4 py-3 flex justify-between text-sm">
                 <span className="text-slate-400">Expected Total</span>
                 <span className="text-slate-900 font-medium tabular-nums">{mmk(shift.expected_cash_total)}</span>
