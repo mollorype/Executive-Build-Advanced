@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { UserPlus, Calculator, Check, AlertCircle, Shield, Trash2, Mail, RefreshCw, Copy, type LucideIcon } from "lucide-react";
+import { UserPlus, Calculator, Check, AlertCircle, Shield, Trash2, Mail, RefreshCw, Copy, Crown, type LucideIcon } from "lucide-react";
+import CeoAccessSection from "@/components/ceo-access-section";
 
 type AllowlistEntry = {
   id: string;
@@ -339,6 +340,17 @@ export default function ManageAccess() {
             deleteConfirm={email => `Remove ${email} from the accountant allowlist?\nThey will no longer be able to sign in as Accountant.`}
             setupSql={ACCOUNTANT_SETUP_SQL}
           />
+        </section>
+
+        <section>
+          <div className="flex items-center gap-2 mb-1">
+            <Crown className="w-4 h-4 text-pale-gold-foreground" />
+            <h2 className="text-slate-900 font-bold text-sm">CEO Access</h2>
+          </div>
+          <p className="text-slate-500 text-xs mb-4">
+            CEOs can see and change everything. Adding or removing one needs your password and is announced on Telegram.
+          </p>
+          <CeoAccessSection />
         </section>
       </div>
     </div>

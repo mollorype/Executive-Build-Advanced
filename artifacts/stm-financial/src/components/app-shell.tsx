@@ -150,7 +150,9 @@ export default function AppShell({ children }: Props) {
         </div>
       )}
 
-      <div className="flex-1 lg:ml-64 flex flex-col pt-14 lg:pt-0 min-h-screen">
+      {/* min-w-0: a flex item won't shrink below its content's natural width by default,
+          which let Staff Access push the page wider than a phone screen. */}
+      <div className="flex-1 min-w-0 lg:ml-64 flex flex-col pt-14 lg:pt-0 min-h-screen">
         {children}
       </div>
 
