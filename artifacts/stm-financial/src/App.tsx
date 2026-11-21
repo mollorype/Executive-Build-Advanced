@@ -10,7 +10,7 @@ import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import Shifts from "@/pages/shifts";
 import ManageAccess from "@/pages/manage-access";
-import PORegistry from "@/pages/po-registry";
+import ProfitPage from "@/pages/profit";
 import PipaLedger from "@/pages/pipa-ledger";
 import DebtTracker from "@/pages/debt-tracker";
 import SalaryPage from "@/pages/salary";
@@ -103,10 +103,15 @@ function Router() {
         </ProtectedRoute>
       </Route>
 
-      <Route path="/po-registry">
+      <Route path="/profit">
         <ProtectedRoute>
-          <PORegistry />
+          <ProfitPage />
         </ProtectedRoute>
+      </Route>
+
+      {/* The PO Registry was replaced by the Profit page. */}
+      <Route path="/po-registry">
+        <Redirect to="/profit" />
       </Route>
 
       <Route path="/pipa-ledger">

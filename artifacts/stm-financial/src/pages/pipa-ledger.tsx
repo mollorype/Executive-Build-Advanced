@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import {
-  PIPA_MOVEMENTS_TABLE, PIPA_PRODUCTS, PIPA_STATIONS_TABLE,
-  fmtLiters, fmtMMK, fmtPipas, normalizeMovement, priceBreakdown, purchasePrices, stationBalances, stockByProduct, stockDelta,
-  type MovementKind, type PipaMovement, type PipaStation,
+  PIPA_PRODUCTS, PIPA_STATIONS_TABLE,
+  fmtLiters, fmtMMK, fmtPipas, normalizeMovement, priceBreakdown, purchasePrices, round3, stationBalances, stockByProduct, stockDelta,
+  type MovementKind, type PipaMovement, type PipaProduct, type PipaStation,
 } from "@/lib/pipa-ledger";
 import MovementDialog from "@/components/pipa/movement-dialog";
 import StationDialog from "@/components/pipa/station-dialog";
 import CountDialog from "@/components/pipa/count-dialog";
-import ShiftDeductDialog from "@/components/shift-deduct-dialog";
+import DeductDialog from "@/components/pipa/deduct-dialog";
 import { useAuth } from "@/lib/auth-context";
+import { usePPSettings } from "@/lib/pp-settings";
 import { usePipaT, pipaProduct, type PipaT } from "@/lib/pipa-i18n";
-import { confirmDialog } from "@/components/confirm-dialog";
-import { AlertTriangle, ClipboardCheck, Cylinder, Loader2, Phone, Plus, Receipt, Store, Trash2, X } from "lucide-react";
+import { reasonDialog } from "@/components/confirm-dialog";
+import { AlertTriangle, ClipboardCheck, Cylinder, Loader2, Phone, Plus, Receipt, Store, Trash2, Undo2, X } from "lucide-react";
 
 type Dialog =
   | { type: "movement"; kind?: MovementKind; stationId?: string }
@@ -21,18 +22,30 @@ type Dialog =
   | { type: "deduct" }
   | null;
 
+/** A history row: one P-P line, or one shift's "sold" lines together. */
+type Item =
+  | { type: "line"; m: PipaMovement }
+  | { type: "shift"; key: string; shiftId: string | null; name: string; on: string; lines: PipaMovement[]; by: string | null };
+
 /** History line for one movement. */
 function describe(m: PipaMovement, station: string, t: PipaT): { title: string; detail: string } {
   const qty = `${fmtPipas(Math.abs(m.pipas))} P-P · ${pipaProduct(t, m.product)}`;
   const price = m.price_mode && m.unit_price != null
     ? (() => {
         const b = priceBreakdown(m.price_mode, m.unit_price, m.pipas, m.liters_per_pipa);
-        return t("h_price", { perPipa: fmtMMK(b.perPipa), perLiter: fmtMMK(b.perLiter), total: fmtMMK(b.total) });
+        return t("h_price", { perPipa: fmtMMK(b.perPipa), perLiter: fmtMMK(b.perLiter), total: fmtMMK(m.total_amount ?? b.total) });
       })()
     : "";
   const withPrice = (d: string) => (price ? `${d} · ${price}` : d);
   switch (m.kind) {
-    case "buy":             return { title: t("h_buy", { qty }), detail: withPrice(t("h_buy_d", { station })) };
+    case "buy": {
+      if (m.source === "official") {
+        const fees = (m.transport_fee ?? 0) + (m.other_fee ?? 0);
+        const extra = m.unit_price != null ? ` · ${t("h_fees", { fees: fmtMMK(fees), cost: fmtMMK(m.unit_price + fees) })}` : "";
+        return { title: t("h_official", { qty: m.exact_liters ? `${fmtLiters(m.exact_liters)} · ${pipaProduct(t, m.product)}` : qty }), detail: withPrice(t("h_buy_d", { station })) + extra };
+      }
+      return { title: t("h_buy", { qty }), detail: withPrice(t("h_buy_d", { station })) };
+    }
     case "borrow":          return { title: t("h_borrow", { qty }), detail: t("h_borrow_d", { station }) };
     case "borrow_returned": return { title: t("h_borrow_returned", { qty }), detail: t("h_borrow_returned_d", { station }) };
     case "borrow_paid":     return { title: t("h_borrow_paid", { qty }), detail: withPrice(t("h_borrow_paid_d", { station })) };
@@ -40,20 +53,21 @@ function describe(m: PipaMovement, station: string, t: PipaT): { title: string; 
     case "lend_returned":   return { title: t("h_lend_returned", { qty }), detail: t("h_lend_returned_d", { station }) };
     case "lend_paid":       return { title: t("h_lend_paid", { station, qty }), detail: withPrice(t("h_lend_paid_d")) };
     case "used":            return { title: t("h_used", { qty }), detail: "" };
-    case "adjust":          return { title: t("h_adjust", { qty: `${m.pipas > 0 ? "+" : "−"}${qty}` }), detail: "" };
+    case "adjust":
+      return m.pipas > 0 && m.unit_price != null
+        ? { title: t("h_opening", { qty: `+${qty}` }), detail: price }
+        : { title: t("h_adjust", { qty: `${m.pipas > 0 ? "+" : "−"}${qty}` }), detail: "" };
   }
 }
 
-/** Notes the database writes on shift-deduction lines are in English; show them in the chosen language. */
-function noteText(m: PipaMovement, t: PipaT): string {
-  const auto = m.shift_batch_id && m.note ? /^Shift sales: ([\d.]+) L from (\d+) shift/.exec(m.note) : null;
-  return auto ? t("shiftNote", { liters: fmtLiters(Number(auto[1])), n: auto[2] }) : m.note ?? "";
-}
+/** Shift "sold" lines carry the employee's name in their note: "Shift sales: 300 L · Ma Hla". */
+const shiftName = (m: PipaMovement) => /·\s*(.+)$/.exec(m.note ?? "")?.[1]?.trim() || "—";
 
 export default function PipaLedger() {
   const t = usePipaT();
   const { profile } = useAuth();
   const owner = profile?.role === "ceo";
+  const { settings } = usePPSettings();
   const [stations, setStations] = useState<PipaStation[]>([]);
   const [movements, setMovements] = useState<PipaMovement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,19 +89,18 @@ export default function PipaLedger() {
   const load = useCallback(async () => {
     const [st, mv] = await Promise.all([
       supabase.from(PIPA_STATIONS_TABLE).select("*").order("name"),
-      supabase.from(PIPA_MOVEMENTS_TABLE).select("*")
-        .order("occurred_on", { ascending: false }).order("created_at", { ascending: false }),
+      // Through the database, which leaves out purchase prices if the owner hid them.
+      supabase.rpc("pp_movements"),
     ]);
     const err = st.error ?? mv.error;
     if (err) {
-      setLoadError(err.code === "PGRST205" || err.code === "42P01"
-        ? t("notInstalled")
-        : err.message);
+      setLoadError(err.code === "PGRST205" || err.code === "42P01" ? t("notInstalled")
+        : err.code === "PGRST202" || err.code === "42883" ? t("needsUpdate") : err.message);
       return;
     }
     setLoadError("");
     setStations((st.data ?? []) as PipaStation[]);
-    setMovements((mv.data ?? []).map(r => normalizeMovement(r as Record<string, unknown>)));
+    setMovements(((mv.data ?? []) as Record<string, unknown>[]).map(r => normalizeMovement(r)));
   }, [t]);
 
   useEffect(() => { load().finally(() => setLoading(false)); }, [load]);
@@ -101,7 +114,24 @@ export default function PipaLedger() {
     for (const m of movements) if (m.kind === "buy" && m.station_id && !out[m.station_id]) out[m.station_id] = m; // newest first
     return out;
   }, [movements]);
-  const history = historyStation ? movements.filter(m => m.station_id === historyStation) : movements;
+
+  // One row per P-P line; a shift's "sold" lines (one per fuel) share a row.
+  const history = useMemo(() => {
+    const list = historyStation ? movements.filter(m => m.station_id === historyStation) : movements;
+    const items: Item[] = [];
+    const shifts = new Map<string, Extract<Item, { type: "shift" }>>();
+    for (const m of list) {
+      if (!m.shift_batch_id) { items.push({ type: "line", m }); continue; }
+      let row = shifts.get(m.shift_batch_id);
+      if (!row) {
+        row = { type: "shift", key: m.shift_batch_id, shiftId: m.shift_id ?? null, name: shiftName(m), on: m.occurred_on, lines: [], by: m.created_by ?? null };
+        shifts.set(m.shift_batch_id, row);
+        items.push(row);
+      }
+      row.lines.push(m);
+    }
+    return items;
+  }, [movements, historyStation]);
 
   function done(message: string) {
     setDialog(null);
@@ -109,27 +139,28 @@ export default function PipaLedger() {
     load();
   }
 
-  async function remove(m: PipaMovement) {
-    const isShiftBatch = !!m.shift_batch_id;
-    const msg = isShiftBatch
-      ? t("confirmUndoShift")
-      : t("confirmDelete", { title: describe(m, stationName[m.station_id ?? ""] ?? "", t).title }) + (m.po_id ? t("poKept") : "");
-    if (!(await confirmDialog(msg, { danger: true, confirmLabel: isShiftBatch ? t("undoShift") : undefined }))) return;
-    setDeletingId(m.id);
-    const { error, count } = isShiftBatch
-      ? await supabase.rpc("undo_pipa_shift_usage", { p_batch: m.shift_batch_id }).then(r => ({ error: r.error, count: 1 }))
-      : await supabase.from(PIPA_MOVEMENTS_TABLE).delete({ count: "exact" }).eq("id", m.id);
+  async function remove(item: Item) {
+    const isShift = item.type === "shift";
+    const title = isShift
+      ? `${t("h_shift", { name: item.name })} · ${item.on}`
+      : describe(item.m, stationName[item.m.station_id ?? ""] ?? "", t).title;
+    const reason = await reasonDialog(
+      (isShift ? t("reasonUndoShift", { title }) : t("reasonDelete", { title })) + (owner ? "" : t("ownerTold")),
+      { danger: true, confirmLabel: isShift ? t("undoShift") : undefined, placeholder: t("reasonPh") },
+    );
+    if (!reason) return;
+    const id = isShift ? item.key : item.m.id;
+    setDeletingId(id);
+    const { error } = isShift
+      ? await supabase.rpc("undo_shift_deduction", { p_shift_id: item.shiftId, p_reason: reason })
+      : await supabase.rpc("archive_pp_movement", { p_id: item.m.id, p_reason: reason });
     setDeletingId(null);
-    if (error) {
-      const msg = /newer deduction/.test(error.message) ? t("undoNewer") : /force-closed/.test(error.message) ? t("undoClosed") : error.message;
-      setNotice(t("deleteFailed", { msg }));
-      return;
-    }
-    if (!count) { setNotice(t("notDeleted")); load(); return; }   // RLS refuses by matching nothing
-    done(isShiftBatch ? t("shiftUndone") : t("recordDeleted"));
+    if (error) { setNotice(t("deleteFailed", { msg: error.message })); load(); return; }
+    done(isShift ? t("shiftUndone") : t("archived"));
   }
 
   const actionBtn = "flex items-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl px-3 py-2 text-sm transition-colors";
+  const by = (who: string | null | undefined) => (owner && who && who !== "auto" ? t("by", { who }) : "");
 
   return (
     <div className="flex-1 overflow-auto bg-slate-50">
@@ -152,13 +183,14 @@ export default function PipaLedger() {
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> {loadError}
           </div>
         )}
-        {notice && <p className="text-sm font-medium text-pale-green-foreground">{notice}</p>}
+        {notice && <p className="text-sm font-medium text-pale-green-foreground" role="status">{notice}</p>}
 
         <div className="flex flex-wrap gap-2">
           <button onClick={() => setDialog({ type: "deduct" })} disabled={!!loadError} className={actionBtn}><Receipt className="w-4 h-4" /> {t("deductBtn")}</button>
           <button onClick={() => setDialog({ type: "count" })} disabled={!!loadError} className={actionBtn}><ClipboardCheck className="w-4 h-4" /> {t("countBtn")}</button>
           <button onClick={() => setDialog({ type: "station", station: null })} disabled={!!loadError} className={actionBtn}><Store className="w-4 h-4" /> {t("addStation")}</button>
         </div>
+        {settings.auto_deduct && !loadError && <p className="text-[11px] text-slate-500 -mt-3" data-testid="pp-auto-note">{t("autoOn")}</p>}
 
         {/* Stock on hand */}
         <section>
@@ -168,7 +200,7 @@ export default function PipaLedger() {
               const s = stock[p];
               const negative = s.pipas < 0;
               return (
-                <div key={p} className={`bg-white border rounded-xl p-4 ${negative ? "border-red-200" : "border-slate-100"}`}>
+                <div key={p} className={`bg-white border rounded-xl p-4 ${negative ? "border-red-200" : "border-slate-100"}`} data-testid={`pp-stock-${p}`}>
                   <div className="flex items-center gap-2 mb-1">
                     <Cylinder className="w-4 h-4 text-slate-400" />
                     <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{pipaProduct(t, p)}</span>
@@ -253,7 +285,7 @@ export default function PipaLedger() {
           )}
         </section>
 
-        {/* Price comparison */}
+        {/* Price comparison (empty when the owner hides prices from this account) */}
         {Object.keys(prices).length > 0 && (
           <section>
             <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">{t("prices")}</h2>
@@ -297,8 +329,28 @@ export default function PipaLedger() {
           ) : history.length === 0 ? (
             <p className="bg-white border border-slate-100 rounded-xl p-6 text-center text-sm text-slate-500">{t("noMovements")}</p>
           ) : (
-            <ul className="bg-white border border-slate-100 rounded-xl divide-y divide-slate-100">
-              {history.map(m => {
+            <ul className="bg-white border border-slate-100 rounded-xl divide-y divide-slate-100" data-testid="pp-history">
+              {history.map(item => {
+                if (item.type === "shift") {
+                  const out = round3(item.lines.reduce((s, m) => s + Math.abs(stockDelta(m)), 0));
+                  return (
+                    <li key={item.key} className="flex items-start gap-3 px-4 py-3" data-testid="pp-shift-row">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-slate-900">{t("h_shift", { name: item.name })}</p>
+                        <p className="text-xs text-slate-600 break-words">
+                          {item.lines.map(m => `${pipaProduct(t, m.product as PipaProduct)} ${fmtPipas(m.pipas)} P-P (${fmtLiters(m.exact_liters ?? m.pipas * m.liters_per_pipa)})`).join(" · ")}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5">{item.on}{by(item.by)}</p>
+                      </div>
+                      <span className="shrink-0 text-sm font-bold tabular-nums text-pale-red-foreground" title={t("stockEffect")}>−{fmtPipas(out)}</span>
+                      <button onClick={() => remove(item)} disabled={deletingId === item.key || !item.shiftId} aria-label={t("undoShift")}
+                        className="shrink-0 p-2 -m-1 text-slate-400 hover:text-pale-red-foreground hover:bg-pale-red rounded-lg transition-colors">
+                        {deletingId === item.key ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />}
+                      </button>
+                    </li>
+                  );
+                }
+                const m = item.m;
                 const d = describe(m, stationName[m.station_id ?? ""] ?? "—", t);
                 const delta = stockDelta(m);
                 return (
@@ -307,15 +359,14 @@ export default function PipaLedger() {
                       <p className="text-sm font-semibold text-slate-900">{d.title}</p>
                       {d.detail && <p className="text-xs text-slate-600 break-words">{d.detail}</p>}
                       <p className="text-xs text-slate-400 mt-0.5 break-words">
-                        {m.occurred_on}{m.note ? ` · ${noteText(m, t)}` : ""}{m.po_id ? t("inPO") : ""}
+                        {m.occurred_on}{m.note && m.kind !== "adjust" ? ` · ${m.note}` : ""}{by(m.created_by)}
                       </p>
                     </div>
                     <span className={`shrink-0 text-sm font-bold tabular-nums ${delta > 0 ? "text-pale-green-foreground" : delta < 0 ? "text-pale-red-foreground" : "text-slate-400"}`}
                       title={t("stockEffect")}>
                       {delta > 0 ? "+" : delta < 0 ? "−" : "±"}{fmtPipas(Math.abs(delta))}
                     </span>
-                    <button onClick={() => remove(m)} disabled={deletingId === m.id}
-                      aria-label={m.shift_batch_id ? t("undoShift") : t("deleteRecord")}
+                    <button onClick={() => remove(item)} disabled={deletingId === m.id} aria-label={t("deleteRecord")}
                       className="shrink-0 p-2 -m-1 text-slate-400 hover:text-pale-red-foreground hover:bg-pale-red rounded-lg transition-colors">
                       {deletingId === m.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                     </button>
@@ -352,7 +403,7 @@ export default function PipaLedger() {
         />
       )}
       {dialog?.type === "count" && <CountDialog stock={stock} onClose={() => setDialog(null)} onSaved={() => done(t("countSaved"))} />}
-      {dialog?.type === "deduct" && <ShiftDeductDialog unit="pp" owner={owner} onClose={() => setDialog(null)} onSaved={done} />}
+      {dialog?.type === "deduct" && <DeductDialog owner={owner} autoOn={settings.auto_deduct} unit="pp" onClose={() => setDialog(null)} onSaved={done} />}
     </div>
   );
 }

@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
-import {
-  DEFAULT_LITERS_PER_PIPA, PIPA_MOVEMENTS_TABLE, PIPA_PRODUCTS,
-  fmtLiters, fmtPipas, round3, yangonToday, type PipaProduct, type ProductStock,
-} from "@/lib/pipa-ledger";
+import { PIPA_PRODUCTS, fmtLiters, fmtPipas, round3, yangonToday, type PipaProduct, type ProductStock } from "@/lib/pipa-ledger";
+import { ppLiters } from "@/lib/units";
 import PipaModal, { ErrorNote, fieldCls, primaryBtn } from "./modal";
 import { Loader2 } from "lucide-react";
 import { usePipaT, pipaProduct } from "@/lib/pipa-i18n";
 
-/** Physical count: any gap from the calculated stock is saved as a correction. */
+/**
+ * Physical count: any gap from the calculated stock is saved as a correction.
+ * A shortage is a loss at cost; extra P-P cost nothing — unless it's the
+ * opening stock, which comes in at the price paid.
+ */
 export default function CountDialog({ stock, onClose, onSaved }: {
   stock: Record<PipaProduct, ProductStock>;
   onClose: () => void;
@@ -16,6 +18,8 @@ export default function CountDialog({ stock, onClose, onSaved }: {
 }) {
   const t = usePipaT();
   const [counted, setCounted] = useState<Partial<Record<PipaProduct, string>>>({});
+  const [opening, setOpening] = useState(false);
+  const [prices, setPrices] = useState<Partial<Record<PipaProduct, string>>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -30,18 +34,25 @@ export default function CountDialog({ stock, onClose, onSaved }: {
 
   async function save() {
     if (diffs.length === 0) { onClose(); return; }
+    if (opening && diffs.some(d => d.diff > 0 && !(parseFloat(prices[d.product] ?? "") >= 0))) { setError(t("priceErr")); return; }
     setBusy(true); setError("");
     const today = yangonToday();
-    const { error: err } = await supabase.from(PIPA_MOVEMENTS_TABLE).insert(diffs.map(d => ({
-      occurred_on: today,
-      kind: "adjust",
-      product: d.product,
-      pipas: d.diff,
-      liters_per_pipa: DEFAULT_LITERS_PER_PIPA,
-      note: `Stock count: counted ${fmtPipas(d.counted)}, expected ${fmtPipas(d.expected)} — ${d.diff < 0 ? "shortage" : "extra"} ${fmtPipas(Math.abs(d.diff))}`,
-    })));
+    for (const d of diffs) {
+      const price = opening && d.diff > 0 ? parseFloat(prices[d.product] ?? "") : null;
+      const { error: err } = await supabase.rpc("record_pp_movement", {
+        p: {
+          kind: "adjust", product: d.product, pipas: d.diff, occurred_on: today, liters_per_pipa: ppLiters(),
+          ...(price != null ? { price_mode: "per_liter", unit_price: price } : {}),
+          note: `Stock count: counted ${fmtPipas(d.counted)}, expected ${fmtPipas(d.expected)} — ${d.diff < 0 ? "shortage" : "extra"} ${fmtPipas(Math.abs(d.diff))}`,
+        },
+      });
+      if (err) {
+        setBusy(false);
+        setError(err.code === "PGRST202" || err.code === "42883" ? t("needsUpdate") : err.message);
+        return;
+      }
+    }
     setBusy(false);
-    if (err) { setError(err.message); return; }
     onSaved();
   }
 
@@ -61,22 +72,39 @@ export default function CountDialog({ stock, onClose, onSaved }: {
         {PIPA_PRODUCTS.map(p => {
           const d = diffs.find(x => x.product === p);
           return (
-            <div key={p} className="flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-900">{pipaProduct(t, p)}</p>
-                <p className="text-xs text-slate-500">{t("calculated", { n: fmtPipas(stock[p].pipas) })}</p>
-                {d && (
-                  <p className={`text-xs font-semibold ${d.diff < 0 ? "text-pale-red-foreground" : "text-pale-green-foreground"}`}>
-                    {d.diff < 0 ? t("shortage") : t("extra")} {fmtPipas(Math.abs(d.diff))} P-P ({fmtLiters(Math.abs(d.diff) * DEFAULT_LITERS_PER_PIPA)})
-                  </p>
-                )}
+            <div key={p} className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-900">{pipaProduct(t, p)}</p>
+                  <p className="text-xs text-slate-500">{t("calculated", { n: fmtPipas(stock[p].pipas) })}</p>
+                  {d && (
+                    <p className={`text-xs font-semibold ${d.diff < 0 ? "text-pale-red-foreground" : "text-pale-green-foreground"}`}>
+                      {d.diff < 0 ? t("shortage") : t("extra")} {fmtPipas(Math.abs(d.diff))} P-P ({fmtLiters(Math.abs(d.diff) * ppLiters())})
+                    </p>
+                  )}
+                </div>
+                <input type="number" inputMode="decimal" min="0" step="any" aria-label={t("countedOf", { product: pipaProduct(t, p) })}
+                  value={counted[p] ?? ""} onChange={e => setCounted(c => ({ ...c, [p]: e.target.value }))}
+                  className={`${fieldCls} !w-28 text-right`} placeholder={t("counted")} />
               </div>
-              <input type="number" inputMode="decimal" min="0" step="any" aria-label={t("countedOf", { product: pipaProduct(t, p) })}
-                value={counted[p] ?? ""} onChange={e => setCounted(c => ({ ...c, [p]: e.target.value }))}
-                className={`${fieldCls} !w-28 text-right`} placeholder={t("counted")} />
+              {opening && d && d.diff > 0 && (
+                <div className="flex items-center gap-3 pl-3 border-l-2 border-blue-200">
+                  <span className="flex-1 text-xs text-slate-600">{t("mmkPerL")}</span>
+                  <input type="number" inputMode="decimal" min="0" step="any" aria-label={t("pricePerLOf", { product: pipaProduct(t, p) })}
+                    value={prices[p] ?? ""} onChange={e => setPrices(c => ({ ...c, [p]: e.target.value }))}
+                    className={`${fieldCls} !w-28 text-right`} placeholder="0" />
+                </div>
+              )}
             </div>
           );
         })}
+        <label className="flex items-start gap-2.5 text-sm text-slate-700 pt-2 border-t border-slate-100">
+          <input type="checkbox" checked={opening} onChange={e => setOpening(e.target.checked)} className="mt-0.5 w-4 h-4 accent-blue-600" data-testid="count-opening" />
+          <span>
+            <span className="font-semibold">{t("opening")}</span>
+            <span className="block text-xs text-slate-500 mt-0.5">{t("openingHelp")}</span>
+          </span>
+        </label>
       </div>
       {error && <ErrorNote>{error}</ErrorNote>}
     </PipaModal>

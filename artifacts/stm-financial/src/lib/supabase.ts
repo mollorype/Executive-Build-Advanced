@@ -15,7 +15,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const TABLES = {
   SHIFTS: "daily_sales_reports",
-  PO: "fuel_purchase_orders",
   PROFILES: "profiles",
 } as const;
 
@@ -102,24 +101,6 @@ export type Profile = {
   id: string;
   username: string;
   role: Role;
-};
-
-export type FuelPurchaseOrder = {
-  id: string;
-  created_at: string;
-  name: string | null;
-  product_type: "92" | "95" | "PD" | "D" | "pipa";
-  status: "ACTIVE" | "QUEUED" | "DONE";
-  initial_volume: number;
-  remaining_volume: number;
-  calibration_factor: number;
-  wholesale_price: number | null;
-  transportation_fees: number | null;
-  confidential_fees: number | null;
-  retail_price_set: number | null;
-  is_verified: boolean;
-  shortage_liters: number | null;
-  total_volume_sold: number | null;
 };
 
 export async function updateShift(id: string, data: {

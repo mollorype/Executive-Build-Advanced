@@ -48,7 +48,7 @@ const useT = makeT({
   accDel: { en: "Remove {email} from the accountant allowlist?\nThey will no longer be able to sign in as Accountant.", my: "{email} ကို စာရင်းကိုင် စာရင်းမှ ဖယ်မလား?\nစာရင်းကိုင် အဖြစ် ထပ်ဝင်နိုင်တော့မည် မဟုတ်ပါ။" },
   manager: { en: "Manager", my: "မန်နေဂျာ" },
   managers: { en: "Managers", my: "မန်နေဂျာများ" },
-  mgrDesc: { en: "Managers can sign in to STM Financial, restricted to the P-P Ledger: P-P stock, purchases, stations and deducting shift sales (which also updates the owner's POs). PO Registry stays owner-only.", my: "မန်နေဂျာများသည် STM Financial သို့ ဝင်နိုင်ပြီး P-P စာရင်း သာ သုံးနိုင်သည် — P-P လက်ကျန်၊ အဝယ်၊ ဆိုင်များ နှင့် ဆိုင်း အရောင်း နုတ်ခြင်း (ပိုင်ရှင်၏ PO များလည်း တပြိုင်နက် နုတ်သည်)။ PO မှတ်ပုံတင်ကို ပိုင်ရှင်သာ သုံးနိုင်သည်။" },
+  mgrDesc: { en: "Managers can sign in to STM Financial, restricted to the P-P Ledger: P-P stock, purchases, stations, stock counts and deducting shift sales. Deleting needs a reason and owners are told on Telegram. They never see sales money or profit.", my: "မန်နေဂျာများသည် STM Financial သို့ ဝင်နိုင်ပြီး P-P စာရင်း သာ သုံးနိုင်သည် — P-P လက်ကျန်၊ အဝယ်၊ ဆိုင်များ၊ လက်ကျန်စစ်ခြင်း နှင့် ဆိုင်း ရောင်းအား နုတ်ခြင်း။ ဖျက်လျှင် အကြောင်းပြချက် ရေးရပြီး ပိုင်ရှင်ကို Telegram ဖြင့် အသိပေးပါသည်။ ရောင်းရငွေ နှင့် အမြတ်ကို ဘယ်တော့မှ မမြင်ရပါ။" },
   mgrInfoTitle: { en: "Manager List", my: "မန်နေဂျာ စာရင်း" },
   mgrInfoDesc: { en: "Only emails added here can create a Manager account for STM Financial (from the login page). Only an owner can add or remove managers.", my: "ဤနေရာတွင် ထည့်ထားသော email များသာ STM Financial မန်နေဂျာ အကောင့် ဖွင့်နိုင်သည် (login စာမျက်နှာမှ)။ ပိုင်ရှင်သာ မန်နေဂျာ ထည့်/ဖယ် နိုင်သည်။" },
   mgrAddTitle: { en: "Add Manager Email", my: "မန်နေဂျာ email ထည့်ရန်" },

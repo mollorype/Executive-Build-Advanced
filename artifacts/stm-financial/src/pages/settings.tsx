@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { BellRing, Check, Languages, Loader2 } from "lucide-react";
+import { BellRing, Check, Cylinder, Languages, Loader2 } from "lucide-react";
 import { makeT, setLang, useLang, type Lang } from "@/lib/app-i18n";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import { usePPSettings, type PPSettings } from "@/lib/pp-settings";
 
 const useT = makeT({
   title: { en: "Settings", my: "ဆက်တင်" },
@@ -26,7 +27,124 @@ const useT = makeT({
   staffChanged: { en: "Last changed {when} by {who}", my: "နောက်ဆုံး ပြောင်းချိန် {when} · {who}" },
   staffMissing: { en: "Not set up in the database yet — run the staff_notify_settings SQL in the Supabase SQL Editor.", my: "Database တွင် မထည့်ရသေးပါ — Supabase SQL Editor တွင် staff_notify_settings SQL ကို run ပါ။" },
   staffFailed: { en: "Couldn't save — refresh and try again.", my: "မသိမ်းနိုင်ပါ — ပြန်ဖွင့်ပြီး ထပ်ကြိုးစားပါ။" },
+  ppTitle: { en: "P-P Ledger & profit", my: "P-P စာရင်း နှင့် အမြတ်" },
+  ppHelp: { en: "Only owners can change these. They apply to everyone using the P-P Ledger.", my: "ပိုင်ရှင်သာ ပြောင်းနိုင်ပါသည်။ P-P စာရင်း သုံးသူအားလုံးအတွက် သက်ရောက်ပါသည်။" },
+  ppSize: { en: "Default P-P size", my: "မူလ P-P အရွယ်အစား" },
+  ppSizeHelp: { en: "Litres in one P-P, used for new entries and for P-P sold in shifts. Past entries keep their own size.", my: "P-P တစ်ခုရှိ လီတာ — အသစ်ထည့်သည့်အခါ နှင့် ဆိုင်းတွင် ရောင်းသော P-P အတွက် သုံးပါသည်။ အဟောင်းများ ၎င်းတို့၏ အရွယ်အစားအတိုင်း ကျန်ပါမည်။" },
+  ppSizeSave: { en: "Save", my: "သိမ်းရန်" },
+  ppSizeErr: { en: "Enter litres between 1 and 10,000.", my: "1 မှ 10,000 ကြား လီတာ ထည့်ပါ။" },
+  autoDeduct: { en: "Deduct shifts automatically", my: "ဆိုင်းများကို အလိုအလျောက် နုတ်ရန်" },
+  autoDeductHelp: { en: "Each shift's litres come off P-P stock as soon as it is submitted (and again if it is edited). Turn off to deduct by hand.", my: "ဆိုင်း တင်တာနဲ့ လီတာကို P-P လက်ကျန်မှ နုတ်ပါသည် (ပြင်လျှင်လည်း ပြန်နုတ်)။ လက်ဖြင့် နုတ်လိုပါက ပိတ်ပါ။" },
+  seePrices: { en: "Managers and accountants see purchase prices", my: "မန်နေဂျာ နှင့် စာရင်းကိုင် ဝယ်စျေး မြင်ရမည်" },
+  seePricesHelp: { en: "Off: they still record purchases with a price, but can't see prices afterwards. They never see sales money or profit.", my: "ပိတ်ထားလျှင်: ဝယ်စျေးနှင့် မှတ်နိုင်သော်လည်း နောက်ပိုင်း စျေး မမြင်ရပါ။ ရောင်းရငွေ နှင့် အမြတ်ကို ဘယ်တော့မှ မမြင်ရပါ။" },
+  profitAuto: { en: "Profit page opens with", my: "အမြတ် စာမျက်နှာ ဖွင့်လျှင်" },
+  pa_off: { en: "Nothing (calculate when I ask)", my: "ဘာမှမဟုတ် (တောင်းမှ တွက်)" },
+  pa_week: { en: "This week, calculated", my: "ဤအပတ် တွက်ပြီး" },
+  pa_month: { en: "This month, calculated", my: "ဤလ တွက်ပြီး" },
+  report: { en: "Profit report on Telegram (owners)", my: "Telegram အမြတ် အစီရင်ခံစာ (ပိုင်ရှင်)" },
+  reportHelp: { en: "Sent at 8:30 in the morning: weekly on Mondays for the week before, monthly on the 1st for the month before.", my: "နံနက် 8:30 တွင် ပို့ပါမည်: အပတ်စဉ် — တနင်္လာနေ့တွင် ပြီးခဲ့သည့်အပတ်၊ လစဉ် — ၁ ရက်နေ့တွင် ပြီးခဲ့သည့်လ။" },
+  rp_off: { en: "Off", my: "ပိတ်" },
+  rp_weekly: { en: "Weekly", my: "အပတ်စဉ်" },
+  rp_monthly: { en: "Monthly", my: "လစဉ်" },
+  ppMissing: { en: "Not set up in the database yet — run the pp_profit_engine SQL in the Supabase SQL Editor.", my: "Database တွင် မထည့်ရသေးပါ — Supabase SQL Editor တွင် pp_profit_engine SQL ကို run ပါ။" },
+  ppSaved: { en: "Saved for everyone.", my: "အားလုံးအတွက် သိမ်းပြီး။" },
 });
+
+type PPKey = "default_pp_liters" | "auto_deduct" | "managers_see_prices" | "profit_auto" | "profit_report";
+
+/** Owner-only: P-P size, automatic deduction, price visibility, profit options (pp_settings). */
+function PPSettingsSection() {
+  const t = useT();
+  const { settings, state, setSettings } = usePPSettings();
+  const [size, setSize] = useState("");
+  const [saving, setSaving] = useState<PPKey | null>(null);
+  const [note, setNote] = useState("");
+  useEffect(() => { if (state === "ready") setSize(String(settings.default_pp_liters)); }, [state, settings.default_pp_liters]);
+
+  async function save<K extends PPKey>(key: K, value: PPSettings[K]) {
+    setSaving(key); setNote("");
+    const { data, error } = await supabase.from("pp_settings").update({ [key]: value }).eq("id", true).select("*");
+    setSaving(null);
+    if (error || !data?.length) { setNote(t("staffFailed")); return; }
+    setSettings({ ...settings, ...(data[0] as Partial<PPSettings>), default_pp_liters: Number((data[0] as PPSettings).default_pp_liters) });
+    setNote(t("ppSaved"));
+  }
+  function saveSize() {
+    const v = parseFloat(size);
+    if (!(v >= 1 && v <= 10000)) { setNote(t("ppSizeErr")); return; }
+    save("default_pp_liters", v);
+  }
+
+  const seg = (on: boolean) => `px-3 py-2 rounded-xl text-xs font-semibold border text-left transition-colors ${on ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`;
+  const toggle = (key: "auto_deduct" | "managers_see_prices", label: string, help: string) => (
+    <label className="flex items-start gap-3 px-4 py-3 cursor-pointer">
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-slate-900">{label}</span>
+        <span className="block text-xs text-slate-500 mt-0.5">{help}</span>
+      </span>
+      {saving === key ? <Loader2 className="w-5 h-5 mt-0.5 text-slate-400 animate-spin shrink-0" />
+        : <input type="checkbox" role="switch" checked={settings[key]} onChange={() => save(key, !settings[key])} disabled={!!saving}
+            aria-label={label} className="mt-0.5 w-5 h-5 accent-blue-600 shrink-0" />}
+    </label>
+  );
+
+  return (
+    <section className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden" data-testid="pp-settings">
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+        <Cylinder className="w-4 h-4 text-pale-blue-foreground" />
+        <h2 className="text-slate-900 font-semibold text-sm">{t("ppTitle")}</h2>
+      </div>
+      <div className="p-5 space-y-4">
+        <p className="text-slate-500 text-xs">{t("ppHelp")}</p>
+        {state === "loading" && <Loader2 className="w-5 h-5 text-slate-300 animate-spin" />}
+        {state === "missing" && <p className="text-xs text-amber-700">{t("ppMissing")}</p>}
+        {state === "ready" && (
+          <>
+            <div>
+              <label htmlFor="pp-size" className="block text-sm font-semibold text-slate-900">{t("ppSize")}</label>
+              <p className="text-xs text-slate-500 mt-0.5 mb-2">{t("ppSizeHelp")}</p>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input id="pp-size" type="number" inputMode="decimal" min="1" step="any" value={size} onChange={e => setSize(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl pl-3 pr-8 py-2 text-sm text-slate-900" />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">L</span>
+                </div>
+                <button type="button" onClick={saveSize} disabled={!!saving || parseFloat(size) === settings.default_pp_liters}
+                  className="shrink-0 bg-blue-600 disabled:opacity-50 text-white text-sm font-semibold rounded-xl px-4">
+                  {saving === "default_pp_liters" ? <Loader2 className="w-4 h-4 animate-spin" /> : t("ppSizeSave")}
+                </button>
+              </div>
+            </div>
+            <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl">
+              {toggle("auto_deduct", t("autoDeduct"), t("autoDeductHelp"))}
+              {toggle("managers_see_prices", t("seePrices"), t("seePricesHelp"))}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900 mb-2">{t("profitAuto")}</p>
+              <div className="grid gap-2" role="radiogroup" aria-label={t("profitAuto")}>
+                {(["off", "week", "month"] as const).map(v => (
+                  <button key={v} type="button" role="radio" aria-checked={settings.profit_auto === v} disabled={!!saving}
+                    onClick={() => save("profit_auto", v)} className={seg(settings.profit_auto === v)}>{t(`pa_${v}`)}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{t("report")}</p>
+              <p className="text-xs text-slate-500 mt-0.5 mb-2">{t("reportHelp")}</p>
+              <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={t("report")}>
+                {(["off", "weekly", "monthly"] as const).map(v => (
+                  <button key={v} type="button" role="radio" aria-checked={settings.profit_report === v} disabled={!!saving}
+                    onClick={() => save("profit_report", v)} className={`${seg(settings.profit_report === v)} text-center`}>{t(`rp_${v}`)}</button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+        {note && <p className="text-[11px] text-slate-500" role="status">{note}</p>}
+      </div>
+    </section>
+  );
+}
 
 const NOTICES = ["salary_paid", "salary_item", "emergency", "chat_message", "leave_decided"] as const;
 type Notice = (typeof NOTICES)[number];
@@ -137,6 +255,7 @@ export default function SettingsPage() {
             <p className="text-[11px] text-slate-400" role="status">{t("saved")}</p>
           </div>
         </section>
+        {profile?.role === "ceo" && <PPSettingsSection />}
         {profile?.role === "ceo" && <StaffNotifications />}
       </div>
     </div>
