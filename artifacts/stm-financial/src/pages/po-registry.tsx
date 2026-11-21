@@ -1,14 +1,19 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
-  PackageSearch, CheckCircle, XCircle, Plus,
+  PackageSearch, CheckCircle, Plus,
   ChevronLeft, ChevronRight, AlertTriangle, Lock, Unlock,
-  X, Edit3, Zap, Play, Trash2,
+  X, Edit3, Play, Trash2, Receipt, Pencil, Loader2, History as HistoryIcon,
 } from "lucide-react";
 import { supabase, FuelPurchaseOrder } from "@/lib/supabase";
-import { runFIFOEngine, forceClosePO, verifyPO, calcNetProfit, FIFORunResult } from "@/lib/fifo-engine";
+import { forceClosePO, verifyPO } from "@/lib/fifo-engine";
+import { loadUsageSums, poProfit, type Profit, type UsageSum } from "@/lib/po-usage";
 import PipaStockSummary from "@/components/pipa/stock-summary-card";
-import { DEFAULT_LITERS_PER_PIPA } from "@/lib/pipa-ledger";
+import PipaModal, { ErrorNote, primaryBtn } from "@/components/pipa/modal";
+import DeductPODialog from "@/components/po/deduct-po-dialog";
+import POHistoryDialog from "@/components/po/po-history-dialog";
+import { L_PER_PP, fmtTyped, fromUnit, liters, readUnit, saveUnit, toUnit, unitSuffix, vol, type VolUnit } from "@/lib/po-units";
 import { makeT, useLang, type Lang } from "@/lib/app-i18n";
+import { usePOT } from "@/lib/po-i18n";
 import { confirmDialog, messageDialog } from "@/components/confirm-dialog";
 
 const useT = makeT({
@@ -27,12 +32,12 @@ const useT = makeT({
   closing: { en: "Closing…", my: "ပိတ်နေသည်…" },
   confirmForceClose: { en: "Confirm Force Close", my: "အတင်းပိတ်ရန် အတည်ပြု" },
   // Verify
-  allFour: { en: "All four fields are required.", my: "အကွက် လေးခုလုံး ဖြည့်ရန် လိုအပ်သည်။" },
+  allFour: { en: "All three fields are required.", my: "အကွက် သုံးခုလုံး ဖြည့်ရန် လိုအပ်သည်။" },
+  revenueNote: { en: "Money from sales comes from each day's selling price in the PO's sales history — no fixed retail price.", my: "ရောင်းရငွေကို PO ရောင်းအား မှတ်တမ်းရှိ နေ့စဉ် ရောင်းစျေးမှ ယူပါသည် — သတ်မှတ်ထားသော လက်လီစျေး မသုံးပါ။" },
   unlockProfit: { en: "Unlock Net Profit", my: "အသားတင်အမြတ် ဖွင့်ရန်" },
   wholesale: { en: "Wholesale Price (MMK/L)", my: "လက်ကား စျေး (MMK/L)" },
   transport: { en: "Transportation Fees (MMK/L)", my: "သယ်ယူစရိတ် (MMK/L)" },
   confidential: { en: "Confidential Fees (MMK/L)", my: "လျှို့ဝှက် စရိတ် (MMK/L)" },
-  retail: { en: "Retail Price Set (MMK/L)", my: "လက်လီ စျေး (MMK/L)" },
   saving: { en: "Saving…", my: "သိမ်းနေသည်…" },
   saveUnlock: { en: "Save & Unlock Profit", my: "သိမ်းပြီး အမြတ် ဖွင့်ရန်" },
   // Create
@@ -67,32 +72,22 @@ const useT = makeT({
   blocked: { en: "The delete was blocked by a permissions rule. Contact your system administrator.", my: "ခွင့်ပြုချက် စည်းကမ်းကြောင့် မဖျက်နိုင်ပါ။" },
   confirmDelete: { en: "Delete PO \"{name}\" ({product})?\n\nThis cannot be undone.", my: "PO \"{name}\" ({product}) ကို ဖျက်မလား?\n\nပြန်ယူ၍ မရပါ။" },
   confirmDeleteMany: { en: "Delete {n} selected PO(s)?\n\nThis cannot be undone.", my: "ရွေးထားသော PO {n} ခုကို ဖျက်မလား?\n\nပြန်ယူ၍ မရပါ။" },
-  init: { en: "Initializing…", my: "စတင်နေသည်…" },
-  newShift: { en: "New shift detected — recalculating inventory…", my: "ဆိုင်းအသစ် ရောက်လာ — လက်ကျန် ပြန်တွက်နေသည်…" },
   title: { en: "PO Registry", my: "PO မှတ်ပုံတင်" },
-  subtitle: { en: "Fuel purchase orders · FIFO inventory engine", my: "ဆီ အော်ဒါများ · FIFO လက်ကျန် တွက်စက်" },
+  subtitle: { en: "Fuel purchase orders · shift sales deducted oldest first", my: "ဆီ အော်ဒါများ · ဆိုင်း ရောင်းအားကို အဟောင်းဆုံးမှ စ၍ နုတ်" },
+  deductBtn: { en: "Deduct shift sales", my: "ဆိုင်း ရောင်းအား နုတ်ရန်" },
+  history: { en: "History", my: "မှတ်တမ်း" },
+  editPO: { en: "Edit PO", my: "PO ပြင်ရန်" },
+  costs: { en: "Costs", my: "ကုန်ကျစရိတ်" },
+  forceShort: { en: "Force close", my: "အတင်းပိတ်" },
+  selectAllShort: { en: "Select all", my: "အားလုံး ရွေးရန်" },
   deleting: { en: "Deleting…", my: "ဖျက်နေသည်…" },
   deleteSelected: { en: "Delete Selected ({n})", my: "ရွေးထားသည်ကို ဖျက်ရန် ({n})" },
-  running: { en: "Running…", my: "လုပ်ဆောင်နေသည်…" },
-  runFifo: { en: "Run FIFO Engine", my: "FIFO တွက်ရန်" },
-  fifoFailed: { en: "FIFO engine failed", my: "FIFO တွက်ချက်မှု မအောင်မြင်ပါ" },
-  completedFailures: { en: "Completed with {n} write failure(s)", my: "ပြီးဆုံး — သိမ်းမရသည် {n} ခု" },
-  completedOk: { en: "FIFO engine completed successfully", my: "FIFO တွက်ချက်မှု အောင်မြင်စွာ ပြီးဆုံး" },
-  shiftsProcessed: { en: "Shifts processed:", my: "တွက်ပြီး ဆိုင်း:" },
-  posUpdated: { en: "POs updated:", my: "ပြင်ပြီး PO:" },
-  writeFailures: { en: "Write failures:", my: "သိမ်းမရ:" },
-  totalLiters: { en: "Total processed:", my: "တွက်ပြီး ပမာဏ စုစုပေါင်း:" },
-  showFailures: { en: "Show {n} failure detail(s)", my: "အမှား အသေးစိတ် {n} ခု ပြရန်" },
-  noShifts: { en: "No shifts were found — nothing to deduct.", my: "ဆိုင်း မတွေ့ပါ — နုတ်စရာ မရှိပါ။" },
-  noLiters: { en: "Shifts exist but none report fuel liters sold. Nothing to deduct.", my: "ဆိုင်းများ ရှိသော်လည်း ရောင်းလီတာ မပါပါ။ နုတ်စရာ မရှိပါ။" },
   activeBatches: { en: "Active Batches", my: "အသုံးပြုဆဲ အသုတ်များ" },
   remaining: { en: "Remaining", my: "ကျန်" },
   of: { en: "of {n}", my: "{n} အနက်" },
   pendingCosts: { en: "[ PENDING ] — Costs not verified", my: "[ စောင့်ဆဲ ] — ကုန်ကျစရိတ် မစစ်ရသေး" },
   netProfit: { en: "Net Profit", my: "အသားတင်အမြတ်" },
   forceCloseBtn: { en: "Force Close / Dip Mismatch", my: "အတင်းပိတ် / Dip မကိုက်" },
-  edit: { en: "Edit", my: "ပြင်ရန်" },
-  verify: { en: "Verify", my: "စစ်ရန်" },
   allPOs: { en: "All Purchase Orders", my: "PO အားလုံး" },
   total: { en: "{n} total", my: "စုစုပေါင်း {n}" },
   dismissError: { en: "Dismiss error", my: "ပိတ်ရန်" },
@@ -118,13 +113,6 @@ const useT = makeT({
   next: { en: "Next Page", my: "နောက်" },
 });
 
-// Progress lines from the FIFO engine (lib/fifo-engine.ts), shown in the status bar.
-const FIFO_PROGRESS: Record<string, string> = {
-  "Fetching purchase orders…": "PO များ ရယူနေသည်…",
-  "Fetching shifts…": "ဆိုင်းများ ရယူနေသည်…",
-  "Writing results…": "ရလဒ် သိမ်းနေသည်…",
-  "Done.": "ပြီးပါပြီ။",
-};
 
 const PAGE_SIZE = 20;
 
@@ -148,33 +136,21 @@ function mmk(v: number | null | undefined) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(v) + " MMK";
 }
 
-// Volumes are stored in litres (the FIFO engine takes litres out of each shift).
-// The page shows and takes them in P-P by default, or in litres — switchable at
-// any time, remembered on this device. Prices are always MMK per litre.
-type VolUnit = "pp" | "l";
-const L_PER_PP = DEFAULT_LITERS_PER_PIPA;   // 215 L, as in STM Daily and the P-P Ledger
-const UNIT_KEY = "stm_po_unit";
-function readUnit(): VolUnit {
-  try { return localStorage.getItem(UNIT_KEY) === "l" ? "l" : "pp"; } catch { return "pp"; }
-}
-const unitSuffix = (u: VolUnit) => (u === "pp" ? "P-P" : "L");
-/** the chosen unit → litres */
-const fromUnit = (v: number, u: VolUnit) => (u === "pp" ? v * L_PER_PP : v);
-const fmtTyped = (n: number) => String(Math.round(n * 1000) / 1000);
-
+// Volumes are stored in litres; shown and typed in P-P (default) or litres
+// (lib/po-units). Prices are always MMK per litre.
 /**
  * A volume box that remembers the exact litres typed, so switching P-P ↔ L
  * converts the number in the box (1000 L → 4.651 P-P) and switching back
  * gives exactly what was typed (1000 L), not a rounded copy.
  */
-function useVolumeInput(unit: VolUnit) {
-  const [text, setText] = useState("");
-  const litres = useRef<number | null>(null);
+function useVolumeInput(unit: VolUnit, startLitres: number | null = null) {
+  const [text, setText] = useState(() => (startLitres != null ? fmtTyped(toUnit(startLitres, unit)) : ""));
+  const litres = useRef<number | null>(startLitres);
   const shownIn = useRef(unit);
   useEffect(() => {
     if (shownIn.current === unit) return;
     shownIn.current = unit;
-    if (litres.current != null) setText(fmtTyped(unit === "pp" ? litres.current / L_PER_PP : litres.current));
+    if (litres.current != null) setText(fmtTyped(toUnit(litres.current, unit)));
   }, [unit]);
   return {
     text,
@@ -194,16 +170,6 @@ function otherUnit(litres: number | null, unit: VolUnit) {
   return vol(litres, unit === "pp" ? "l" : "pp");
 }
 
-function liters(v: number | null | undefined) {
-  if (v == null) return "—";
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(v) + " L";
-}
-/** A volume (stored in litres) in the chosen unit. */
-function vol(litres: number | null | undefined, u: VolUnit) {
-  if (litres == null) return "—";
-  if (u === "l") return liters(litres);
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(litres / L_PER_PP) + " P-P";
-}
 
 function UnitSwitch({ unit, onChange, testId }: { unit: VolUnit; onChange: (u: VolUnit) => void; testId: string }) {
   const t = useT();
@@ -361,7 +327,6 @@ function VerifyModal({
     wholesale_price: String(po.wholesale_price ?? ""),
     transportation_fees: String(po.transportation_fees ?? ""),
     confidential_fees: String(po.confidential_fees ?? ""),
-    retail_price_set: String(po.retail_price_set ?? ""),
   });
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
@@ -372,8 +337,7 @@ function VerifyModal({
     const w = num(form.wholesale_price);
     const t = num(form.transportation_fees);
     const c = num(form.confidential_fees);
-    const r = num(form.retail_price_set);
-    if (w == null || t == null || c == null || r == null) {
+    if (w == null || t == null || c == null) {
       setErr(tr("allFour")); return;
     }
     setLoading(true);
@@ -381,22 +345,25 @@ function VerifyModal({
       wholesale_price: w,
       transportation_fees: t,
       confidential_fees: c,
-      retail_price_set: r,
     });
     setLoading(false);
     if (!res.success) { setErr(res.error ?? tr("unknownError")); return; }
     onDone();
   }
 
-  const Field = ({ label, field }: { label: string; field: keyof typeof form }) => (
+  // A plain render function — not a component defined here, which React would
+  // see as new on every render and remount, so each key press lost the focus.
+  const field = (label: string, key: keyof typeof form) => (
     <div>
-      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{label}</label>
+      <label htmlFor={`cost-${key}`} className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{label}</label>
       <input
+        id={`cost-${key}`}
         type="number"
+        inputMode="decimal"
         min="0"
         step="any"
-        value={form[field]}
-        onChange={e => { setForm(f => ({ ...f, [field]: e.target.value })); setErr(""); }}
+        value={form[key]}
+        onChange={e => { setForm(f => ({ ...f, [key]: e.target.value })); setErr(""); }}
         placeholder="0"
         className="w-full bg-white border border-slate-100 text-slate-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
@@ -421,10 +388,10 @@ function VerifyModal({
         </div>
 
         <div className="space-y-3 mb-4">
-          <Field label={tr("wholesale")} field="wholesale_price" />
-          <Field label={tr("transport")} field="transportation_fees" />
-          <Field label={tr("confidential")} field="confidential_fees" />
-          <Field label={tr("retail")} field="retail_price_set" />
+          {field(tr("wholesale"), "wholesale_price")}
+          {field(tr("transport"), "transportation_fees")}
+          {field(tr("confidential"), "confidential_fees")}
+          <p className="text-[11px] text-slate-500">{tr("revenueNote")}</p>
         </div>
 
         {err && <p className="text-pale-red-foreground text-xs mb-3">{err}</p>}
@@ -446,6 +413,96 @@ function VerifyModal({
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Edit PO ─────────────────────────────────────────────────────────────────
+
+/**
+ * Name, fuel (until something is sold), total volume in P-P or litres, and
+ * calibration factor. Changing the total moves what's left by the same amount;
+ * it can't go below what has already been taken off the PO.
+ */
+function EditPOModal({ po, unit, onUnit, onClose, onDone }: {
+  po: FuelPurchaseOrder;
+  unit: VolUnit;
+  onUnit: (u: VolUnit) => void;
+  onClose: () => void;
+  onDone: (message: string) => void;
+}) {
+  const t = usePOT();
+  const lang = useLang();
+  const [name, setName] = useState(po.name ?? "");
+  const [product, setProduct] = useState(po.product_type);
+  const volume = useVolumeInput(unit, Number(po.initial_volume));
+  const [cal, setCal] = useState(String(po.calibration_factor ?? 1));
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const sold = Number(po.total_volume_sold) || 0;
+  const closed = po.shortage_liters != null;
+  const used = Number(po.initial_volume) - Number(po.remaining_volume);   // stock already taken off
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    if (!name.trim()) { setErr(t("nameRequired")); return; }
+    const c = parseFloat(cal);
+    if (isNaN(c) || c <= 0) { setErr(t("calPositive")); return; }
+    const total = closed ? Number(po.initial_volume) : volume.litres;
+    if (total == null || !(total > 0)) { setErr(t("volPositive")); return; }
+    if (total < used - 0.0005) { setErr(t("tooSmall", { used: vol(used, unit) })); return; }
+    const remaining = closed ? Number(po.remaining_volume) : Math.max(0, total - used);
+    const patch: Record<string, unknown> = { name: name.trim(), calibration_factor: c, initial_volume: total, remaining_volume: remaining };
+    if (sold === 0) patch.product_type = product;
+    if (!closed) patch.status = remaining <= 0.0005 ? "DONE" : po.status === "DONE" ? "QUEUED" : po.status;   // more volume re-opens a used-up PO
+    setBusy(true);
+    const { data, error } = await supabase.from("fuel_purchase_orders").update(patch).eq("id", po.id).select("id");
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    if (!data?.length) { setErr(t("notSaved")); return; }
+    onDone(t("saved"));
+  }
+
+  const label = "block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5";
+  const field = "w-full bg-slate-50 border border-slate-200 text-slate-900 text-base sm:text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-300/50 disabled:opacity-60";
+  return (
+    <PipaModal title={t("editTitle")} subtitle={`${productLabel(po.product_type, lang)} · PO #${po.id.slice(0, 8).toUpperCase()}`} onClose={onClose}>
+      <form onSubmit={save} className="space-y-4" data-testid="po-edit">
+        <div>
+          <label htmlFor="po-edit-name" className={label}>{t("name")}</label>
+          <input id="po-edit-name" value={name} onChange={e => setName(e.target.value)} className={field} />
+        </div>
+        <div>
+          <label htmlFor="po-edit-product" className={label}>{t("product")}</label>
+          <select id="po-edit-product" value={product} onChange={e => setProduct(e.target.value as typeof product)} disabled={sold > 0} className={field}>
+            {(["92", "95", "PD", "D"] as const).map(c => <option key={c} value={c}>{productLabel(c, lang)}</option>)}
+          </select>
+          {sold > 0 && <p className="text-[11px] text-slate-400 mt-1">{t("productLocked")}</p>}
+        </div>
+        <div>
+          <div className="flex items-center justify-between gap-2 flex-wrap mb-1.5">
+            <label htmlFor="po-edit-volume" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("volume", { u: unitSuffix(unit) })}</label>
+            <UnitSwitch unit={unit} onChange={onUnit} testId="po-unit-edit" />
+          </div>
+          <input id="po-edit-volume" type="number" inputMode="decimal" min="0" step="any" value={volume.text} disabled={closed}
+            onChange={e => volume.onChange(e.target.value)} className={field} />
+          <p className="text-[11px] text-slate-400 mt-1" data-testid="po-edit-other">
+            {closed ? t("volumeLocked") : <>
+              {otherUnit(volume.litres, unit) && <>{t("equalsOther", { v: otherUnit(volume.litres, unit)!, size: L_PER_PP })} · </>}
+              {t("volumeHelp", { sold: vol(sold, unit) })}
+            </>}
+          </p>
+        </div>
+        <div>
+          <label htmlFor="po-edit-cal" className={label}>{t("calibration")}</label>
+          <input id="po-edit-cal" type="number" inputMode="decimal" min="0" step="any" value={cal} onChange={e => setCal(e.target.value)} className={field} />
+        </div>
+        {err && <ErrorNote>{err}</ErrorNote>}
+        <button type="submit" disabled={busy} className={primaryBtn}>
+          {busy && <Loader2 className="w-4 h-4 animate-spin" />} {busy ? t("saving") : t("save")}
+        </button>
+      </form>
+    </PipaModal>
   );
 }
 
@@ -616,25 +673,53 @@ function CreatePOForm({ unit, onUnit, onCreated }: { unit: VolUnit; onUnit: (u: 
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
+function StatusBadge({ status }: { status: FuelPurchaseOrder["status"] }) {
+  const t = useT();
+  const cfg = STATUS_CONFIG[status];
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-2.5 py-1 border whitespace-nowrap ${cfg.bg} ${cfg.border} ${cfg.text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} ${status === "ACTIVE" ? "animate-pulse" : ""}`} />
+      {t(status)}
+    </span>
+  );
+}
+
+function ProfitValue({ profit }: { profit: Profit | null }) {
+  const t = useT();
+  if (!profit) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-50 border border-slate-100 rounded-full px-2.5 py-1">
+        <Lock className="w-3 h-3" /> {t("pending")}
+      </span>
+    );
+  }
+  return (
+    <span className={`font-bold tabular-nums ${profit.profit >= 0 ? "text-pale-green-foreground" : "text-pale-red-foreground"}`}>
+      {profit.profit >= 0 ? "+" : ""}{mmk(profit.profit)}
+    </span>
+  );
+}
+
+const fillBar = (pctValue: number) => (pctValue < 20 ? "bg-red-500" : pctValue < 50 ? "bg-amber-500" : "bg-emerald-500");
+
 export default function PORegistry() {
   const t = useT();
   const lang = useLang();
   const P = (code: string) => productLabel(code, lang);
   const [unit, setUnitState] = useState<VolUnit>(readUnit);
-  const setUnit = (u: VolUnit) => { setUnitState(u); try { localStorage.setItem(UNIT_KEY, u); } catch { /* private mode: just this visit */ } };
-  // The engine reports progress in English; show it in the app language.
-  const fifoProgress = useCallback((m: string) => setFifoMsg(lang === "my" ? FIFO_PROGRESS[m] ?? m : m), [lang]);
+  const setUnit = (u: VolUnit) => { setUnitState(u); saveUnit(u); };
   const [pos, setPos] = useState<FuelPurchaseOrder[]>([]);
+  const [usage, setUsage] = useState<Record<string, UsageSum>>({});
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
-
-  const [fifoRunning, setFifoRunning] = useState(false);
-  const [fifoMsg, setFifoMsg] = useState("");
-  const [fifoResult, setFifoResult] = useState<FIFORunResult | null>(null);
+  const [notice, setNotice] = useState("");
 
   const [forceCloseTarget, setForceCloseTarget] = useState<FuelPurchaseOrder | null>(null);
   const [verifyTarget, setVerifyTarget] = useState<FuelPurchaseOrder | null>(null);
+  const [editTarget, setEditTarget] = useState<FuelPurchaseOrder | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<FuelPurchaseOrder | null>(null);
+  const [deductOpen, setDeductOpen] = useState(false);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
@@ -649,41 +734,31 @@ export default function PORegistry() {
       .order("created_at", { ascending: false })
       .range(from, to);
     if (!error && data) {
-      setPos(data as FuelPurchaseOrder[]);
+      const list = data as FuelPurchaseOrder[];
+      setPos(list);
       setTotalCount(count ?? 0);
+      // Litres and money recorded for each PO — the profit comes from these.
+      const { sums } = await loadUsageSums(list.map(x => x.id));
+      setUsage(sums);
     }
   }, []);
 
   useEffect(() => {
     setLoading(true);
     fetchPOs(0).finally(() => setLoading(false));
-
-    // Auto-run FIFO engine the moment a new shift is inserted into Supabase.
-    const channel = supabase
-      .channel("shifts-auto-fifo")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "daily_sales_reports" },
-        async () => {
-          if (fifoRunning) return;
-          setFifoRunning(true);
-          setFifoResult(null);
-          setFifoMsg(t("newShift"));
-          const r = await runFIFOEngine(fifoProgress);
-          setFifoRunning(false);
-          setFifoResult(r);
-          fetchPOs(page);
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchPOs]);
 
   useEffect(() => {
     if (!loading) fetchPOs(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
+
+  function changed(message: string) {
+    setEditTarget(null); setHistoryTarget(null); setDeductOpen(false);
+    setNotice(message);
+    setTimeout(() => setNotice(""), 3500);
+    fetchPOs(page);
+  }
 
   async function handleSetActive(po: FuelPurchaseOrder) {
     const confirmMsg = t("confirmActive", { name: po.name ?? po.id.slice(0, 8), product: P(po.product_type) });
@@ -699,17 +774,13 @@ export default function PORegistry() {
   function toggleSelect(id: string) {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   }
 
   function toggleSelectAll() {
-    if (selectedIds.size === pos.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(pos.map(p => p.id)));
-    }
+    setSelectedIds(selectedIds.size === pos.length ? new Set() : new Set(pos.map(p => p.id)));
   }
 
   async function deletePOIds(ids: string[]): Promise<string | null> {
@@ -747,151 +818,44 @@ export default function PORegistry() {
     fetchPOs(page);
   }
 
-  async function handleRunFIFO() {
-    setFifoRunning(true);
-    setFifoResult(null);
-    setFifoMsg(t("init"));
-    const result = await runFIFOEngine(fifoProgress);
-    setFifoRunning(false);
-    setFifoResult(result);
-    fetchPOs(page);
-  }
-
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-
   const activePOs = pos.filter(p => p.status === "ACTIVE");
+  const profitOf = (po: FuelPurchaseOrder) => poProfit(po, usage[po.id]);
+  const chip = "inline-flex items-center gap-1.5 text-xs font-semibold rounded-lg px-2.5 py-1.5 border transition-colors";
 
   return (
     <div className="flex-1 overflow-auto bg-slate-50">
       {/* Header */}
-      <div className="px-6 py-5 border-b border-slate-100 bg-white">
-        <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="px-4 md:px-6 py-5 border-b border-slate-100 bg-white">
+        <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">{t("title")}</h1>
             <p className="text-slate-400 text-sm mt-0.5">{t("subtitle")}</p>
             <div className="mt-2"><UnitSwitch unit={unit} onChange={setUnit} testId="po-unit" /></div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {selectedIds.size > 0 && (
               <button
                 onClick={handleDeleteSelected}
                 disabled={deleting}
-                className="flex items-center gap-2 bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white font-semibold rounded-xl px-5 py-2.5 text-sm transition-all"
+                className="flex items-center gap-2 bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white font-semibold rounded-xl px-4 py-2.5 text-sm transition-all"
               >
                 <Trash2 className="w-4 h-4" />
                 {deleting ? t("deleting") : t("deleteSelected", { n: selectedIds.size })}
               </button>
             )}
             <button
-              onClick={handleRunFIFO}
-              disabled={fifoRunning}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl px-5 py-2.5 text-sm transition-all"
+              onClick={() => setDeductOpen(true)}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl px-4 py-2.5 text-sm transition-all"
             >
-              {fifoRunning
-                ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" /> {t("running")}</>
-                : <><Zap className="w-4 h-4" /> {t("runFifo")}</>
-              }
+              <Receipt className="w-4 h-4" /> {t("deductBtn")}
             </button>
           </div>
         </div>
-
-        {/* FIFO status bar */}
-        {fifoRunning && (
-          <div className="mt-3 rounded-xl px-4 py-2.5 text-sm flex items-center gap-2 border bg-slate-50 border-slate-100 text-slate-700">
-            <span className="w-3 h-3 border border-slate-200 border-t-slate-500 rounded-full animate-spin shrink-0" />
-            {fifoMsg}
-          </div>
-        )}
-
-        {!fifoRunning && fifoResult && (
-          <div className={`mt-3 rounded-xl px-4 py-3 text-sm border ${
-            fifoResult.error
-              ? "bg-pale-red border-red-100 text-pale-red-foreground"
-              : fifoResult.failedPOs > 0
-              ? "bg-pale-gold border-amber-100 text-pale-gold-foreground"
-              : "bg-pale-green border-emerald-100 text-pale-green-foreground"
-          }`}>
-            {fifoResult.error ? (
-              <div className="flex items-start gap-2">
-                <XCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-bold">{t("fifoFailed")}</p>
-                  <p className="text-xs mt-0.5">{fifoResult.error}</p>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  {fifoResult.failedPOs > 0
-                    ? <AlertTriangle className="w-4 h-4 shrink-0" />
-                    : <CheckCircle className="w-4 h-4 shrink-0" />}
-                  <span className="font-bold">
-                    {fifoResult.failedPOs > 0
-                      ? t("completedFailures", { n: fifoResult.failedPOs })
-                      : t("completedOk")}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                  <div>
-                    <span className="opacity-60">{t("shiftsProcessed")}</span>
-                    <span className="font-bold ml-1">{fifoResult.processedShifts}</span>
-                  </div>
-                  <div>
-                    <span className="opacity-60">{t("posUpdated")}</span>
-                    <span className="font-bold ml-1">{fifoResult.updatedPOs}</span>
-                  </div>
-                  <div>
-                    <span className="opacity-60">{t("writeFailures")}</span>
-                    <span className={`font-bold ml-1 ${fifoResult.failedPOs > 0 ? "text-pale-red-foreground" : ""}`}>{fifoResult.failedPOs}</span>
-                  </div>
-                  <div>
-                    <span className="opacity-60">{t("totalLiters")}</span>
-                    <span className="font-bold ml-1">
-                      {vol(Object.values(fifoResult.productVolumes).reduce((a, b) => a + b, 0), unit)}
-                    </span>
-                  </div>
-                </div>
-
-                {Object.keys(fifoResult.productVolumes).length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {Object.entries(fifoResult.productVolumes).map(([p, litres]) => (
-                      <span key={p} className="text-xs bg-black/20 rounded-full px-2.5 py-0.5">
-                        {P(p)}: <span className="font-bold">{vol(litres, unit)}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {fifoResult.failures.length > 0 && (
-                  <details className="mt-3 text-xs">
-                    <summary className="cursor-pointer font-semibold text-pale-red-foreground hover:text-red-200">
-                      {t("showFailures", { n: fifoResult.failures.length })}
-                    </summary>
-                    <ul className="mt-2 space-y-1 bg-black/30 rounded-lg p-3 font-mono">
-                      {fifoResult.failures.map((f, i) => (
-                        <li key={i} className="text-pale-red-foreground">• {f}</li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
-
-                {fifoResult.processedShifts === 0 && (
-                  <p className="text-xs mt-2 opacity-80">
-                    {t("noShifts")}
-                  </p>
-                )}
-                {fifoResult.processedShifts > 0 && Object.keys(fifoResult.productVolumes).length === 0 && (
-                  <p className="text-xs mt-2 opacity-80">
-                    {t("noLiters")}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        {notice && <p className="mt-3 text-sm font-medium text-pale-green-foreground" role="status">{notice}</p>}
       </div>
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-6">
         {/* Create New PO */}
         <CreatePOForm unit={unit} onUnit={setUnit} onCreated={() => fetchPOs(page)} />
 
@@ -905,39 +869,26 @@ export default function PORegistry() {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {activePOs.map(po => {
                 const fill = pct(po.remaining_volume, po.initial_volume);
-                const profit = calcNetProfit(po);
+                const profit = profitOf(po);
                 return (
                   <div key={po.id} className="bg-white border border-emerald-100 rounded-xl p-5 relative overflow-hidden">
-                    {/* Progress bar background */}
-                    <div
-                      className="absolute inset-0 bg-emerald-500/5 origin-left transition-all"
-                      style={{ width: `${fill}%` }}
-                    />
+                    <div className="absolute inset-0 bg-emerald-500/5 origin-left transition-all" style={{ width: `${fill}%` }} />
                     <div className="relative">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <p className="text-slate-900 font-bold">{P(po.product_type)}</p>
-                          <p className="text-slate-500 text-xs font-mono mt-0.5">#{po.id.slice(0, 8).toUpperCase()}</p>
+                      <div className="flex items-start justify-between mb-3 gap-2">
+                        <div className="min-w-0">
+                          <p className="text-slate-900 font-bold">{po.name ?? P(po.product_type)}</p>
+                          <p className="text-slate-500 text-xs mt-0.5">{P(po.product_type)} · <span className="font-mono">#{po.id.slice(0, 8).toUpperCase()}</span></p>
                         </div>
-                        <span className="flex items-center gap-1.5 text-xs font-semibold text-pale-green-foreground bg-pale-green border border-emerald-100 rounded-full px-2.5 py-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          {t("ACTIVE")}
-                        </span>
+                        <StatusBadge status="ACTIVE" />
                       </div>
 
-                      {/* Volume bar */}
                       <div className="mb-3">
                         <div className="flex justify-between text-xs text-slate-400 mb-1">
                           <span>{t("remaining")}</span>
                           <span className="font-semibold text-slate-900">{fill.toFixed(1)}%</span>
                         </div>
                         <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              fill < 20 ? "bg-red-500" : fill < 50 ? "bg-amber-500" : "bg-emerald-500"
-                            }`}
-                            style={{ width: `${fill}%` }}
-                          />
+                          <div className={`h-full rounded-full transition-all ${fillBar(fill)}`} style={{ width: `${fill}%` }} />
                         </div>
                         <div className="flex justify-between text-xs text-slate-500 mt-1">
                           <span>{vol(po.remaining_volume, unit)}</span>
@@ -945,50 +896,40 @@ export default function PORegistry() {
                         </div>
                       </div>
 
-                      {/* Calibration */}
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-slate-400">{t("sold")}</span>
+                        <span className="text-slate-700 tabular-nums">{vol(po.total_volume_sold, unit)}</span>
+                      </div>
                       <div className="flex justify-between text-xs mb-4">
                         <span className="text-slate-400">{t("calibration")}</span>
                         <span className="text-slate-700 font-mono">{po.calibration_factor.toFixed(2)}</span>
                       </div>
 
-                      {/* Profit badge */}
                       <div className="mb-4">
-                        {!po.is_verified ? (
+                        {!profit ? (
                           <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
                             <Lock className="w-3.5 h-3.5 text-slate-500" />
                             <span className="text-slate-500 text-xs font-semibold tracking-wider">{t("pendingCosts")}</span>
                           </div>
-                        ) : profit != null ? (
-                          <div className={`flex items-center justify-between rounded-lg px-3 py-2 border ${
-                            profit >= 0
-                              ? "bg-pale-green border-emerald-100"
-                              : "bg-pale-red border-red-100"
-                          }`}>
+                        ) : (
+                          <div className={`flex items-center justify-between rounded-lg px-3 py-2 border ${profit.profit >= 0 ? "bg-pale-green border-emerald-100" : "bg-pale-red border-red-100"}`}>
                             <span className="text-xs font-semibold text-slate-400 flex items-center gap-1">
                               <Unlock className="w-3 h-3" /> {t("netProfit")}
                             </span>
-                            <span className={`font-bold text-sm tabular-nums ${profit >= 0 ? "text-pale-green-foreground" : "text-pale-red-foreground"}`}>
-                              {profit >= 0 ? "+" : ""}{mmk(profit)}
-                            </span>
+                            <ProfitValue profit={profit} />
                           </div>
-                        ) : null}
+                        )}
                       </div>
 
-                      {/* Actions */}
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setForceCloseTarget(po)}
-                          className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-pale-red-foreground hover:text-pale-red-foreground bg-pale-red hover:bg-pale-red border border-red-100 rounded-lg py-2 transition-all"
-                        >
-                          <AlertTriangle className="w-3.5 h-3.5" />
-                          {t("forceCloseBtn")}
+                      <div className="flex flex-wrap gap-2">
+                        <button onClick={() => setHistoryTarget(po)} className={`${chip} text-slate-700 bg-white border-slate-200 hover:bg-slate-50`}>
+                          <HistoryIcon className="w-3.5 h-3.5" /> {t("history")}
                         </button>
-                        <button
-                          onClick={() => setVerifyTarget(po)}
-                          className="flex items-center justify-center gap-1.5 text-xs font-semibold text-pale-blue-foreground hover:text-pale-blue-foreground bg-pale-blue hover:bg-pale-blue border border-blue-100 rounded-lg px-3 py-2 transition-all"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                          {po.is_verified ? t("edit") : t("verify")}
+                        <button onClick={() => setVerifyTarget(po)} className={`${chip} text-pale-blue-foreground bg-pale-blue border-blue-100`}>
+                          <Edit3 className="w-3.5 h-3.5" /> {po.is_verified ? t("editCosts") : t("verifyCosts")}
+                        </button>
+                        <button onClick={() => setForceCloseTarget(po)} className={`${chip} text-pale-red-foreground bg-pale-red border-red-100`}>
+                          <AlertTriangle className="w-3.5 h-3.5" /> {t("forceCloseBtn")}
                         </button>
                       </div>
                     </div>
@@ -999,15 +940,15 @@ export default function PORegistry() {
           </div>
         )}
 
-        {/* PO Table */}
+        {/* All POs */}
         <div className="bg-white border border-slate-100 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+          <div className="px-4 md:px-5 py-4 border-b border-slate-100 flex items-center gap-2">
             <PackageSearch className="w-4 h-4 text-pale-blue-foreground" />
             <h2 className="text-slate-900 font-semibold text-sm">{t("allPOs")}</h2>
             <span className="ml-auto text-slate-500 text-xs">{t("total", { n: totalCount })}</span>
           </div>
           {deleteError && (
-            <div className="mx-5 mt-4 flex items-start gap-2 bg-pale-red border border-red-100 rounded-xl px-4 py-3 text-xs text-pale-red-foreground">
+            <div className="mx-4 md:mx-5 mt-4 flex items-start gap-2 bg-pale-red border border-red-100 rounded-xl px-4 py-3 text-xs text-pale-red-foreground">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>{deleteError}</span>
               <button onClick={() => setDeleteError("")} aria-label={t("dismissError")} className="ml-auto text-pale-red-foreground hover:text-red-200"><X className="w-3.5 h-3.5" /></button>
@@ -1026,148 +967,187 @@ export default function PORegistry() {
               <p className="text-slate-400 text-xs mt-1">{t("getStarted")}</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px]">
-                <thead>
-                  <tr className="border-b border-slate-100">
-                    <th className="px-5 py-3 w-10">
-                      <input type="checkbox"
-                        checked={pos.length > 0 && selectedIds.size === pos.length}
-                        onChange={toggleSelectAll}
-                        aria-label={t("selectAll")}
-                        className="w-4 h-4 rounded accent-red-500 cursor-pointer"
-                      />
-                    </th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("poName")}</th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("product")}</th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("status")}</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("initialVol")}</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("remaining")}</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("sold")}</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("shortage")}</th>
-                    <th className="text-center px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("calShort")}</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("netProfit")}</th>
-                    <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("actions")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pos.map(po => {
-                    const cfg = STATUS_CONFIG[po.status];
-                    const profit = calcNetProfit(po);
-                    const fillPct = pct(po.remaining_volume, po.initial_volume);
-                    return (
-                      <tr key={po.id} className={`border-b border-slate-100 last:border-0 transition-colors ${selectedIds.has(po.id) ? "bg-pale-red" : "hover:bg-slate-100"}`}>
-                        <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
-                          <input type="checkbox"
-                            checked={selectedIds.has(po.id)}
-                            onChange={() => toggleSelect(po.id)}
-                            aria-label={t("selectPO", { name: po.name ?? "" })}
-                            className="w-4 h-4 rounded accent-red-500 cursor-pointer"
-                          />
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <div className="flex flex-col">
-                            <span className="text-slate-900 text-sm font-semibold">{po.name ?? "—"}</span>
-                            <span className="text-slate-500 text-xs font-mono mt-0.5">#{po.id.slice(0, 8).toUpperCase()}</span>
+            <>
+              {/* Phones: one card per PO — everything readable without sideways scrolling. */}
+              <div className="md:hidden divide-y divide-slate-100" data-testid="po-cards">
+                <label className="flex items-center gap-2 px-4 py-2.5 text-xs text-slate-500">
+                  <input type="checkbox" checked={pos.length > 0 && selectedIds.size === pos.length} onChange={toggleSelectAll}
+                    aria-label={t("selectAll")} className="w-4 h-4 rounded accent-red-500" />
+                  {t("selectAllShort")}
+                </label>
+                {pos.map(po => {
+                  const fillPct = pct(po.remaining_volume, po.initial_volume);
+                  return (
+                    <div key={po.id} className={`px-4 py-4 space-y-3 ${selectedIds.has(po.id) ? "bg-pale-red" : ""}`} data-testid="po-card">
+                      <div className="flex items-start gap-3">
+                        <input type="checkbox" checked={selectedIds.has(po.id)} onChange={() => toggleSelect(po.id)}
+                          aria-label={t("selectPO", { name: po.name ?? "" })} className="mt-1 w-4 h-4 rounded accent-red-500 shrink-0" />
+                        <div className="min-w-0 flex-1 flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-slate-900 font-semibold break-words">{po.name ?? "—"}</p>
+                            <p className="text-xs text-slate-500">{P(po.product_type)} · <span className="font-mono">#{po.id.slice(0, 8).toUpperCase()}</span></p>
                           </div>
-                        </td>
-                        <td className="px-5 py-3.5 text-slate-700 text-sm">{P(po.product_type)}</td>
-                        <td className="px-5 py-3.5">
-                          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-2.5 py-1 border ${cfg.bg} ${cfg.border} ${cfg.text}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} ${po.status === "ACTIVE" ? "animate-pulse" : ""}`} />
-                            {t(po.status)}
+                          <StatusBadge status={po.status} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex justify-between items-baseline text-xs mb-1">
+                          <span className="text-slate-500">{t("remaining")}</span>
+                          <span className="tabular-nums">
+                            <span className={`font-semibold ${fillPct < 20 && po.status !== "DONE" ? "text-pale-red-foreground" : "text-slate-900"}`}>{vol(po.remaining_volume, unit)}</span>
+                            <span className="text-slate-400"> / {vol(po.initial_volume, unit)}</span>
                           </span>
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-slate-700 text-sm tabular-nums">{vol(po.initial_volume, unit)}</td>
-                        <td className="px-5 py-3.5 text-right">
-                          <div className="flex flex-col items-end gap-1">
-                            <span className={`text-sm font-semibold tabular-nums ${fillPct < 20 ? "text-pale-red-foreground" : "text-slate-900"}`}>
-                              {vol(po.remaining_volume, unit)}
-                            </span>
-                            {po.status === "ACTIVE" && (
-                              <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full ${fillPct < 20 ? "bg-red-500" : fillPct < 50 ? "bg-amber-500" : "bg-emerald-500"}`}
-                                  style={{ width: `${fillPct}%` }}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-slate-400 text-sm tabular-nums">
-                          {vol(po.total_volume_sold, unit)}
-                        </td>
-                        <td className="px-5 py-3.5 text-right">
-                          {po.shortage_liters != null ? (
-                            <span className="text-pale-red-foreground text-sm font-semibold tabular-nums">{vol(po.shortage_liters, unit)}</span>
-                          ) : (
-                            <span className="text-slate-400 text-sm">—</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3.5 text-center text-slate-700 text-sm font-mono">
-                          {po.calibration_factor.toFixed(2)}
-                        </td>
-                        <td className="px-5 py-3.5 text-right">
-                          {!po.is_verified ? (
-                            <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-50 border border-slate-100 rounded-full px-2.5 py-1">
-                              <Lock className="w-3 h-3" /> {t("pending")}
-                            </span>
-                          ) : profit != null ? (
-                            <span className={`text-sm font-bold tabular-nums ${profit >= 0 ? "text-pale-green-foreground" : "text-pale-red-foreground"}`}>
-                              {profit >= 0 ? "+" : ""}{mmk(profit)}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 text-sm">—</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-1">
-                            {po.status === "QUEUED" && (
-                              <button
-                                onClick={() => handleSetActive(po)}
-                                title={t("promoteTitle")}
-                                className="flex items-center gap-1 text-xs font-semibold text-pale-green-foreground hover:text-pale-green-foreground bg-pale-green hover:bg-pale-green border border-emerald-100 rounded-lg px-2.5 py-1.5 transition-all"
-                              >
-                                <Play className="w-3 h-3" />
-                                {t("setActive")}
+                        </div>
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${fillBar(fillPct)}`} style={{ width: `${fillPct}%` }} />
+                        </div>
+                      </div>
+                      <dl className="grid grid-cols-3 gap-2 text-xs">
+                        <div><dt className="text-slate-400">{t("sold")}</dt><dd className="font-semibold text-slate-900 tabular-nums">{vol(po.total_volume_sold, unit)}</dd></div>
+                        <div><dt className="text-slate-400">{t("shortage")}</dt><dd className={`font-semibold tabular-nums ${po.shortage_liters != null ? "text-pale-red-foreground" : "text-slate-400"}`}>{po.shortage_liters != null ? vol(po.shortage_liters, unit) : "—"}</dd></div>
+                        <div><dt className="text-slate-400">{t("netProfit")}</dt><dd className="text-sm"><ProfitValue profit={profitOf(po)} /></dd></div>
+                      </dl>
+                      <div className="flex flex-wrap gap-2">
+                        {po.status === "QUEUED" && (
+                          <button onClick={() => handleSetActive(po)} className={`${chip} text-pale-green-foreground bg-pale-green border-emerald-100`}>
+                            <Play className="w-3 h-3" /> {t("setActive")}
+                          </button>
+                        )}
+                        <button onClick={() => setHistoryTarget(po)} className={`${chip} text-slate-700 bg-white border-slate-200`}>
+                          <HistoryIcon className="w-3.5 h-3.5" /> {t("history")}
+                        </button>
+                        <button onClick={() => setEditTarget(po)} className={`${chip} text-slate-700 bg-white border-slate-200`}>
+                          <Pencil className="w-3.5 h-3.5" /> {t("editPO")}
+                        </button>
+                        <button onClick={() => setVerifyTarget(po)} className={`${chip} text-pale-blue-foreground bg-pale-blue border-blue-100`}>
+                          {po.is_verified ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />} {t("costs")}
+                        </button>
+                        {po.status === "ACTIVE" && (
+                          <button onClick={() => setForceCloseTarget(po)} className={`${chip} text-pale-red-foreground bg-pale-red border-red-100`}>
+                            <AlertTriangle className="w-3.5 h-3.5" /> {t("forceShort")}
+                          </button>
+                        )}
+                        <button onClick={() => handleDeletePO(po)} aria-label={t("deletePO")} title={t("deletePO")}
+                          className={`${chip} text-slate-500 bg-white border-slate-200 ml-auto`}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Wider screens: the table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full min-w-[960px]">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="px-5 py-3 w-10">
+                        <input type="checkbox"
+                          checked={pos.length > 0 && selectedIds.size === pos.length}
+                          onChange={toggleSelectAll}
+                          aria-label={t("selectAll")}
+                          className="w-4 h-4 rounded accent-red-500 cursor-pointer"
+                        />
+                      </th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("poName")}</th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("product")}</th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("status")}</th>
+                      <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("initialVol")}</th>
+                      <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("remaining")}</th>
+                      <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("sold")}</th>
+                      <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("shortage")}</th>
+                      <th className="text-center px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("calShort")}</th>
+                      <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("netProfit")}</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("actions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pos.map(po => {
+                      const fillPct = pct(po.remaining_volume, po.initial_volume);
+                      return (
+                        <tr key={po.id} className={`border-b border-slate-100 last:border-0 transition-colors ${selectedIds.has(po.id) ? "bg-pale-red" : "hover:bg-slate-100"}`}>
+                          <td className="px-5 py-3.5">
+                            <input type="checkbox"
+                              checked={selectedIds.has(po.id)}
+                              onChange={() => toggleSelect(po.id)}
+                              aria-label={t("selectPO", { name: po.name ?? "" })}
+                              className="w-4 h-4 rounded accent-red-500 cursor-pointer"
+                            />
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <div className="flex flex-col">
+                              <span className="text-slate-900 text-sm font-semibold">{po.name ?? "—"}</span>
+                              <span className="text-slate-500 text-xs font-mono mt-0.5">#{po.id.slice(0, 8).toUpperCase()}</span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3.5 text-slate-700 text-sm">{P(po.product_type)}</td>
+                          <td className="px-5 py-3.5"><StatusBadge status={po.status} /></td>
+                          <td className="px-5 py-3.5 text-right text-slate-700 text-sm tabular-nums">{vol(po.initial_volume, unit)}</td>
+                          <td className="px-5 py-3.5 text-right">
+                            <div className="flex flex-col items-end gap-1">
+                              <span className={`text-sm font-semibold tabular-nums ${fillPct < 20 ? "text-pale-red-foreground" : "text-slate-900"}`}>
+                                {vol(po.remaining_volume, unit)}
+                              </span>
+                              {po.status === "ACTIVE" && (
+                                <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full ${fillBar(fillPct)}`} style={{ width: `${fillPct}%` }} />
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-5 py-3.5 text-right text-slate-400 text-sm tabular-nums">{vol(po.total_volume_sold, unit)}</td>
+                          <td className="px-5 py-3.5 text-right">
+                            {po.shortage_liters != null
+                              ? <span className="text-pale-red-foreground text-sm font-semibold tabular-nums">{vol(po.shortage_liters, unit)}</span>
+                              : <span className="text-slate-400 text-sm">—</span>}
+                          </td>
+                          <td className="px-5 py-3.5 text-center text-slate-700 text-sm font-mono">{po.calibration_factor.toFixed(2)}</td>
+                          <td className="px-5 py-3.5 text-right text-sm"><ProfitValue profit={profitOf(po)} /></td>
+                          <td className="px-5 py-3.5">
+                            <div className="flex items-center gap-1">
+                              {po.status === "QUEUED" && (
+                                <button onClick={() => handleSetActive(po)} title={t("promoteTitle")}
+                                  className="flex items-center gap-1 text-xs font-semibold text-pale-green-foreground bg-pale-green border border-emerald-100 rounded-lg px-2.5 py-1.5 transition-all">
+                                  <Play className="w-3 h-3" /> {t("setActive")}
+                                </button>
+                              )}
+                              <button onClick={() => setHistoryTarget(po)} title={t("history")} aria-label={t("history")}
+                                className="text-slate-500 hover:text-slate-900 hover:bg-slate-100 p-1.5 rounded-lg transition-all">
+                                <HistoryIcon className="w-4 h-4" />
                               </button>
-                            )}
-                            {po.status === "ACTIVE" && (
-                              <button
-                                onClick={() => setForceCloseTarget(po)}
-                                title={t("forceCloseBtn")}
-                                className="text-pale-red-foreground hover:text-pale-red-foreground hover:bg-pale-red p-1.5 rounded-lg transition-all"
-                              >
-                                <AlertTriangle className="w-4 h-4" />
+                              <button onClick={() => setEditTarget(po)} title={t("editPO")} aria-label={t("editPO")}
+                                className="text-slate-500 hover:text-slate-900 hover:bg-slate-100 p-1.5 rounded-lg transition-all">
+                                <Pencil className="w-4 h-4" />
                               </button>
-                            )}
-                            <button
-                              onClick={() => setVerifyTarget(po)}
-                              title={po.is_verified ? t("editCosts") : t("verifyCosts")}
-                              className="text-pale-blue-foreground hover:text-pale-blue-foreground hover:bg-pale-blue p-1.5 rounded-lg transition-all"
-                            >
-                              {po.is_verified ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                            </button>
-                            <button
-                              onClick={() => handleDeletePO(po)}
-                              title={t("deletePO")}
-                              className="text-slate-500 hover:text-pale-red-foreground hover:bg-pale-red p-1.5 rounded-lg transition-all"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                              {po.status === "ACTIVE" && (
+                                <button onClick={() => setForceCloseTarget(po)} title={t("forceCloseBtn")}
+                                  className="text-pale-red-foreground hover:bg-pale-red p-1.5 rounded-lg transition-all">
+                                  <AlertTriangle className="w-4 h-4" />
+                                </button>
+                              )}
+                              <button onClick={() => setVerifyTarget(po)} title={po.is_verified ? t("editCosts") : t("verifyCosts")}
+                                className="text-pale-blue-foreground hover:bg-pale-blue p-1.5 rounded-lg transition-all">
+                                {po.is_verified ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                              </button>
+                              <button onClick={() => handleDeletePO(po)} title={t("deletePO")}
+                                className="text-slate-500 hover:text-pale-red-foreground hover:bg-pale-red p-1.5 rounded-lg transition-all">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between">
+            <div className="px-4 md:px-5 py-4 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
               <p className="text-slate-500 text-xs">{t("page", { p: page + 1, n: totalPages, total: totalCount })}</p>
               <div className="flex items-center gap-2">
                 <button
@@ -1190,7 +1170,7 @@ export default function PORegistry() {
         </div>
       </div>
 
-      {/* Modals */}
+      {/* Dialogs */}
       {forceCloseTarget && (
         <ForceCloseModal
           po={forceCloseTarget}
@@ -1207,6 +1187,9 @@ export default function PORegistry() {
           onDone={() => { setVerifyTarget(null); fetchPOs(page); }}
         />
       )}
+      {editTarget && <EditPOModal po={editTarget} unit={unit} onUnit={setUnit} onClose={() => setEditTarget(null)} onDone={changed} />}
+      {historyTarget && <POHistoryDialog po={historyTarget} unit={unit} onClose={() => setHistoryTarget(null)} onChanged={changed} />}
+      {deductOpen && <DeductPODialog unit={unit} onClose={() => setDeductOpen(false)} onSaved={changed} />}
     </div>
   );
 }
