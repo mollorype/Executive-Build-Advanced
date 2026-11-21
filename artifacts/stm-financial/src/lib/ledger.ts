@@ -2,6 +2,8 @@ import type ExcelJS from "exceljs";
 import type { DebtProfile, DebtTransaction } from "./debt-supabase";
 
 export interface LedgerRow {
+  /** The transaction this row came from. */
+  id?: string;
   date: string;
   description: string;
   debit: number;
@@ -67,7 +69,7 @@ export function buildLedger(
     const credit = t.amount < 0 ? -t.amount : 0;
     totalDebit += debit;
     totalCredit += credit;
-    rows.push({ date: t.date, description: describeTransaction(t), debit, credit, balance: running });
+    rows.push({ id: t.id, date: t.date, description: describeTransaction(t), debit, credit, balance: running });
   }
 
   return { openingBalance, rows, closingBalance: running, totalDebit, totalCredit };
