@@ -82,6 +82,21 @@ export function monthHistory(items: SalaryItem[], month: string): SalaryItem[] {
     .sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at));
 }
 
+/** A month's pay as it was saved when marked paid (employee_salary_payments). */
+export type SalaryPayment = {
+  id: string; profile_id: string; salary_month: string;
+  base: number; overtime: number; bonus: number; refund: number; deductions: number; net: number;
+  note: string | null; paid_at: string; paid_by: string | null;
+};
+
+/** The summary a payment recorded — what the history shows for a paid month. */
+export function summaryFromPayment(p: SalaryPayment): MonthSummary {
+  return { base: p.base, overtime: p.overtime, bonus: p.bonus, refund: p.refund, deductions: p.deductions, net: p.net };
+}
+
+export const sameSummary = (a: MonthSummary, b: MonthSummary) =>
+  a.base === b.base && a.overtime === b.overtime && a.bonus === b.bonus && a.refund === b.refund && a.deductions === b.deductions;
+
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** This month on this device, as yyyy-mm-01. */
@@ -108,6 +123,28 @@ export function defaultDayIn(month: string, now = new Date()): string {
 const MONTHS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const MONTHS_MY = ["ဇန်နဝါရီ", "ဖေဖော်ဝါရီ", "မတ်", "ဧပြီ", "မေ", "ဇွန်", "ဇူလိုင်", "ဩဂုတ်", "စက်တင်ဘာ", "အောက်တိုဘာ", "နိုဝင်ဘာ", "ဒီဇင်ဘာ"];
 
+/** Every month from `from` to `to` (both yyyy-mm-01), oldest first. */
+export function monthsBetween(from: string, to: string): string[] {
+  const out: string[] = [];
+  if (from > to) [from, to] = [to, from];
+  for (let m = from; m <= to && out.length < 120; m = shiftMonth(m, 1)) out.push(m);
+  return out;
+}
+
+export type RangePreset = "this" | "last" | "last3" | "last6" | "year" | "custom";
+
+/** The months a preset covers, counted from `now`'s month. */
+export function presetRange(preset: Exclude<RangePreset, "custom">, now = new Date()): { from: string; to: string } {
+  const cur = monthKey(now);
+  switch (preset) {
+    case "this": return { from: cur, to: cur };
+    case "last": return { from: shiftMonth(cur, -1), to: shiftMonth(cur, -1) };
+    case "last3": return { from: shiftMonth(cur, -2), to: cur };
+    case "last6": return { from: shiftMonth(cur, -5), to: cur };
+    case "year": return { from: `${now.getFullYear()}-01-01`, to: cur };
+  }
+}
+
 export function monthLabel(key: string, lang: "en" | "my"): string {
   const [y, m] = key.split("-").map(Number);
   return lang === "my" ? `${y} ${MONTHS_MY[m - 1]}` : `${MONTHS_EN[m - 1]} ${y}`;
@@ -116,4 +153,27 @@ export function monthLabel(key: string, lang: "en" | "my"): string {
 export function monthName(key: string, lang: "en" | "my"): string {
   const m = Number(key.split("-")[1]);
   return lang === "my" ? MONTHS_MY[m - 1] : MONTHS_EN[m - 1];
+}
+
+export type SalaryRow<E> = { month: string; employee: E; sum: MonthSummary; payment: SalaryPayment | null };
+
+/**
+ * One row per employee per month in from..to (for the Excel export), skipping
+ * months before an employee started. Paid months use the saved payment.
+ */
+export function buildSalaryRows<E extends { id: string; name: string; date: string; base_salary: number }>(
+  employees: E[], items: SalaryItem[], payments: SalaryPayment[], from: string, to: string,
+): SalaryRow<E>[] {
+  const rows: SalaryRow<E>[] = [];
+  const byKey = new Map(payments.map(p => [`${p.profile_id}|${p.salary_month}`, p]));
+  const sorted = [...employees].sort((a, b) => a.name.localeCompare(b.name));
+  for (const month of monthsBetween(from, to)) {
+    for (const e of sorted) {
+      if (e.date && e.date.slice(0, 7) > month.slice(0, 7)) continue;   // hadn't started yet
+      const payment = byKey.get(`${e.id}|${month}`) ?? null;
+      const sum = payment ? summaryFromPayment(payment) : summarizeMonth(e.base_salary, items.filter(i => i.profile_id === e.id), month);
+      rows.push({ month, employee: e, sum, payment });
+    }
+  }
+  return rows;
 }

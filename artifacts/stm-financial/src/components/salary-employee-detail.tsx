@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import {
-  X, Pencil, Trash2, Loader2, ChevronLeft, ChevronRight, AlertTriangle, Plus, Undo2, Smartphone, Clock,
+  X, Pencil, Trash2, Loader2, ChevronLeft, ChevronRight, AlertTriangle, Plus, Undo2, Smartphone, Clock, CheckCircle2, Banknote,
 } from "lucide-react";
 import { mmkFmt } from "@/lib/debt-supabase";
 import { useDebtLang } from "@/lib/debt-i18n";
@@ -8,9 +8,9 @@ import DebtLangToggle from "@/components/debt-lang-toggle";
 import { useSalaryT, typeLabel } from "@/lib/salary-i18n";
 import {
   summarizeMonth, pendingItems, monthHistory, monthLabel, monthName, defaultDayIn, signedAmount, dailyNote,
-  type SalaryItem, type SalaryItemType,
+  summaryFromPayment, sameSummary, type SalaryItem, type SalaryItemType, type SalaryPayment,
 } from "@/lib/salary-math";
-import { addItem, decideItem, deleteItem, deleteEmployee, updateEmployee, type Employee } from "@/lib/salary";
+import { addItem, decideItem, deleteItem, deleteEmployee, updateEmployee, payMonth, undoPayment, type Employee } from "@/lib/salary";
 
 const inputCls = "w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-300/50 placeholder:text-slate-400";
 const labelCls = "block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5";
@@ -28,9 +28,11 @@ function fmtDay(d: string) {
 
 type EntryType = "Overtime" | "Bonus" | "Deduction";
 
-export default function SalaryEmployeeDetail({ employee, month, items, onMonthChange, onChanged, onClose }: {
+export default function SalaryEmployeeDetail({ employee, month, items, payment, onMonthChange, onChanged, onClose }: {
   employee: Employee;
   month: string;
+  /** This month's saved payment, if it was marked paid. */
+  payment: SalaryPayment | null;
   /** This employee's items for `month` plus all their pending ones. */
   items: SalaryItem[];
   onMonthChange: (delta: number) => void;
@@ -39,7 +41,10 @@ export default function SalaryEmployeeDetail({ employee, month, items, onMonthCh
 }) {
   const t = useSalaryT();
   const lang = useDebtLang();
-  const sum = useMemo(() => summarizeMonth(employee.base_salary, items, month), [employee.base_salary, items, month]);
+  const live = useMemo(() => summarizeMonth(employee.base_salary, items, month), [employee.base_salary, items, month]);
+  // A paid month shows what was paid — the history — even if entries change later.
+  const sum = payment ? summaryFromPayment(payment) : live;
+  const changedSincePaid = !!payment && !sameSummary(live, sum);
   const pending = useMemo(() => pendingItems(items), [items]);
   const history = useMemo(() => monthHistory(items, month), [items, month]);
   const mLabel = monthLabel(month, lang);
@@ -63,7 +68,9 @@ export default function SalaryEmployeeDetail({ employee, month, items, onMonthCh
   const [eName, setEName] = useState(employee.name);
   const [ePhone, setEPhone] = useState(employee.phone_number ?? "");
   const [eBase, setEBase] = useState(String(employee.base_salary || ""));
+  const [eEmail, setEEmail] = useState(employee.staff_email ?? "");
   function openEdit() {
+    setEEmail(employee.staff_email ?? "");
     setEName(employee.name);
     setEPhone(employee.phone_number ?? "");
     setEBase(String(employee.base_salary || ""));
@@ -72,7 +79,7 @@ export default function SalaryEmployeeDetail({ employee, month, items, onMonthCh
   async function saveEdit(e: React.FormEvent) {
     e.preventDefault();
     if (!eName.trim()) { setError(t("nameRequired")); return; }
-    if (await run("edit", () => updateEmployee(employee.id, eName, ePhone, Number(eBase) || 0))) setEditing(false);
+    if (await run("edit", () => updateEmployee(employee.id, eName, ePhone, Number(eBase) || 0, eEmail))) setEditing(false);
   }
   async function removeEmployee() {
     if (!window.confirm(t("confirmDelete", { name: employee.name }))) return;
@@ -147,6 +154,9 @@ export default function SalaryEmployeeDetail({ employee, month, items, onMonthCh
                 <input id="sal-e-phone" className={inputCls} value={ePhone} onChange={e => setEPhone(e.target.value)} inputMode="tel" /></div>
               <div><label className={labelCls} htmlFor="sal-e-base">{t("baseSalary")}</label>
                 <input id="sal-e-base" className={inputCls} type="number" min="0" value={eBase} onChange={e => setEBase(e.target.value)} placeholder="0" /></div>
+              <div><label className={labelCls} htmlFor="sal-e-email">{t("staffEmail")} <span className="normal-case font-normal">{t("optional")}</span></label>
+                <input id="sal-e-email" className={inputCls} type="email" inputMode="email" autoComplete="off" value={eEmail} onChange={e => setEEmail(e.target.value)} placeholder="name@stm" />
+                <p className="text-[11px] text-slate-400 mt-1">{t("staffEmailHelp")}</p></div>
               <div className="flex gap-2">
                 <button type="submit" disabled={busy === "edit"} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-semibold rounded-xl py-2.5">
                   {busy === "edit" ? t("saving") : t("save")}
@@ -180,6 +190,33 @@ export default function SalaryEmployeeDetail({ employee, month, items, onMonthCh
             </dl>
             {sum.net < 0 && <p className="text-xs text-red-600 mt-2">{t("overDeducted", { a: mmkFmt(-sum.net) })}</p>}
           </div>
+
+          {/* Paid / mark paid */}
+          {payment ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4" data-testid="salary-paid">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-emerald-800 flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> {t("paidTitle", { month: mName })} · {mmkFmt(payment.net)}</p>
+                  <p className="text-xs text-emerald-800/80 mt-0.5">{t("paidOn", { date: new Date(payment.paid_at).toLocaleString("en-GB", { timeZone: "Asia/Yangon", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }) })}{payment.paid_by ? ` · ${payment.paid_by}` : ""}</p>
+                </div>
+                <button onClick={() => { if (window.confirm(t("confirmUndoPay"))) run("unpay", () => undoPayment(payment.id)); }} disabled={busy === "unpay"}
+                  className="shrink-0 text-xs font-semibold text-emerald-800 hover:text-emerald-950 border border-emerald-200 bg-white rounded-lg px-2.5 py-1.5 disabled:opacity-50">
+                  {busy === "unpay" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : t("undoPay")}
+                </button>
+              </div>
+              {changedSincePaid && <p className="text-xs text-amber-700 mt-2">{t("changedAfterPay", { a: mmkFmt(live.net) })}</p>}
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                const msg = t("confirmPay", { name: employee.name, month: mLabel, a: mmkFmt(live.net) }) + (pending.length ? t("confirmPayPending", { n: pending.length }) : "");
+                if (window.confirm(msg)) run("pay", () => payMonth(employee.id, month, live));
+              }}
+              disabled={busy === "pay"}
+              className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl py-3">
+              {busy === "pay" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Banknote className="w-4 h-4" />} {t("markPaid", { month: mName, a: mmkFmt(live.net) })}
+            </button>
+          )}
 
           {/* Pending from STM Daily */}
           {pending.length > 0 && (

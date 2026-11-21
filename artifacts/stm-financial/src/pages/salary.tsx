@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, ChevronLeft, ChevronRight, Search, AlertTriangle, Wallet, X, Loader2, RefreshCw, ChevronRight as Arrow, Users } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Search, AlertTriangle, Wallet, X, Loader2, RefreshCw, ChevronRight as Arrow, Users, FileSpreadsheet, CheckCircle2 } from "lucide-react";
 import { mmkFmt } from "@/lib/debt-supabase";
 import { useDebtLang } from "@/lib/debt-i18n";
 import DebtLangToggle from "@/components/debt-lang-toggle";
 import SalaryEmployeeDetail from "@/components/salary-employee-detail";
+import SalaryExportDialog from "@/components/salary-export-dialog";
 import { useSalaryT } from "@/lib/salary-i18n";
-import { summarizeMonth, pendingItems, monthKey, shiftMonth, monthLabel, todayKey, type SalaryItem } from "@/lib/salary-math";
-import { loadEmployees, loadItems, createEmployee, type Employee } from "@/lib/salary";
+import { summarizeMonth, summaryFromPayment, pendingItems, monthKey, shiftMonth, monthLabel, todayKey, type SalaryItem, type SalaryPayment } from "@/lib/salary-math";
+import { loadEmployees, loadItems, loadPayments, createEmployee, type Employee } from "@/lib/salary";
 
 const inputCls = "w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-300/50 placeholder:text-slate-400";
 const labelCls = "block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5";
@@ -17,6 +18,8 @@ export default function SalaryPage() {
   const [month, setMonth] = useState(() => monthKey());
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [items, setItems] = useState<SalaryItem[]>([]);
+  const [payments, setPayments] = useState<SalaryPayment[]>([]);
+  const [showExport, setShowExport] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<"" | "failed" | "setup">("");
   const [search, setSearch] = useState("");
@@ -25,9 +28,10 @@ export default function SalaryPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [emps, its] = await Promise.all([loadEmployees(), loadItems(month)]);
+    const [emps, its, pays] = await Promise.all([loadEmployees(), loadItems(month), loadPayments(month)]);
     setEmployees(emps.data);
     setItems(its.data);
+    setPayments(pays);
     setLoadError(its.setupNeeded ? "setup" : emps.error || its.error ? "failed" : "");
     setLoading(false);
   }, [month]);
@@ -42,8 +46,10 @@ export default function SalaryPage() {
 
   const rows = useMemo(() => employees.map(e => {
     const its = byEmployee.get(e.id) ?? [];
-    return { e, sum: summarizeMonth(e.base_salary, its, month), pending: pendingItems(its).length };
-  }), [employees, byEmployee, month]);
+    const payment = payments.find(p => p.profile_id === e.id) ?? null;
+    // A paid month shows what was paid (the history); otherwise it's worked out live.
+    return { e, payment, sum: payment ? summaryFromPayment(payment) : summarizeMonth(e.base_salary, its, month), pending: pendingItems(its).length };
+  }), [employees, byEmployee, payments, month]);
 
   const totals = useMemo(() => rows.reduce((s, r) => ({
     base: s.base + r.sum.base,
@@ -51,7 +57,8 @@ export default function SalaryPage() {
     deducted: s.deducted + r.sum.deductions,
     net: s.net + r.sum.net,
     pending: s.pending + r.pending,
-  }), { base: 0, added: 0, deducted: 0, net: 0, pending: 0 }), [rows]);
+    paid: s.paid + (r.payment ? 1 : 0),
+  }), { base: 0, added: 0, deducted: 0, net: 0, pending: 0, paid: 0 }), [rows]);
 
   const q = search.trim().toLowerCase();
   const shown = q ? rows.filter(r => r.e.name.toLowerCase().includes(q) || (r.e.phone_number ?? "").includes(q)) : rows;
@@ -66,8 +73,12 @@ export default function SalaryPage() {
             <h1 className="text-2xl font-bold text-slate-900">{t("title")}</h1>
             <p className="text-slate-400 text-sm mt-0.5">{t("subtitle")}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <DebtLangToggle />
+            <button onClick={() => setShowExport(true)}
+              className="flex items-center gap-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 font-semibold rounded-xl px-3.5 py-2 text-sm">
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> {t("exportBtn")}
+            </button>
             <button onClick={() => setShowCreate(true)}
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl px-4 py-2 text-sm transition-all">
               <Plus className="w-4 h-4" /> {t("newEmployee")}
@@ -112,6 +123,9 @@ export default function SalaryPage() {
             <div key={label} className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
               <p className={`text-lg md:text-xl font-black tabular-nums mt-1 ${color}`}>{mmkFmt(value)}</p>
+              {label === t("totalNet") && employees.length > 0 && (
+                <p className="text-[11px] text-slate-500 mt-0.5" data-testid="salary-paid-count">{t("paidCount", { p: totals.paid, n: employees.length })}</p>
+              )}
             </div>
           ))}
         </div>
@@ -147,7 +161,7 @@ export default function SalaryPage() {
             </div>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {shown.map(({ e, sum, pending }) => (
+              {shown.map(({ e, sum, pending, payment }) => (
                 <li key={e.id}>
                   <button onClick={() => setSelectedId(e.id)} className="w-full text-left px-5 py-3.5 hover:bg-slate-50 transition-colors group">
                     <div className="md:grid md:grid-cols-[1fr_8rem_8rem_8rem_9rem_1.5rem] md:gap-3 md:items-center">
@@ -155,6 +169,11 @@ export default function SalaryPage() {
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-slate-900 truncate">{e.name}</p>
                           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            {payment && (
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-1.5 py-0.5 flex items-center gap-1">
+                                <CheckCircle2 className="w-2.5 h-2.5" /> {t("paidBadge")}
+                              </span>
+                            )}
                             {e.base_salary <= 0 && <span className="text-[10px] text-amber-700">{t("noBase")}</span>}
                             {pending > 0 && (
                               <span className="text-[10px] font-bold text-amber-800 bg-amber-100 rounded px-1.5 py-0.5 flex items-center gap-1">
@@ -186,6 +205,8 @@ export default function SalaryPage() {
         </div>
       </div>
 
+      {showExport && <SalaryExportDialog onClose={() => setShowExport(false)} />}
+
       {showCreate && <CreateEmployeeDialog onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); load(); }} />}
 
       {selected && (
@@ -193,6 +214,7 @@ export default function SalaryPage() {
           employee={selected}
           month={month}
           items={byEmployee.get(selected.id) ?? []}
+          payment={payments.find(p => p.profile_id === selected.id) ?? null}
           onMonthChange={d => setMonth(m => shiftMonth(m, d))}
           onChanged={load}
           onClose={() => setSelectedId(null)}
@@ -207,6 +229,7 @@ function CreateEmployeeDialog({ onClose, onCreated }: { onClose: () => void; onC
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [base, setBase] = useState("");
+  const [staffEmail, setStaffEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -215,7 +238,7 @@ function CreateEmployeeDialog({ onClose, onCreated }: { onClose: () => void; onC
     if (!name.trim()) { setError(t("nameRequired")); return; }
     setBusy(true);
     setError("");
-    const err = await createEmployee(name, phone, Number(base) || 0, todayKey());
+    const err = await createEmployee(name, phone, Number(base) || 0, todayKey(), staffEmail);
     setBusy(false);
     if (err) setError(err);
     else onCreated();
@@ -236,6 +259,9 @@ function CreateEmployeeDialog({ onClose, onCreated }: { onClose: () => void; onC
           <input id="sal-new-phone" className={inputCls} value={phone} onChange={e => setPhone(e.target.value)} inputMode="tel" /></div>
         <div><label className={labelCls} htmlFor="sal-new-base">{t("baseSalary")}</label>
           <input id="sal-new-base" className={inputCls} type="number" min="0" inputMode="numeric" value={base} onChange={e => setBase(e.target.value)} placeholder="0" /></div>
+        <div><label className={labelCls} htmlFor="sal-new-email">{t("staffEmail")} <span className="normal-case font-normal">{t("optional")}</span></label>
+          <input id="sal-new-email" className={inputCls} type="email" inputMode="email" autoComplete="off" value={staffEmail} onChange={e => setStaffEmail(e.target.value)} placeholder="name@stm" />
+          <p className="text-[11px] text-slate-400 mt-1">{t("staffEmailHelp")}</p></div>
         {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
         <button type="submit" disabled={busy}
           className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold rounded-xl py-3 text-sm">
