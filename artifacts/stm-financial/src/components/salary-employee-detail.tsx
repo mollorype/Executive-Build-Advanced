@@ -7,7 +7,7 @@ import { useDebtLang } from "@/lib/debt-i18n";
 import DebtLangToggle from "@/components/debt-lang-toggle";
 import { useSalaryT, typeLabel } from "@/lib/salary-i18n";
 import {
-  summarizeMonth, pendingItems, monthHistory, monthLabel, monthName, defaultDayIn, signedAmount,
+  summarizeMonth, pendingItems, monthHistory, monthLabel, monthName, defaultDayIn, signedAmount, dailyNote,
   type SalaryItem, type SalaryItemType,
 } from "@/lib/salary-math";
 import { addItem, decideItem, deleteItem, deleteEmployee, updateEmployee, type Employee } from "@/lib/salary";
@@ -194,6 +194,7 @@ export default function SalaryEmployeeDetail({ employee, month, items, onMonthCh
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-slate-900">{took ? t("tookCash") : t("paidBack")}</p>
+                          {dailyNote(p.label) && <p className="text-sm text-slate-700 mt-0.5 break-words">“{dailyNote(p.label)}”</p>}
                           <p className="text-xs text-slate-500 mt-0.5">{fmtDay(p.date)}{p.reported_by ? ` · ${t("byStaff", { name: p.reported_by })}` : ""}</p>
                         </div>
                         <p className={`text-sm font-bold tabular-nums whitespace-nowrap ${took ? "text-red-600" : "text-teal-700"}`}>{took ? "−" : "+"}{mmkFmt(p.amount)}</p>
@@ -264,7 +265,9 @@ export default function SalaryEmployeeDetail({ employee, month, items, onMonthCh
                         </div>
                         <p className="text-xs text-slate-500 mt-1">
                           {fmtDay(h.date)}
-                          {h.source === "daily_app" && h.reported_by ? ` · ${t("byStaff", { name: h.reported_by })}` : h.label ? ` · ${h.label}` : ""}
+                          {h.source === "daily_app"
+                            ? `${dailyNote(h.label) ? ` · ${dailyNote(h.label)}` : ""}${h.reported_by ? ` · ${t("byStaff", { name: h.reported_by })}` : ""}`
+                            : h.label ? ` · ${h.label}` : ""}
                           {h.decided_by ? ` · ${t("decidedBy", { who: h.decided_by })}` : ""}
                         </p>
                       </div>

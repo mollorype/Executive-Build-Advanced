@@ -29,6 +29,14 @@ export type SalaryItem = {
 
 const ADDS = new Set<SalaryItemType>(["Overtime", "Bonus", "Refund"]);
 
+const DEFAULT_DAILY_NOTE = "Payment via Daily Shift";
+
+/** What staff typed for an STM Daily entry ("<note> — <staff>"), or null for the default wording. */
+export function dailyNote(label: string | null): string | null {
+  const what = (label ?? "").split(" — ")[0].trim();
+  return what && what !== DEFAULT_DAILY_NOTE ? what : null;
+}
+
 export const isAddition = (type: SalaryItemType) => ADDS.has(type);
 
 /** + for money added to pay, − for money taken off. */

@@ -36,6 +36,8 @@ export const COLS = {
 export type ExpenseItem = {
   name: string;
   amount: number;
+  /** Optional note typed in STM Daily. */
+  note?: string;
 };
 
 export function mapRowToShift(row: Record<string, unknown>): Shift {
@@ -43,9 +45,13 @@ export function mapRowToShift(row: Record<string, unknown>): Shift {
   const breakdownRaw = row[COLS.EXPENSES_BREAKDOWN];
   let expenses_breakdown: ExpenseItem[] | null = null;
   if (Array.isArray(breakdownRaw) && breakdownRaw.length > 0) {
-    expenses_breakdown = (breakdownRaw as Array<{ name: string; amount: number }>)
+    expenses_breakdown = (breakdownRaw as Array<{ name: string; amount: number; note?: unknown }>)
       .filter(item => item && typeof item.name === "string")
-      .map(item => ({ name: item.name, amount: Number(item.amount) || 0 }));
+      .map(item => ({
+        name: item.name,
+        amount: Number(item.amount) || 0,
+        ...(typeof item.note === "string" && item.note.trim() ? { note: item.note.trim() } : {}),
+      }));
   }
 
   return {

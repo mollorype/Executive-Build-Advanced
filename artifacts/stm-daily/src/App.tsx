@@ -27,7 +27,7 @@ type Screen = "login" | "checking" | "denied" | "mode-select" | "form" | "confir
 /** `auto` names the box that was calculated rather than typed (see linkFields). */
 interface FuelRow { totalAmount: string; price: string; liters: string; auto?: "totalAmount" | "liters" | null; }
 interface DieselRow { cash: string; price: string; }
-interface ExpenseItem { name: string; amount: string; profileId?: string; txnType?: "payment" | "debt"; }
+interface ExpenseItem { name: string; amount: string; profileId?: string; txnType?: "payment" | "debt"; note?: string; }
 type PipaProduct = "92" | "95" | "PD" | "D";
 interface PipaItem { product: PipaProduct; containers: string; price: string; total: string; auto?: "containers" | "total" | null; }
 interface JellyCanItem { product: PipaProduct; pieces: string; liters: string; price: string; total: string; auto?: "pieces" | "total" | null; }
@@ -152,6 +152,8 @@ const STRINGS = {
   pricePerL:            { en: "Price / L", my: "တစ်လီတာ ဈေး" },
   cashSummary:          { en: "Cash Summary", my: "ငွေသား အကျဉ်းချုပ်" },
   expenseSearchPh:      { en: "Search a profile or type a new name…", my: "အမည် ရှာပါ (သို့) အမည်သစ် ရိုက်ပါ…" },
+  expenseNote:          { en: "Note (optional)", my: "မှတ်ချက် (မထည့်လည်းရ)" },
+  expenseNotePh:        { en: "e.g. fuel, advance, repair", my: "ဥပမာ ဆီဖိုး၊ ကြိုထုတ်ငွေ၊ ပြင်ဆင်ခ" },
   linked:               { en: "LINKED", my: "ချိတ်ပြီး" },
   debtProfiles:         { en: "Debt Profiles", my: "အကြွေးစာရင်းများ" },
   add:                  { en: "Add", my: "ထည့်" },
@@ -751,6 +753,7 @@ function ExpensesPanel({ items, onChange, lang }: {
 }) {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
   const [profileId, setProfileId] = useState<string | undefined>(undefined);
   const [txnType, setTxnType] = useState<"payment" | "debt">("debt");
   const [hits, setHits] = useState<ProfileHit[]>([]);
@@ -795,8 +798,9 @@ function ExpensesPanel({ items, onChange, lang }: {
 
   function addItem() {
     if (!name.trim() || !amount.trim()) return;
-    onChange([...items, { name: name.trim(), amount: amount.trim(), profileId, txnType: profileId ? txnType : undefined }]);
-    setName(""); setAmount(""); setProfileId(undefined); setTxnType("debt"); setHits([]); setShowDrop(false);
+    const cleanNote = note.trim();
+    onChange([...items, { name: name.trim(), amount: amount.trim(), profileId, txnType: profileId ? txnType : undefined, ...(cleanNote ? { note: cleanNote } : {}) }]);
+    setName(""); setAmount(""); setNote(""); setProfileId(undefined); setTxnType("debt"); setHits([]); setShowDrop(false);
   }
 
   function removeItem(idx: number) { onChange(items.filter((_, i) => i !== idx)); }
@@ -808,7 +812,7 @@ function ExpensesPanel({ items, onChange, lang }: {
     <div className="flex flex-col gap-3">
       {/* Phones: the name/profile search gets its own full-width row, with Amount + Add
           below it. sm+: one row, as before ("sm:contents" dissolves the inner wrapper). */}
-      <div className="flex flex-col sm:flex-row gap-2">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
         {/* Name / search combobox */}
         <div className="flex-1 min-w-0 flex flex-col gap-1.5 relative" ref={wrapRef}>
           <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "expenseName")}</label>
@@ -853,6 +857,22 @@ function ExpensesPanel({ items, onChange, lang }: {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Optional note — saved with the entry (and on the linked profile) instead of only the name.
+            Phones: right under the name; sm+: its own full-width row under name / amount / add. */}
+        <div className="flex flex-col gap-1.5 sm:order-last sm:basis-full">
+          <label htmlFor="expense-note" className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "expenseNote")}</label>
+          <input
+            id="expense-note"
+            type="text"
+            value={note}
+            maxLength={200}
+            onChange={e => setNote(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && addItem()}
+            placeholder={t(lang, "expenseNotePh")}
+            className="w-full rounded-xl border px-3 py-3 text-sm font-medium outline-none bg-[#0d1117] text-white placeholder:text-gray-700 border-[#30363d] focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+          />
         </div>
 
         <div className="flex gap-2 sm:contents">
@@ -926,7 +946,10 @@ function ExpensesPanel({ items, onChange, lang }: {
           {items.map((item, idx) => (
             <div key={idx} className={["flex items-center justify-between px-4 py-2.5 text-sm bg-[#161b22]", idx > 0 ? "border-t border-[#30363d]" : ""].join(" ")}>
               <div className="flex items-center gap-2 min-w-0">
-                <span className="font-medium text-gray-300 truncate">{item.name}</span>
+                <div className="min-w-0">
+                  <span className="block font-medium text-gray-300 truncate">{item.name}</span>
+                  {item.note && <span className="block text-[11px] text-gray-500 truncate">{item.note}</span>}
+                </div>
                 {item.profileId && (
                   <span className={`text-[9px] font-bold rounded px-1 py-0.5 shrink-0 ${
                     item.txnType === "debt" ? "bg-red-500/20 text-red-400" : "bg-emerald-500/20 text-emerald-400"
@@ -1519,8 +1542,8 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
             <div className="px-4 py-3 border-b border-[#30363d]"><h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">{t(lang, "expenses")}</h3></div>
             <div className="divide-y divide-[#30363d]">
               {form.expenses.map((exp, idx) => (
-                <div key={idx} className="px-4 py-3 flex justify-between text-sm">
-                  <span className="text-gray-400">{exp.name}</span>
+                <div key={idx} className="px-4 py-3 flex justify-between gap-3 text-sm">
+                  <span className="text-gray-400 min-w-0">{exp.name}{exp.note && <span className="block text-[11px] text-gray-500 break-words">{exp.note}</span>}</span>
                   <span className={`font-semibold ${exp.txnType === "payment" ? "text-emerald-400" : "text-red-400"}`}>
                     {exp.txnType === "payment" ? "+" : "−"}{fmt(n(exp.amount))} MMK
                   </span>
@@ -2005,7 +2028,7 @@ export default function App() {
       },
       total_expenses:  totalExp,
       expenses_breakdown: formData.expenses
-        .map(e => ({ name: e.name.trim(), amount: n(e.amount) }))
+        .map(e => ({ name: e.name.trim(), amount: n(e.amount), ...(e.note?.trim() ? { note: e.note.trim() } : {}) }))
         .filter(e => e.name.length > 0 || e.amount > 0),
       expected_total:  cashGrandTotal - totalExp,
       actual_cash:     actualCash,
@@ -2044,6 +2067,7 @@ export default function App() {
         profileId: expense.profileId!,
         amount: n(expense.amount),
         txnType: expense.txnType === "payment" ? "payment" : "debt",
+        ...(expense.note?.trim() ? { note: expense.note.trim() } : {}),
         txnNumber: `TXN-${d}-${Math.floor(Math.random() * 90000) + 10000}`,
         localDateTimeStr,
         employeeName,

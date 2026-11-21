@@ -275,10 +275,13 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
                 {/* Itemized list */}
                 <div className="divide-y divide-slate-100">
                   {shift.expenses_breakdown!.map((item, i) => (
-                    <div key={i} className="px-4 py-3 flex items-center justify-between text-sm">
-                      <span className="text-slate-700 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-pale-gold-foreground/70 shrink-0" />
-                        {item.name}
+                    <div key={i} className="px-4 py-3 flex items-center justify-between gap-3 text-sm">
+                      <span className="text-slate-700 flex items-start gap-2 min-w-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-pale-gold-foreground/70 shrink-0 mt-1.5" />
+                        <span className="min-w-0">
+                          {item.name}
+                          {item.note && <span className="block text-xs text-slate-500 break-words">{item.note}</span>}
+                        </span>
                       </span>
                       <span className="text-pale-gold-foreground font-semibold tabular-nums">
                         {new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(item.amount)} MMK

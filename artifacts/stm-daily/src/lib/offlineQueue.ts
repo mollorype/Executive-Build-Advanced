@@ -23,6 +23,8 @@ export interface LinkedExpensePayload {
   profileId: string;
   amount: number;
   txnType: "payment" | "debt";
+  /** Typed by staff; saved on the linked profile instead of the default wording. */
+  note?: string;
   txnNumber: string;
   localDateTimeStr: string;
   employeeName: string;
@@ -125,6 +127,15 @@ export function getItemStatus(id: string): QueueStatus {
 // debt_profiles/debt_transactions. The insert + balance/score adjustment is
 // done by a narrow SECURITY DEFINER RPC instead, which applies the balance
 // as a server-computed delta so a caller can't set an absolute balance.
+/**
+ * "<what> — <staff name>". The part after " — " is who recorded it: the salary
+ * function reads it as the reporter, so a " — " inside the note is softened.
+ */
+export function linkedNote(note: string | undefined, employeeName: string): string {
+  const what = (note ?? "").replace(/\s+—\s+/g, " - ").trim().slice(0, 200) || "Payment via Daily Shift";
+  return `${what} — ${employeeName}`;
+}
+
 async function replayLinkedExpenses(linkedExpenses: LinkedExpensePayload[]) {
   for (const expense of linkedExpenses) {
     const paymentAmt = expense.txnType === "debt" ? expense.amount : -expense.amount;
@@ -133,7 +144,7 @@ async function replayLinkedExpenses(linkedExpenses: LinkedExpensePayload[]) {
       p_profile_id: expense.profileId,
       p_amount: paymentAmt,
       p_transaction_number: expense.txnNumber,
-      p_note: `Payment via Daily Shift — ${expense.employeeName}`,
+      p_note: linkedNote(expense.note, expense.employeeName),
       p_date: expense.localDateTimeStr,
     });
   }
