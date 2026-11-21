@@ -78,6 +78,8 @@ export const DEBT_TABLES = {
 
 export type DebtRelation = "Friends" | "Family" | "Own" | "Contract" | "Vendor" | "Employee" | "On Paper" | "Other";
 export const RELATIONS: DebtRelation[] = ["Friends", "Family", "Own", "Contract", "Vendor", "Employee", "On Paper", "Other"];
+/** Relations offered in the Debt Tracker — employees live on the Salary page instead. */
+export const DEBT_RELATIONS: DebtRelation[] = RELATIONS.filter(r => r !== "Employee");
 
 /** Simple-expense flow: no fuel/product fields. */
 export const NO_SCORE_RELATIONS = new Set<DebtRelation>(["Own", "Family", "On Paper"]);
@@ -116,20 +118,19 @@ export function computeReceivables(
 }
 
 /** Debt Tracker tab grouping — also used by the Dashboard's "Debt by Category" chart. */
-export type DebtCategoryId = "normal" | "own_family" | "on_paper" | "employees";
+// Employees aren't a debt category any more: they have their own Salary page.
+export type DebtCategoryId = "normal" | "own_family" | "on_paper";
 
 export const DEBT_CATEGORY_RELATIONS: Record<DebtCategoryId, DebtRelation[]> = {
   normal:     ["Friends", "Contract", "Vendor", "Other"],
   own_family: ["Own", "Family"],
   on_paper:   ["On Paper"],
-  employees:  ["Employee"],
 };
 
 export const DEBT_CATEGORY_LABELS: Record<DebtCategoryId, string> = {
   normal:     "Normal / Other",
   own_family: "Own & Family",
   on_paper:   "On Paper",
-  employees:  "Employees",
 };
 
 export type DebtTransaction = {

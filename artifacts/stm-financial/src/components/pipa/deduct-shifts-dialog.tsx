@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase, TABLES, COLS, mapRowToShift, type Shift } from "@/lib/supabase";
 import { shiftVolume } from "@/lib/fifo-engine";
 import {
-  DEFAULT_LITERS_PER_PIPA, PIPA_DEDUCTIONS_TABLE, PIPA_PRODUCTS, PRODUCT_LABELS,
+  DEFAULT_LITERS_PER_PIPA, PIPA_DEDUCTIONS_TABLE, PIPA_PRODUCTS,
   fmtLiters, fmtPipas, round3, type PipaProduct,
 } from "@/lib/pipa-ledger";
 import PipaModal, { ErrorNote, primaryBtn } from "./modal";
 import { Loader2 } from "lucide-react";
+import { usePipaT, pipaProduct } from "@/lib/pipa-i18n";
 
 const RECENT_SHIFTS = 100;
 
@@ -18,6 +19,7 @@ type Row = { shift: Shift; liters: Record<PipaProduct, number> };
  * engine's own per-shift litre count (pumps + whole pipas sold + jelly cans).
  */
 export default function DeductShiftsDialog({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const tr = usePipaT();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -65,7 +67,7 @@ export default function DeductShiftsDialog({ onClose, onSaved }: { onClose: () =
     setBusy(false);
     if (err) {
       setError(err.code === "23505"
-        ? "One of these shifts was already deducted (perhaps from another device). Close this and try again."
+        ? tr("alreadyDeducted")
         : err.message);
       return;
     }
@@ -78,29 +80,29 @@ export default function DeductShiftsDialog({ onClose, onSaved }: { onClose: () =
 
   return (
     <PipaModal
-      title="Deduct shift sales"
-      subtitle="Takes the litres sold in these shifts out of pipa stock. Each shift can only be deducted once."
+      title={tr("deductTitle")}
+      subtitle={tr("deductSub")}
       onClose={onClose}
       footer={rows && rows.length > 0 ? (
         <button type="button" onClick={deduct} disabled={busy || selected.size === 0 || !anyLiters} className={primaryBtn}>
           {busy && <Loader2 className="w-4 h-4 animate-spin" />}
-          Deduct {selected.size} shift{selected.size === 1 ? "" : "s"} from stock
+          {tr("deductN", { n: selected.size })}
         </button>
       ) : undefined}
     >
       {rows === null ? (
         <div className="py-8 text-center"><Loader2 className="w-6 h-6 text-blue-500/50 animate-spin mx-auto" /></div>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-slate-500 text-center py-6">{error ? "" : "Every recent shift has already been deducted."}</p>
+        <p className="text-sm text-slate-500 text-center py-6">{error ? "" : tr("allDeducted")}</p>
       ) : (
         <>
           <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Will be deducted</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">{tr("willDeduct")}</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
               {PIPA_PRODUCTS.map(p => (
                 <div key={p} className="text-sm">
-                  <span className="text-slate-600">{PRODUCT_LABELS[p]}: </span>
-                  <span className="font-semibold text-slate-900">{fmtPipas(round3(totals[p] / DEFAULT_LITERS_PER_PIPA))} pipa</span>
+                  <span className="text-slate-600">{pipaProduct(tr, p)}: </span>
+                  <span className="font-semibold text-slate-900">{fmtPipas(round3(totals[p] / DEFAULT_LITERS_PER_PIPA))} P-P</span>
                   <span className="text-slate-400 text-xs"> ({fmtLiters(totals[p])})</span>
                 </div>
               ))}
@@ -110,11 +112,11 @@ export default function DeductShiftsDialog({ onClose, onSaved }: { onClose: () =
             {rows.map(({ shift, liters }) => (
               <label key={shift.id} className="flex items-start gap-3 px-3 py-2.5 cursor-pointer">
                 <input type="checkbox" checked={selected.has(shift.id)} onChange={() => toggle(shift.id)}
-                  className="mt-1 w-4 h-4 accent-blue-600" aria-label={`Include shift ${fmtWhen(shift.created_at)}`} />
+                  className="mt-1 w-4 h-4 accent-blue-600" aria-label={tr("includeShift", { when: fmtWhen(shift.created_at) })} />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-slate-900">{fmtWhen(shift.created_at)} · <span className="capitalize">{shift.employee_username || "—"}</span></p>
                   <p className="text-xs text-slate-500">
-                    {PIPA_PRODUCTS.filter(p => liters[p] > 0).map(p => `${PRODUCT_LABELS[p]} ${fmtLiters(liters[p])}`).join(" · ") || "No fuel litres"}
+                    {PIPA_PRODUCTS.filter(p => liters[p] > 0).map(p => `${pipaProduct(tr, p)} ${fmtLiters(liters[p])}`).join(" · ") || tr("noFuel")}
                   </p>
                 </div>
               </label>

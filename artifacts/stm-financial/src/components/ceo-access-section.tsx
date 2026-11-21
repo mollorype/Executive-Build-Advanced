@@ -1,6 +1,36 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Crown, Eye, EyeOff, Loader2, RefreshCw, Trash2, UserPlus, X } from "lucide-react";
+import { makeT } from "@/lib/app-i18n";
+
+const useT = makeT({
+  unreachable: { en: "Couldn't reach the server. Check your connection and try again.", my: "server ကို မချိတ်နိုင်ပါ။ အင်တာနက် စစ်ပြီး ထပ်ကြိုးစားပါ။" },
+  owners: { en: "Owners", my: "ပိုင်ရှင်များ" },
+  refresh: { en: "Refresh owner list", my: "ပိုင်ရှင် စာရင်း ပြန်ဖွင့်ရန်" },
+  addOwner: { en: "Add Owner", my: "ပိုင်ရှင် ထည့်ရန်" },
+  you: { en: "YOU", my: "သင်" },
+  noLogin: { en: "No login yet", my: "login မရှိသေး" },
+  lastSignIn: { en: "Last sign-in {date}", my: "နောက်ဆုံး ဝင်ခဲ့ချိန် {date}" },
+  never: { en: "Never signed in", my: "တစ်ခါမျှ မဝင်ရသေး" },
+  removeFor: { en: "Remove owner access for {email}", my: "{email} ၏ ပိုင်ရှင် ခွင့်ပြုချက် ဖယ်ရန်" },
+  remove: { en: "Remove owner access", my: "ပိုင်ရှင် ခွင့်ပြုချက် ဖယ်ရန်" },
+  already: { en: "{who} is already an owner.", my: "{who} သည် ပိုင်ရှင် ဖြစ်ပြီးသား ဖြစ်သည်။" },
+  created: { en: "{who} is now an owner. Give them the temporary password; they should change it from Menu → Change password.", my: "{who} ယခု ပိုင်ရှင် ဖြစ်ပါပြီ။ ယာယီ password ကို ပေးပါ၊ Menu → Password ပြောင်းရန် မှ ပြောင်းသင့်သည်။" },
+  existing: { en: "{who} is now an owner and can sign in with their existing password.", my: "{who} ယခု ပိုင်ရှင် ဖြစ်ပြီး လက်ရှိ password ဖြင့် ဝင်နိုင်သည်။" },
+  removed: { en: "{who} no longer has owner access.", my: "{who} တွင် ပိုင်ရှင် ခွင့်ပြုချက် မရှိတော့ပါ။" },
+  hide: { en: "Hide passwords", my: "password ဖျောက်ရန်" },
+  show: { en: "Show passwords", my: "password ပြရန်" },
+  addTitle: { en: "Add an owner", my: "ပိုင်ရှင် ထည့်ရန်" },
+  addDesc: { en: "An owner can see and change everything in STM Financial.", my: "ပိုင်ရှင်သည် STM Financial ရှိ အားလုံးကို ကြည့်ပြီး ပြင်နိုင်သည်။" },
+  removeDesc: { en: "{email} will lose owner access straight away. Their login isn't deleted.", my: "{email} ၏ ပိုင်ရှင် ခွင့်ပြုချက် ချက်ချင်း ပျောက်ပါမည်။ login ကို မဖျက်ပါ။" },
+  close: { en: "Close", my: "ပိတ်ရန်" },
+  theirEmail: { en: "Their email", my: "သူ၏ email" },
+  tempPw: { en: "Temporary password for them", my: "သူ့အတွက် ယာယီ password" },
+  atLeast8: { en: "At least 8 characters", my: "အနည်းဆုံး စာလုံး ၈ လုံး" },
+  tempHelp: { en: "Only used if this email doesn't have a login yet. Tell it to them in person.", my: "ဤ email တွင် login မရှိသေးမှသာ သုံးပါမည်။ လူကိုယ်တိုင် ပြောပြပါ။" },
+  yourPw: { en: "Your password, to confirm", my: "အတည်ပြုရန် သင့် password" },
+  notified: { en: "Every owner connected to Telegram is notified of this change.", my: "Telegram ချိတ်ထားသော ပိုင်ရှင်အားလုံးထံ ဤပြောင်းလဲမှုကို အသိပေးပါမည်။" },
+});
 
 type Ceo = { email: string; added_at: string; has_login: boolean; last_sign_in: string | null; is_you: boolean };
 type Dialog = { mode: "add" } | { mode: "remove"; email: string } | null;
@@ -9,7 +39,7 @@ type Dialog = { mode: "add" } | { mode: "remove"; email: string } | null;
 async function callCeoAccess(body: Record<string, unknown>): Promise<{ ceos?: Ceo[]; created?: boolean; already?: boolean }> {
   const { data, error } = await supabase.functions.invoke("ceo-access", { body });
   if (error) {
-    let message = "Couldn't reach the server. Check your connection and try again.";
+    let message = "";   // empty → the screen shows its own (translated) message
     try {
       const b = await (error as { context?: Response }).context?.json();
       if (b?.error) message = b.error;
@@ -29,6 +59,7 @@ const inputCls =
  * password on every change, and announces changes on Telegram.
  */
 export default function CeoAccessSection() {
+  const t = useT();
   const [ceos, setCeos] = useState<Ceo[] | null>(null);
   const [loadError, setLoadError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -42,11 +73,11 @@ export default function CeoAccessSection() {
       setCeos(list ?? []);
       setLoadError("");
     } catch (e) {
-      setLoadError((e as Error).message);
+      setLoadError((e as Error).message || t("unreachable"));
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -54,18 +85,18 @@ export default function CeoAccessSection() {
     <div className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
       <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-2">
         <span className="text-slate-900 font-semibold text-sm">
-          CEOs
+          {t("owners")}
           {ceos && ceos.length > 0 && (
             <span className="ml-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-full px-2 py-0.5">{ceos.length}</span>
           )}
         </span>
         <div className="flex items-center gap-3">
-          <button onClick={load} disabled={refreshing} aria-label="Refresh CEO list" className="text-slate-400 hover:text-slate-600">
+          <button onClick={load} disabled={refreshing} aria-label={t("refresh")} className="text-slate-400 hover:text-slate-600">
             <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
           </button>
           <button onClick={() => { setNotice(""); setDialog({ mode: "add" }); }} disabled={!ceos}
             className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-bold rounded-lg px-3 py-2">
-            <UserPlus className="w-3.5 h-3.5" /> Add CEO
+            <UserPlus className="w-3.5 h-3.5" /> {t("addOwner")}
           </button>
         </div>
       </div>
@@ -87,16 +118,16 @@ export default function CeoAccessSection() {
                 <div className="min-w-0">
                   <p className="text-sm text-slate-900 font-medium truncate">
                     {c.email}
-                    {c.is_you && <span className="ml-2 text-[10px] font-bold text-pale-blue-foreground bg-pale-blue rounded px-1.5 py-0.5 align-middle">YOU</span>}
+                    {c.is_you && <span className="ml-2 text-[10px] font-bold text-pale-blue-foreground bg-pale-blue rounded px-1.5 py-0.5 align-middle">{t("you")}</span>}
                   </p>
                   <p className="text-xs text-slate-400">
-                    {!c.has_login ? "No login yet" : c.last_sign_in ? `Last sign-in ${fmtDay(c.last_sign_in)}` : "Never signed in"}
+                    {!c.has_login ? t("noLogin") : c.last_sign_in ? t("lastSignIn", { date: fmtDay(c.last_sign_in) }) : t("never")}
                   </p>
                 </div>
               </div>
               {!c.is_you && (
                 <button onClick={() => { setNotice(""); setDialog({ mode: "remove", email: c.email }); }}
-                  aria-label={`Remove CEO access for ${c.email}`} title="Remove CEO access"
+                  aria-label={t("removeFor", { email: c.email })} title={t("remove")}
                   className="shrink-0 text-slate-300 hover:text-red-500 p-1">
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -122,6 +153,7 @@ function CeoChangeDialog({ dialog, onClose, onDone }: {
   onClose: () => void;
   onDone: (ceos: Ceo[], message: string) => void;
 }) {
+  const t = useT();
   const adding = dialog.mode === "add";
   const [email, setEmail] = useState(adding ? "" : dialog.email);
   const [tempPassword, setTempPassword] = useState("");
@@ -140,18 +172,18 @@ function CeoChangeDialog({ dialog, onClose, onDone }: {
         : { action: "remove", email, current_password: password });
       const who = email.trim().toLowerCase();
       onDone(res.ceos ?? [], adding
-        ? res.already ? `${who} is already a CEO.`
-          : res.created ? `${who} is now a CEO. Give them the temporary password; they should change it from Menu → Change password.`
-          : `${who} is now a CEO and can sign in with their existing password.`
-        : `${who} no longer has CEO access.`);
+        ? res.already ? t("already", { who })
+          : res.created ? t("created", { who })
+          : t("existing", { who })
+        : t("removed", { who }));
     } catch (err) {
-      setError((err as Error).message);
+      setError((err as Error).message || t("unreachable"));
       setBusy(false);
     }
   }
 
   const eye = (
-    <button type="button" onClick={() => setShow(s => !s)} aria-label={show ? "Hide passwords" : "Show passwords"}
+    <button type="button" onClick={() => setShow(s => !s)} aria-label={show ? t("hide") : t("show")}
       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
       {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
     </button>
@@ -165,14 +197,14 @@ function CeoChangeDialog({ dialog, onClose, onDone }: {
         className="relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow p-5 space-y-4 max-h-[92vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 id="ceo-dlg-title" className="text-slate-900 font-bold text-base">{adding ? "Add a CEO" : "Remove CEO access"}</h2>
+            <h2 id="ceo-dlg-title" className="text-slate-900 font-bold text-base">{adding ? t("addTitle") : t("remove")}</h2>
             <p className="text-slate-500 text-xs mt-0.5">
               {adding
-                ? "A CEO can see and change everything in STM Financial."
-                : `${dialog.email} will lose CEO access straight away. Their login isn't deleted.`}
+                ? t("addDesc")
+                : t("removeDesc", { email: dialog.email })}
             </p>
           </div>
-          <button type="button" onClick={onClose} disabled={busy} aria-label="Close" className="p-1.5 -m-1.5 rounded-lg text-slate-500 hover:bg-slate-100">
+          <button type="button" onClick={onClose} disabled={busy} aria-label={t("close")} className="p-1.5 -m-1.5 rounded-lg text-slate-500 hover:bg-slate-100">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -180,30 +212,30 @@ function CeoChangeDialog({ dialog, onClose, onDone }: {
         {adding && (
           <>
             <div>
-              <label htmlFor="ceo-email" className={label}>Their email</label>
+              <label htmlFor="ceo-email" className={label}>{t("theirEmail")}</label>
               <input id="ceo-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus
                 className={inputCls} placeholder="name@gmail.com" />
             </div>
             <div>
-              <label htmlFor="ceo-temp" className={label}>Temporary password for them</label>
+              <label htmlFor="ceo-temp" className={label}>{t("tempPw")}</label>
               <div className="relative">
                 <input id="ceo-temp" type={show ? "text" : "password"} value={tempPassword} onChange={e => setTempPassword(e.target.value)}
-                  autoComplete="new-password" className={inputCls} placeholder="At least 8 characters" />
+                  autoComplete="new-password" className={inputCls} placeholder={t("atLeast8")} />
                 {eye}
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">Only used if this email doesn't have a login yet. Tell it to them in person.</p>
+              <p className="text-[11px] text-slate-400 mt-1">{t("tempHelp")}</p>
             </div>
           </>
         )}
 
         <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
-          <label htmlFor="ceo-mypw" className={label}>Your password, to confirm</label>
+          <label htmlFor="ceo-mypw" className={label}>{t("yourPw")}</label>
           <div className="relative">
             <input id="ceo-mypw" type={show ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
               autoComplete="current-password" required className={`${inputCls} bg-white`} />
             {eye}
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Every CEO connected to Telegram is notified of this change.</p>
+          <p className="text-[11px] text-slate-400 mt-1">{t("notified")}</p>
         </div>
 
         {error && <div role="alert" className="rounded-xl bg-pale-red border border-red-100 px-4 py-3 text-pale-red-foreground text-sm">{error}</div>}
@@ -211,7 +243,7 @@ function CeoChangeDialog({ dialog, onClose, onDone }: {
         <button type="submit" disabled={busy}
           className={`w-full flex items-center justify-center gap-2 disabled:opacity-50 text-white font-semibold rounded-xl py-3 text-sm ${adding ? "bg-blue-600 hover:bg-blue-500" : "bg-red-600 hover:bg-red-500"}`}>
           {busy && <Loader2 className="w-4 h-4 animate-spin" />}
-          {adding ? "Add CEO" : "Remove CEO access"}
+          {adding ? t("addOwner") : t("remove")}
         </button>
       </form>
     </div>

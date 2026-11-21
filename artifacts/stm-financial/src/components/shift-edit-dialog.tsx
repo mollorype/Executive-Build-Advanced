@@ -1,6 +1,38 @@
 import { useState } from "react";
 import { X, Save, AlertTriangle, CalendarDays, Plus } from "lucide-react";
-import { Shift, ExpenseItem, updateShift, updateDebtTransactionDates } from "@/lib/supabase";
+import { Shift, ExpenseItem, updateShift, updateDebtTransactionDates, pipaJellyCash } from "@/lib/supabase";
+import { makeT } from "@/lib/app-i18n";
+
+const useT = makeT({
+  editShift: { en: "Edit Shift", my: "ဆိုင်း ပြင်ရန်" },
+  close: { en: "Close panel", my: "ပိတ်ရန်" },
+  shiftDate: { en: "Shift Date", my: "ဆိုင်း ရက်စွဲ" },
+  fuel92: { en: "Fuel 92", my: "ဓာတ်ဆီ 92" },
+  fuel95: { en: "Fuel 95", my: "ဓာတ်ဆီ 95" },
+  pd: { en: "Premium Diesel", my: "ပရီမီယံ ဒီဇယ်" },
+  litersSold: { en: "Liters Sold", my: "ရောင်းလီတာ" },
+  pricePerL: { en: "Price / Liter", my: "လီတာ စျေး" },
+  total: { en: "Total: {n}", my: "စုစုပေါင်း: {n}" },
+  containers: { en: "Containers", my: "ပုံး အရေအတွက်" },
+  perPrice: { en: "Per Price", my: "တစ်ခု စျေး" },
+  dieselCash: { en: "Diesel Cash", my: "ဒီဇယ် ငွေသား" },
+  cashAmount: { en: "Cash Amount", my: "ငွေသား ပမာဏ" },
+  expenses: { en: "Operational Expenses", my: "လုပ်ငန်း ကုန်ကျစရိတ်" },
+  description: { en: "Description", my: "အကြောင်းအရာ" },
+  removeExpense: { en: "Remove expense {n}", my: "ကုန်ကျစရိတ် {n} ကို ဖယ်ရန်" },
+  addExpense: { en: "Add Expense", my: "ကုန်ကျစရိတ် ထည့်ရန်" },
+  cashSummary: { en: "Cash Summary", my: "ငွေသား အကျဉ်းချုပ်" },
+  grandTotal: { en: "Grand Total (Sales)", my: "ရောင်းအား စုစုပေါင်း" },
+  pjUnpaid: { en: "P-P / J-C not yet paid", my: "P-P / J-C မပေးရသေး" },
+  pjAdvance: { en: "P-P / J-C paid in advance", my: "P-P / J-C ကြိုတင်ပေးထား" },
+  totalExpenses: { en: "Total Expenses", my: "ကုန်ကျစရိတ် စုစုပေါင်း" },
+  expected: { en: "Expected Total", my: "ရှိရမည့်ငွေ" },
+  actual: { en: "Actual Collected", my: "ရရှိငွေ အမှန်" },
+  difference: { en: "Difference", my: "ကွာခြားချက်" },
+  cancel: { en: "Cancel", my: "မလုပ်တော့ပါ" },
+  saving: { en: "Saving…", my: "သိမ်းနေသည်…" },
+  save: { en: "Save Changes", my: "ပြင်ဆင်မှု သိမ်းရန်" },
+});
 
 type Props = {
   shift: Shift;
@@ -77,6 +109,7 @@ function mergeDateIntoISO(dateValue: string, originalISO: string): string {
 }
 
 export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
+  const t = useT();
   // Shift date
   const [shiftDate, setShiftDate] = useState(toDateValue(shift.created_at));
 
@@ -114,10 +147,14 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
   const tPipa = pipaUnchanged && shift.pipa_total != null ? shift.pipa_total : n(pipaAmt) * n(pipaPrice);
   const tJelly = (shift.jelly_can_items ?? []).reduce((s, i) => s + (i.total || 0), 0);
   const tDiesel = n(dieselCash);
-  // Every product, Pipa and Jelly Can included, is expected in cash — same as STM Daily.
+  // Every product is expected in cash — same as STM Daily. For Pipa + Jelly Can that is
+  // what was actually paid (partly paid / advance), kept in step if their total is edited.
   const grandTotal = t92 + t95 + tPD + tPipa + tJelly + tDiesel;
+  const pjPay = shift.pipa_jelly_payment;
+  const pjCash = pipaJellyCash(tPipa + tJelly, pjPay);
+  const pjAdjust = pjCash - (tPipa + tJelly);
   const totalExp = expenses.reduce((s, e) => s + (e.amount || 0), 0);
-  const netExpected = grandTotal - totalExp;
+  const netExpected = grandTotal + pjAdjust - totalExp;
   const diff = n(actualCash) - netExpected;
 
   function fmt(v: number) {
@@ -143,6 +180,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
       diesel_cash: n(dieselCash), diesel_price: shift.diesel_price ?? 0,
       pipa_items: shift.pipa_items ?? [],
       jelly_can_items: shift.jelly_can_items ?? [],
+      ...(pjPay ? { pipa_jelly_payment: { ...pjPay, total: tPipa + tJelly, cash: pjCash } } : {}),
       // Keep STM Daily's per-pump Fuel 92 split only while Fuel 92 is unchanged;
       // after an edit it would no longer add up, so it's dropped.
       ...(shift.fuel_92_pumps && f92l === fmtInput(shift.fuel_92_liters) && f92p === fmtInput(shift.fuel_92_price)
@@ -185,10 +223,10 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between z-10">
           <div>
-            <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-0.5">Edit Shift</p>
+            <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-0.5">{t("editShift")}</p>
             <h2 className="text-slate-900 font-bold text-base font-mono">#{String(shift.id).slice(0, 8).toUpperCase()}</h2>
           </div>
-          <button onClick={onClose} aria-label="Close panel" className="text-slate-500 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+          <button onClick={onClose} aria-label={t("close")} className="text-slate-500 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -205,7 +243,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
           <div className="flex flex-col gap-1 mb-2">
             <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
               <CalendarDays className="w-3.5 h-3.5" />
-              Shift Date
+              {t("shiftDate")}
             </label>
             <input
               type="date"
@@ -215,34 +253,34 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
             />
           </div>
 
-          <SectionTitle>Fuel 92</SectionTitle>
+          <SectionTitle>{t("fuel92")}</SectionTitle>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Liters Sold" value={f92l} onChange={setF92l} suffix="L" />
-            <Field label="Price / Liter" value={f92p} onChange={setF92p} prefix="K" hint={t92 > 0 ? `Total: ${fmt(t92)}` : undefined} />
+            <Field label={t("litersSold")} value={f92l} onChange={setF92l} suffix="L" />
+            <Field label={t("pricePerL")} value={f92p} onChange={setF92p} prefix="K" hint={t92 > 0 ? t("total", { n: fmt(t92) }) : undefined} />
           </div>
 
-          <SectionTitle>Fuel 95</SectionTitle>
+          <SectionTitle>{t("fuel95")}</SectionTitle>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Liters Sold" value={f95l} onChange={setF95l} suffix="L" />
-            <Field label="Price / Liter" value={f95p} onChange={setF95p} prefix="K" hint={t95 > 0 ? `Total: ${fmt(t95)}` : undefined} />
+            <Field label={t("litersSold")} value={f95l} onChange={setF95l} suffix="L" />
+            <Field label={t("pricePerL")} value={f95p} onChange={setF95p} prefix="K" hint={t95 > 0 ? t("total", { n: fmt(t95) }) : undefined} />
           </div>
 
-          <SectionTitle>Premium Diesel</SectionTitle>
+          <SectionTitle>{t("pd")}</SectionTitle>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Liters Sold" value={fPDl} onChange={setFPDl} suffix="L" />
-            <Field label="Price / Liter" value={fPDp} onChange={setFPDp} prefix="K" hint={tPD > 0 ? `Total: ${fmt(tPD)}` : undefined} />
+            <Field label={t("litersSold")} value={fPDl} onChange={setFPDl} suffix="L" />
+            <Field label={t("pricePerL")} value={fPDp} onChange={setFPDp} prefix="K" hint={tPD > 0 ? t("total", { n: fmt(tPD) }) : undefined} />
           </div>
 
-          <SectionTitle>Pipa</SectionTitle>
+          <SectionTitle>P-P</SectionTitle>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Containers" value={pipaAmt} onChange={setPipaAmt} suffix="ctn" />
-            <Field label="Price / Container" value={pipaPrice} onChange={setPipaPrice} prefix="K" hint={tPipa > 0 ? `Total: ${fmt(tPipa)}` : undefined} />
+            <Field label={t("containers")} value={pipaAmt} onChange={setPipaAmt} suffix="ctn" />
+            <Field label={t("perPrice")} value={pipaPrice} onChange={setPipaPrice} prefix="K" hint={tPipa > 0 ? t("total", { n: fmt(tPipa) }) : undefined} />
           </div>
 
-          <SectionTitle>Diesel Cash</SectionTitle>
-          <Field label="Cash Amount" value={dieselCash} onChange={setDieselCash} prefix="K" />
+          <SectionTitle>{t("dieselCash")}</SectionTitle>
+          <Field label={t("cashAmount")} value={dieselCash} onChange={setDieselCash} prefix="K" />
 
-          <SectionTitle>Operational Expenses</SectionTitle>
+          <SectionTitle>{t("expenses")}</SectionTitle>
           <div className="space-y-2">
             {expenses.map((e, i) => (
               <div key={i} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center">
@@ -250,7 +288,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
                   type="text"
                   value={e.name}
                   onChange={ev => updateExpense(i, "name", ev.target.value)}
-                  placeholder="Description"
+                  placeholder={t("description")}
                   className="rounded-lg border bg-white border-slate-100 text-slate-900 text-sm px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 placeholder:text-slate-400"
                 />
                 <div className="relative">
@@ -263,7 +301,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
                     className="w-28 rounded-lg border bg-white border-slate-100 text-slate-900 text-sm pl-7 pr-2 py-2.5 outline-none tabular-nums focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 placeholder:text-slate-400"
                   />
                 </div>
-                <button type="button" onClick={() => removeExpense(i)} aria-label={`Remove expense ${i + 1}`} className="text-slate-300 hover:text-red-500 transition-colors p-1">
+                <button type="button" onClick={() => removeExpense(i)} aria-label={t("removeExpense", { n: i + 1 })} className="text-slate-300 hover:text-red-500 transition-colors p-1">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -273,27 +311,33 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
               onClick={addExpense}
               className="text-xs font-semibold text-pale-blue-foreground hover:opacity-80 border border-slate-200 hover:border-blue-300 rounded-lg px-3 py-1.5 transition-all flex items-center gap-1"
             >
-              <Plus className="w-3.5 h-3.5" /> Add Expense
+              <Plus className="w-3.5 h-3.5" /> {t("addExpense")}
             </button>
           </div>
 
-          <SectionTitle>Cash Summary</SectionTitle>
+          <SectionTitle>{t("cashSummary")}</SectionTitle>
           <div className="bg-slate-50 border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-100 mb-4">
             <div className="px-4 py-2.5 flex justify-between text-sm">
-              <span className="text-slate-400">Grand Total (Sales)</span>
+              <span className="text-slate-400">{t("grandTotal")}</span>
               <span className="text-slate-900 font-medium tabular-nums">{fmt(grandTotal)}</span>
             </div>
+            {pjAdjust !== 0 && (
+              <div className="px-4 py-2.5 flex justify-between text-sm">
+                <span className="text-slate-400">{pjAdjust < 0 ? t("pjUnpaid") : t("pjAdvance")}</span>
+                <span className={`font-medium tabular-nums ${pjAdjust < 0 ? "text-amber-700" : "text-sky-700"}`}>{pjAdjust < 0 ? "−" : "+"}{fmt(Math.abs(pjAdjust))}</span>
+              </div>
+            )}
             <div className="px-4 py-2.5 flex justify-between text-sm">
-              <span className="text-slate-400">Total Expenses</span>
+              <span className="text-slate-400">{t("totalExpenses")}</span>
               <span className="text-pale-gold-foreground font-medium tabular-nums">{fmt(totalExp)}</span>
             </div>
             <div className="px-4 py-2.5 flex justify-between text-sm font-semibold">
-              <span className="text-slate-700">Expected Total</span>
+              <span className="text-slate-700">{t("expected")}</span>
               <span className="text-slate-900 tabular-nums">{fmt(netExpected)}</span>
             </div>
           </div>
 
-          <Field label="Actual Collected" value={actualCash} onChange={setActualCash} prefix="K" />
+          <Field label={t("actual")} value={actualCash} onChange={setActualCash} prefix="K" />
 
           {/* Difference preview */}
           <div className={`mt-3 rounded-xl px-4 py-3 flex justify-between items-center text-sm font-bold border ${
@@ -303,7 +347,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
               ? "bg-pale-green border-emerald-100 text-pale-green-foreground"
               : "bg-pale-gold border-amber-100 text-pale-gold-foreground"
           }`}>
-            <span>Difference</span>
+            <span>{t("difference")}</span>
             <span className="tabular-nums">{diff >= 0 ? "+" : ""}{fmt(diff)}</span>
           </div>
         </div>
@@ -314,7 +358,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
             onClick={onClose}
             className="flex-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 font-semibold rounded-xl py-2.5 text-sm transition-all"
           >
-            Cancel
+            {t("cancel")}
           </button>
           <button
             onClick={handleSave}
@@ -322,7 +366,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
             className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold rounded-xl py-2.5 text-sm transition-all"
           >
             <Save className="w-4 h-4" />
-            {saving ? "Saving…" : "Save Changes"}
+            {saving ? t("saving") : t("save")}
           </button>
         </div>
       </div>

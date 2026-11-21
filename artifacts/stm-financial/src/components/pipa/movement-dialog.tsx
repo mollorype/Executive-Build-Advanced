@@ -1,24 +1,13 @@
 import { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import {
-  DEFAULT_LITERS_PER_PIPA, FORM_KINDS, KIND_INFO, PIPA_MOVEMENTS_TABLE, PIPA_PRODUCTS, PRODUCT_LABELS,
+  DEFAULT_LITERS_PER_PIPA, FORM_KINDS, KIND_INFO, PIPA_MOVEMENTS_TABLE, PIPA_PRODUCTS,
   fmtLiters, fmtMMK, fmtPipas, outstandingFor, priceBreakdown, yangonToday,
   type MovementKind, type PipaProduct, type PipaStation, type PriceMode, type StationBalances,
 } from "@/lib/pipa-ledger";
 import PipaModal, { ErrorNote, fieldCls, labelCls, primaryBtn } from "./modal";
 import { Loader2 } from "lucide-react";
-
-const KIND_HELP: Record<MovementKind, string> = {
-  buy: "Pipas you bought from a station.",
-  borrow: "Pipas a station gave you, to return later.",
-  lend: "Pipas you gave a station, to get back later.",
-  borrow_returned: "Pipas you gave back to a station you borrowed from.",
-  lend_returned: "Pipas a station gave back to you.",
-  borrow_paid: "You paid cash instead of returning borrowed pipas.",
-  lend_paid: "A station paid you cash instead of returning pipas.",
-  used: "Pipas sold, or poured into the pumps.",
-  adjust: "",
-};
+import { usePipaT, pipaKind, pipaProduct } from "@/lib/pipa-i18n";
 
 export default function MovementDialog({ stations, balances, initialKind = "buy", initialStationId = "", onAddStation, onClose, onSaved }: {
   stations: PipaStation[];
@@ -29,12 +18,14 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const t = usePipaT();
   const [kind, setKind] = useState<MovementKind>(initialKind);
   const [stationId, setStationId] = useState(initialStationId);
   const [product, setProduct] = useState<PipaProduct>("92");
   const [pipas, setPipas] = useState("");
   const [occurredOn, setOccurredOn] = useState(yangonToday());
-  const [priceMode, setPriceMode] = useState<PriceMode>("per_pipa");
+  // Fuel is priced per litre, so that's the default; P-P price is one tap away.
+  const [priceMode, setPriceMode] = useState<PriceMode>("per_liter");
   const [unitPrice, setUnitPrice] = useState("");
   const [litersPerPipa, setLitersPerPipa] = useState(String(DEFAULT_LITERS_PER_PIPA));
   const [note, setNote] = useState("");
@@ -56,22 +47,22 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (info.station && !stationId) return setError("Choose a station.");
-    if (!(nPipas > 0)) return setError("Enter how many pipas (more than 0).");
-    if (!(nLiters > 0)) return setError("Pipa size must be more than 0 litres.");
+    if (info.station && !stationId) return setError(t("chooseStationErr"));
+    if (!(nPipas > 0)) return setError(t("pipasErr"));
+    if (!(nLiters > 0)) return setError(t("sizeErr"));
     if (cap != null && nPipas > cap + 1e-9) {
       return setError(cap === 0
-        ? `Nothing is owed for ${PRODUCT_LABELS[product]} with ${stationName}.`
-        : `Only ${fmtPipas(cap)} pipa(s) of ${PRODUCT_LABELS[product]} are owed with ${stationName}.`);
+        ? t("nothingOwed", { product: pipaProduct(t, product), station: stationName })
+        : t("onlyOwed", { n: fmtPipas(cap), product: pipaProduct(t, product), station: stationName }));
     }
-    if (info.price && (isNaN(nPrice) || nPrice < 0)) return setError("Enter the price.");
+    if (info.price && (isNaN(nPrice) || nPrice < 0)) return setError(t("priceErr"));
 
     setBusy(true);
     let poId: string | null = null;
     if (kind === "buy" && addToPO && price) {
       // Same shape the PO Registry's own "New PO" form inserts, in litres of the real fuel.
       const { data: po, error: poErr } = await supabase.from("fuel_purchase_orders").insert({
-        name: `Pipa · ${stationName} · ${occurredOn}`,
+        name: `P-P · ${stationName} · ${occurredOn}`,
         product_type: product,
         status: "QUEUED",
         initial_volume: price.liters,
@@ -81,7 +72,7 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
         is_verified: false,
         total_volume_sold: 0,
       }).select("id").single();
-      if (poErr) { setBusy(false); return setError(`Couldn't add the purchase order: ${poErr.message}`); }
+      if (poErr) { setBusy(false); return setError(t("poFailed", { msg: poErr.message })); }
       poId = po.id as string;
     }
 
@@ -112,31 +103,31 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
     `px-3 py-2 rounded-xl text-sm font-semibold border transition-colors ${active ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"}`;
 
   return (
-    <PipaModal title="Record pipa movement" subtitle={KIND_HELP[kind]} onClose={onClose}>
+    <PipaModal title={t("mvTitle")} subtitle={t(`help_${kind}`) || undefined} onClose={onClose}>
       <form id="pipa-movement" onSubmit={save} className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
           {FORM_KINDS.map(k => (
             <button key={k} type="button" onClick={() => { setKind(k); setError(""); }} className={chip(kind === k)}>
-              {KIND_INFO[k].label}
+              {pipaKind(t, k)}
             </button>
           ))}
         </div>
 
         {info.station && (
           <div>
-            <label htmlFor="mv-station" className={labelCls}>Station *</label>
+            <label htmlFor="mv-station" className={labelCls}>{t("station")}</label>
             {stations.length === 0 ? (
               <button type="button" onClick={onAddStation}
                 className="w-full text-sm font-semibold text-pale-blue-foreground bg-pale-blue rounded-xl py-2.5">
-                + Add your first station
+                {t("firstStation")}
               </button>
             ) : (
               <div className="flex gap-2">
                 <select id="mv-station" value={stationId} onChange={e => setStationId(e.target.value)} className={fieldCls}>
-                  <option value="">Choose…</option>
+                  <option value="">{t("choose")}</option>
                   {stations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
-                <button type="button" onClick={onAddStation} aria-label="Add station"
+                <button type="button" onClick={onAddStation} aria-label={t("addStation")}
                   className="shrink-0 px-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50">+</button>
               </div>
             )}
@@ -144,54 +135,55 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
         )}
 
         <div>
-          <span className={labelCls}>Fuel</span>
+          <span className={labelCls}>{t("fuel")}</span>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {PIPA_PRODUCTS.map(p => (
-              <button key={p} type="button" onClick={() => setProduct(p)} className={chip(product === p)}>{PRODUCT_LABELS[p]}</button>
+              <button key={p} type="button" onClick={() => setProduct(p)} className={chip(product === p)}>{pipaProduct(t, p)}</button>
             ))}
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="mv-pipas" className={labelCls}>Pipas *</label>
+            <label htmlFor="mv-pipas" className={labelCls}>P-P *</label>
             <input id="mv-pipas" type="number" inputMode="decimal" min="0" step="any" value={pipas}
               onChange={e => setPipas(e.target.value)} className={fieldCls} placeholder="0" />
           </div>
           <div>
-            <label htmlFor="mv-date" className={labelCls}>Date</label>
+            <label htmlFor="mv-date" className={labelCls}>{t("date")}</label>
             <input id="mv-date" type="date" value={occurredOn} onChange={e => setOccurredOn(e.target.value)} className={fieldCls} />
           </div>
         </div>
 
         {cap != null && stationId && (
           <p className="text-xs text-slate-500 -mt-2">
-            Owed for {PRODUCT_LABELS[product]} with {stationName}: <span className="font-semibold text-slate-900">{fmtPipas(cap)} pipa(s)</span>
+            {t("owedFor", { product: pipaProduct(t, product), station: stationName })}<span className="font-semibold text-slate-900">{fmtPipas(cap)} P-P</span>
           </p>
         )}
 
         {info.price && (
           <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setPriceMode("per_pipa")} className={chip(priceMode === "per_pipa")}>Price per pipa</button>
-              <button type="button" onClick={() => setPriceMode("per_liter")} className={chip(priceMode === "per_liter")}>Price per litre</button>
+              <button type="button" onClick={() => setPriceMode("per_liter")} className={chip(priceMode === "per_liter")} aria-pressed={priceMode === "per_liter"}>{t("pricePerL")}</button>
+              <button type="button" onClick={() => setPriceMode("per_pipa")} className={chip(priceMode === "per_pipa")} aria-pressed={priceMode === "per_pipa"}>{t("pricePerPP")}</button>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor="mv-price" className={labelCls}>{priceMode === "per_pipa" ? "MMK / pipa" : "MMK / litre"} *</label>
+                <label htmlFor="mv-price" className={labelCls}>{priceMode === "per_pipa" ? t("mmkPerPP") : t("mmkPerL")} *</label>
                 <input id="mv-price" type="number" inputMode="decimal" min="0" step="any" value={unitPrice}
                   onChange={e => setUnitPrice(e.target.value)} className={fieldCls} placeholder="0" />
               </div>
               <div>
-                <label htmlFor="mv-size" className={labelCls}>Pipa size (L)</label>
+                <label htmlFor="mv-size" className={labelCls}>{t("ppSize")}</label>
                 <input id="mv-size" type="number" inputMode="decimal" min="0" step="any" value={litersPerPipa}
                   onChange={e => setLitersPerPipa(e.target.value)} className={fieldCls} />
               </div>
             </div>
             {price && nPipas > 0 && (
               <p className="text-xs text-slate-600 leading-relaxed">
-                = <span className="font-semibold">{fmtMMK(price.perLiter)}/L</span> · {fmtMMK(price.perPipa)}/pipa
-                <br />Total <span className="font-bold text-slate-900">{fmtMMK(price.total)}</span> for {fmtLiters(price.liters)}
+                = <span className={priceMode === "per_pipa" ? "font-bold text-slate-900" : ""}>{fmtMMK(price.perLiter)}/L</span>
+                {" · "}<span className={priceMode === "per_liter" ? "font-bold text-slate-900" : ""}>{fmtMMK(price.perPipa)}/P-P</span>
+                <br />{t("totalFor")}<span className="font-bold text-slate-900">{fmtMMK(price.total)}</span>{t("forLiters", { liters: fmtLiters(price.liters) })}
               </p>
             )}
           </div>
@@ -199,7 +191,7 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
 
         {!info.price && (
           <div className="w-1/2 pr-1.5">
-            <label htmlFor="mv-size2" className={labelCls}>Pipa size (L)</label>
+            <label htmlFor="mv-size2" className={labelCls}>{t("ppSize")}</label>
             <input id="mv-size2" type="number" inputMode="decimal" min="0" step="any" value={litersPerPipa}
               onChange={e => setLitersPerPipa(e.target.value)} className={fieldCls} />
           </div>
@@ -208,18 +200,18 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
         {kind === "buy" && (
           <label className="flex items-start gap-2.5 text-sm text-slate-700">
             <input type="checkbox" checked={addToPO} onChange={e => setAddToPO(e.target.checked)} className="mt-0.5 w-4 h-4 accent-blue-600" />
-            <span>Also add to <span className="font-semibold">PO Registry</span> (queued, in litres) so profit tracking includes it</span>
+            <span>{t("addToPOa")}<span className="font-semibold">{t("poRegistry")}</span>{t("addToPOb")}</span>
           </label>
         )}
 
         <div>
-          <label htmlFor="mv-note" className={labelCls}>Note</label>
-          <input id="mv-note" value={note} onChange={e => setNote(e.target.value)} className={fieldCls} placeholder="Optional" />
+          <label htmlFor="mv-note" className={labelCls}>{t("note")}</label>
+          <input id="mv-note" value={note} onChange={e => setNote(e.target.value)} className={fieldCls} placeholder={t("optional")} />
         </div>
 
         {error && <ErrorNote>{error}</ErrorNote>}
         <button type="submit" disabled={busy} className={primaryBtn}>
-          {busy && <Loader2 className="w-4 h-4 animate-spin" />} Save
+          {busy && <Loader2 className="w-4 h-4 animate-spin" />} {t("save")}
         </button>
       </form>
     </PipaModal>

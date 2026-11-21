@@ -74,11 +74,13 @@ export interface ShiftPayload {
     pipa_total: number;
     pipa_items?: { product: string; containers: number; price: number; total: number }[];
     jelly_can_items?: { product: string; pieces: number; liters_per_can: number; total_liters: number; price: number; total: number }[];
+    /** How the Pipa + Jelly Can total was paid; `cash` is what the till holds for it. Present when there was any. */
+    pipa_jelly_payment?: { mode: "full" | "partial" | "advance"; total: number; cash: number; note?: string };
     diesel_cash: number;
     diesel_price: number;
   };
   total_expenses: number;
-  expenses_breakdown?: { name: string; amount: number }[];
+  expenses_breakdown?: { name: string; amount: number; note?: string }[];
   additional_cash_items?: { name: string; amount: number }[];
   additional_cash_total?: number;
   expected_total: number;

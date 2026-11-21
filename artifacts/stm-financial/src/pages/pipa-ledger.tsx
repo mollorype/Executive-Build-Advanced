@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import {
-  PIPA_MOVEMENTS_TABLE, PIPA_PRODUCTS, PIPA_STATIONS_TABLE, PRODUCT_LABELS,
+  PIPA_MOVEMENTS_TABLE, PIPA_PRODUCTS, PIPA_STATIONS_TABLE,
   fmtLiters, fmtMMK, fmtPipas, normalizeMovement, priceBreakdown, purchasePrices, stationBalances, stockByProduct, stockDelta,
   type MovementKind, type PipaMovement, type PipaStation,
 } from "@/lib/pipa-ledger";
@@ -9,6 +9,8 @@ import MovementDialog from "@/components/pipa/movement-dialog";
 import StationDialog from "@/components/pipa/station-dialog";
 import CountDialog from "@/components/pipa/count-dialog";
 import DeductShiftsDialog from "@/components/pipa/deduct-shifts-dialog";
+import { usePipaT, pipaProduct, type PipaT } from "@/lib/pipa-i18n";
+import { confirmDialog } from "@/components/confirm-dialog";
 import { AlertTriangle, ClipboardCheck, Cylinder, Loader2, Phone, Plus, Receipt, Store, Trash2, X } from "lucide-react";
 
 type Dialog =
@@ -19,28 +21,30 @@ type Dialog =
   | null;
 
 /** History line for one movement. */
-function describe(m: PipaMovement, station: string): { title: string; detail: string } {
-  const qty = `${fmtPipas(Math.abs(m.pipas))} pipa · ${PRODUCT_LABELS[m.product]}`;
+function describe(m: PipaMovement, station: string, t: PipaT): { title: string; detail: string } {
+  const qty = `${fmtPipas(Math.abs(m.pipas))} P-P · ${pipaProduct(t, m.product)}`;
   const price = m.price_mode && m.unit_price != null
     ? (() => {
         const b = priceBreakdown(m.price_mode, m.unit_price, m.pipas, m.liters_per_pipa);
-        return `${fmtMMK(b.perPipa)}/pipa (${fmtMMK(b.perLiter)}/L) · total ${fmtMMK(b.total)}`;
+        return t("h_price", { perPipa: fmtMMK(b.perPipa), perLiter: fmtMMK(b.perLiter), total: fmtMMK(b.total) });
       })()
     : "";
+  const withPrice = (d: string) => (price ? `${d} · ${price}` : d);
   switch (m.kind) {
-    case "buy":             return { title: `Bought ${qty}`, detail: `from ${station}${price ? ` · ${price}` : ""}` };
-    case "borrow":          return { title: `Borrowed ${qty}`, detail: `from ${station}` };
-    case "borrow_returned": return { title: `Returned ${qty}`, detail: `to ${station} (borrowed)` };
-    case "borrow_paid":     return { title: `Paid cash for ${qty}`, detail: `borrowed from ${station}${price ? ` · ${price}` : ""}` };
-    case "lend":            return { title: `Lent ${qty}`, detail: `to ${station}` };
-    case "lend_returned":   return { title: `Got back ${qty}`, detail: `from ${station} (lent)` };
-    case "lend_paid":       return { title: `${station} paid cash for ${qty}`, detail: `lent to them${price ? ` · ${price}` : ""}` };
-    case "used":            return { title: `Sold / used ${qty}`, detail: "" };
-    case "adjust":          return { title: `Stock count ${m.pipas > 0 ? "+" : "−"}${qty}`, detail: "" };
+    case "buy":             return { title: t("h_buy", { qty }), detail: withPrice(t("h_buy_d", { station })) };
+    case "borrow":          return { title: t("h_borrow", { qty }), detail: t("h_borrow_d", { station }) };
+    case "borrow_returned": return { title: t("h_borrow_returned", { qty }), detail: t("h_borrow_returned_d", { station }) };
+    case "borrow_paid":     return { title: t("h_borrow_paid", { qty }), detail: withPrice(t("h_borrow_paid_d", { station })) };
+    case "lend":            return { title: t("h_lend", { qty }), detail: t("h_lend_d", { station }) };
+    case "lend_returned":   return { title: t("h_lend_returned", { qty }), detail: t("h_lend_returned_d", { station }) };
+    case "lend_paid":       return { title: t("h_lend_paid", { station, qty }), detail: withPrice(t("h_lend_paid_d")) };
+    case "used":            return { title: t("h_used", { qty }), detail: "" };
+    case "adjust":          return { title: t("h_adjust", { qty: `${m.pipas > 0 ? "+" : "−"}${qty}` }), detail: "" };
   }
 }
 
 export default function PipaLedger() {
+  const t = usePipaT();
   const [stations, setStations] = useState<PipaStation[]>([]);
   const [movements, setMovements] = useState<PipaMovement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,14 +63,14 @@ export default function PipaLedger() {
     const err = st.error ?? mv.error;
     if (err) {
       setLoadError(err.code === "PGRST205" || err.code === "42P01"
-        ? "The Pipa Ledger isn't installed in the database yet. Run the pipa_ledger migration in the Supabase SQL Editor."
+        ? t("notInstalled")
         : err.message);
       return;
     }
     setLoadError("");
     setStations((st.data ?? []) as PipaStation[]);
     setMovements((mv.data ?? []).map(r => normalizeMovement(r as Record<string, unknown>)));
-  }, []);
+  }, [t]);
 
   useEffect(() => { load().finally(() => setLoading(false)); }, [load]);
 
@@ -91,16 +95,17 @@ export default function PipaLedger() {
   async function remove(m: PipaMovement) {
     const isShiftBatch = !!m.shift_batch_id;
     const msg = isShiftBatch
-      ? "Undo this shift deduction? Every fuel line from that deduction is removed, and its shifts can be deducted again."
-      : `Delete this record?\n\n${describe(m, stationName[m.station_id ?? ""] ?? "").title}${m.po_id ? "\n\nIts purchase order in PO Registry is kept." : ""}`;
-    if (!window.confirm(msg)) return;
+      ? t("confirmUndoShift")
+      : t("confirmDelete", { title: describe(m, stationName[m.station_id ?? ""] ?? "", t).title }) + (m.po_id ? t("poKept") : "");
+    if (!(await confirmDialog(msg, { danger: true, confirmLabel: isShiftBatch ? t("undoShift") : undefined }))) return;
     setDeletingId(m.id);
-    const { error } = isShiftBatch
-      ? await supabase.rpc("undo_pipa_shift_usage", { p_batch: m.shift_batch_id })
-      : await supabase.from(PIPA_MOVEMENTS_TABLE).delete().eq("id", m.id);
+    const { error, count } = isShiftBatch
+      ? await supabase.rpc("undo_pipa_shift_usage", { p_batch: m.shift_batch_id }).then(r => ({ error: r.error, count: 1 }))
+      : await supabase.from(PIPA_MOVEMENTS_TABLE).delete({ count: "exact" }).eq("id", m.id);
     setDeletingId(null);
-    if (error) { setNotice(`Couldn't delete: ${error.message}`); return; }
-    done(isShiftBatch ? "Shift deduction undone." : "Record deleted.");
+    if (error) { setNotice(t("deleteFailed", { msg: error.message })); return; }
+    if (!count) { setNotice(t("notDeleted")); load(); return; }   // RLS refuses by matching nothing
+    done(isShiftBatch ? t("shiftUndone") : t("recordDeleted"));
   }
 
   const actionBtn = "flex items-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl px-3 py-2 text-sm transition-colors";
@@ -110,12 +115,12 @@ export default function PipaLedger() {
       <div className="px-4 md:px-6 py-5 border-b border-slate-100 bg-white">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Pipa Ledger</h1>
-            <p className="text-slate-400 text-sm mt-0.5">Pipas bought, borrowed and lent — by station</p>
+            <h1 className="text-2xl font-bold text-slate-900">{t("title")}</h1>
+            <p className="text-slate-400 text-sm mt-0.5">{t("subtitle")}</p>
           </div>
           <button onClick={() => setDialog({ type: "movement" })} disabled={!!loadError}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold rounded-xl px-4 py-2 text-sm transition-colors">
-            <Plus className="w-4 h-4" /> Record
+            <Plus className="w-4 h-4" /> {t("record")}
           </button>
         </div>
       </div>
@@ -129,14 +134,14 @@ export default function PipaLedger() {
         {notice && <p className="text-sm font-medium text-pale-green-foreground">{notice}</p>}
 
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => setDialog({ type: "deduct" })} disabled={!!loadError} className={actionBtn}><Receipt className="w-4 h-4" /> Deduct shift sales</button>
-          <button onClick={() => setDialog({ type: "count" })} disabled={!!loadError} className={actionBtn}><ClipboardCheck className="w-4 h-4" /> Count stock</button>
-          <button onClick={() => setDialog({ type: "station", station: null })} disabled={!!loadError} className={actionBtn}><Store className="w-4 h-4" /> Add station</button>
+          <button onClick={() => setDialog({ type: "deduct" })} disabled={!!loadError} className={actionBtn}><Receipt className="w-4 h-4" /> {t("deductBtn")}</button>
+          <button onClick={() => setDialog({ type: "count" })} disabled={!!loadError} className={actionBtn}><ClipboardCheck className="w-4 h-4" /> {t("countBtn")}</button>
+          <button onClick={() => setDialog({ type: "station", station: null })} disabled={!!loadError} className={actionBtn}><Store className="w-4 h-4" /> {t("addStation")}</button>
         </div>
 
         {/* Stock on hand */}
         <section>
-          <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Stock on hand</h2>
+          <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">{t("stockOnHand")}</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {PIPA_PRODUCTS.map(p => {
               const s = stock[p];
@@ -145,15 +150,15 @@ export default function PipaLedger() {
                 <div key={p} className={`bg-white border rounded-xl p-4 ${negative ? "border-red-200" : "border-slate-100"}`}>
                   <div className="flex items-center gap-2 mb-1">
                     <Cylinder className="w-4 h-4 text-slate-400" />
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{PRODUCT_LABELS[p]}</span>
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{pipaProduct(t, p)}</span>
                   </div>
                   {loading ? <Loader2 className="w-5 h-5 text-slate-300 animate-spin" /> : (
                     <>
                       <p className={`text-2xl font-bold tabular-nums ${negative ? "text-pale-red-foreground" : "text-slate-900"}`}>
-                        {fmtPipas(s.pipas)} <span className="text-sm font-semibold text-slate-400">pipa</span>
+                        {fmtPipas(s.pipas)} <span className="text-sm font-semibold text-slate-400">P-P</span>
                       </p>
                       <p className="text-xs text-slate-500 tabular-nums">{fmtLiters(s.liters)}</p>
-                      {negative && <p className="text-[11px] text-pale-red-foreground mt-1">Below zero — run a stock count</p>}
+                      {negative && <p className="text-[11px] text-pale-red-foreground mt-1">{t("belowZero")}</p>}
                     </>
                   )}
                 </div>
@@ -164,13 +169,13 @@ export default function PipaLedger() {
 
         {/* Stations */}
         <section>
-          <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Stations</h2>
+          <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">{t("stations")}</h2>
           {!loading && stations.length === 0 ? (
             <div className="bg-white border border-slate-100 rounded-xl p-6 text-center">
               <Store className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-              <p className="text-sm text-slate-500">Add the stations you buy from, borrow from or lend to.</p>
+              <p className="text-sm text-slate-500">{t("stationsEmpty")}</p>
               <button onClick={() => setDialog({ type: "station", station: null })} disabled={!!loadError}
-                className="mt-3 text-sm font-semibold text-pale-blue-foreground">+ Add a station</button>
+                className="mt-3 text-sm font-semibold text-pale-blue-foreground">{t("addAStation")}</button>
             </div>
           ) : (
             <div className="grid md:grid-cols-2 gap-3">
@@ -199,26 +204,26 @@ export default function PipaLedger() {
                       )}
                     </div>
                     {owing.length === 0 ? (
-                      <p className="text-xs text-slate-400">All settled</p>
+                      <p className="text-xs text-slate-400">{t("settled")}</p>
                     ) : (
                       <ul className="space-y-0.5">
                         {owing.map(o => (
                           <li key={`${o.p}-${o.we}`} className={`text-sm font-semibold ${o.we ? "text-pale-red-foreground" : "text-pale-green-foreground"}`}>
-                            {o.we ? "You owe them" : "They owe you"} {fmtPipas(o.n)} pipa · {PRODUCT_LABELS[o.p]}
+                            {o.we ? t("youOwe") : t("theyOwe")} {fmtPipas(o.n)} P-P · {pipaProduct(t, o.p)}
                           </li>
                         ))}
                       </ul>
                     )}
                     {lb && lbPrice && (
                       <p className="text-xs text-slate-500">
-                        Last bought: {PRODUCT_LABELS[lb.product]} @ {fmtMMK(lbPrice.perLiter)}/L ({fmtMMK(lbPrice.perPipa)}/pipa) · {lb.occurred_on}
+                        {t("lastBought", { product: pipaProduct(t, lb.product), perLiter: fmtMMK(lbPrice.perLiter), perPipa: fmtMMK(lbPrice.perPipa), date: lb.occurred_on })}
                       </p>
                     )}
                     <div className="flex gap-2 pt-1">
                       <button onClick={() => setDialog({ type: "movement", kind: "buy", stationId: st.id })}
-                        className="text-xs font-semibold text-pale-blue-foreground bg-pale-blue rounded-lg px-2.5 py-1.5">Record</button>
+                        className="text-xs font-semibold text-pale-blue-foreground bg-pale-blue rounded-lg px-2.5 py-1.5">{t("record")}</button>
                       <button onClick={() => setHistoryStation(st.id)}
-                        className="text-xs font-semibold text-slate-600 bg-slate-100 rounded-lg px-2.5 py-1.5">History</button>
+                        className="text-xs font-semibold text-slate-600 bg-slate-100 rounded-lg px-2.5 py-1.5">{t("history")}</button>
                     </div>
                   </div>
                 );
@@ -230,21 +235,21 @@ export default function PipaLedger() {
         {/* Price comparison */}
         {Object.keys(prices).length > 0 && (
           <section>
-            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Purchase prices (per litre)</h2>
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">{t("prices")}</h2>
             <div className="grid md:grid-cols-2 gap-3">
               {PIPA_PRODUCTS.filter(p => prices[p]?.length).map(p => (
                 <div key={p} className="bg-white border border-slate-100 rounded-xl p-4">
-                  <p className="text-sm font-semibold text-slate-900 mb-2">{PRODUCT_LABELS[p]}</p>
+                  <p className="text-sm font-semibold text-slate-900 mb-2">{pipaProduct(t, p)}</p>
                   <ul className="space-y-1.5">
                     {prices[p]!.map((row, i) => (
                       <li key={row.stationId} className="flex items-baseline justify-between gap-2 text-sm">
                         <span className="min-w-0 truncate text-slate-700">
                           {stationName[row.stationId] ?? "—"}
-                          {i === 0 && prices[p]!.length > 1 && <span className="ml-1.5 text-[10px] font-bold text-pale-green-foreground bg-emerald-500/15 rounded px-1.5 py-0.5">CHEAPEST</span>}
+                          {i === 0 && prices[p]!.length > 1 && <span className="ml-1.5 text-[10px] font-bold text-pale-green-foreground bg-emerald-500/15 rounded px-1.5 py-0.5">{t("cheapest")}</span>}
                         </span>
                         <span className="shrink-0 text-right">
                           <span className="font-semibold text-slate-900 tabular-nums">{fmtMMK(row.lastPerLiter)}</span>
-                          <span className="block text-[11px] text-slate-400">last {row.lastOn} · avg {fmtMMK(row.avgPerLiter)}</span>
+                          <span className="block text-[11px] text-slate-400">{t("lastAvg", { date: row.lastOn, avg: fmtMMK(row.avgPerLiter) })}</span>
                         </span>
                       </li>
                     ))}
@@ -258,7 +263,7 @@ export default function PipaLedger() {
         {/* History */}
         <section>
           <div className="flex items-center justify-between gap-2 mb-2">
-            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest">History</h2>
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t("history")}</h2>
             {historyStation && (
               <button onClick={() => setHistoryStation("")}
                 className="flex items-center gap-1 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg px-2 py-1">
@@ -269,11 +274,11 @@ export default function PipaLedger() {
           {loading ? (
             <div className="py-8 text-center"><Loader2 className="w-6 h-6 text-blue-500/50 animate-spin mx-auto" /></div>
           ) : history.length === 0 ? (
-            <p className="bg-white border border-slate-100 rounded-xl p-6 text-center text-sm text-slate-500">No pipa movements yet.</p>
+            <p className="bg-white border border-slate-100 rounded-xl p-6 text-center text-sm text-slate-500">{t("noMovements")}</p>
           ) : (
             <ul className="bg-white border border-slate-100 rounded-xl divide-y divide-slate-100">
               {history.map(m => {
-                const d = describe(m, stationName[m.station_id ?? ""] ?? "—");
+                const d = describe(m, stationName[m.station_id ?? ""] ?? "—", t);
                 const delta = stockDelta(m);
                 return (
                   <li key={m.id} className="flex items-start gap-3 px-4 py-3">
@@ -281,15 +286,15 @@ export default function PipaLedger() {
                       <p className="text-sm font-semibold text-slate-900">{d.title}</p>
                       {d.detail && <p className="text-xs text-slate-600 break-words">{d.detail}</p>}
                       <p className="text-xs text-slate-400 mt-0.5 break-words">
-                        {m.occurred_on}{m.note ? ` · ${m.note}` : ""}{m.po_id ? " · in PO Registry" : ""}
+                        {m.occurred_on}{m.note ? ` · ${m.note}` : ""}{m.po_id ? t("inPO") : ""}
                       </p>
                     </div>
                     <span className={`shrink-0 text-sm font-bold tabular-nums ${delta > 0 ? "text-pale-green-foreground" : delta < 0 ? "text-pale-red-foreground" : "text-slate-400"}`}
-                      title="Effect on stock">
+                      title={t("stockEffect")}>
                       {delta > 0 ? "+" : delta < 0 ? "−" : "±"}{fmtPipas(Math.abs(delta))}
                     </span>
                     <button onClick={() => remove(m)} disabled={deletingId === m.id}
-                      aria-label={m.shift_batch_id ? "Undo shift deduction" : "Delete record"}
+                      aria-label={m.shift_batch_id ? t("undoShift") : t("deleteRecord")}
                       className="shrink-0 p-2 -m-1 text-slate-400 hover:text-pale-red-foreground hover:bg-pale-red rounded-lg transition-colors">
                       {deletingId === m.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                     </button>
@@ -299,7 +304,7 @@ export default function PipaLedger() {
             </ul>
           )}
           <p className="text-[11px] text-slate-400 mt-2">
-            Cash settlements (paying for borrowed pipas, or being paid for lent ones) clear what's owed without moving any pipas, so they show ±0.
+            {t("cashNote")}
           </p>
         </section>
       </div>
@@ -312,7 +317,7 @@ export default function PipaLedger() {
           initialStationId={dialog.stationId}
           onAddStation={() => setDialog({ type: "station", station: null, reopenMovement: true })}
           onClose={() => setDialog(null)}
-          onSaved={() => done("Saved.")}
+          onSaved={() => done(t("saved"))}
         />
       )}
       {dialog?.type === "station" && (
@@ -321,12 +326,12 @@ export default function PipaLedger() {
           onClose={() => setDialog(dialog.reopenMovement ? { type: "movement" } : null)}
           onSaved={() => {
             if (dialog.reopenMovement) { load(); setDialog({ type: "movement" }); }
-            else done(dialog.station ? "Station saved." : "Station added.");
+            else done(dialog.station ? t("stationSaved") : t("stationAdded"));
           }}
         />
       )}
-      {dialog?.type === "count" && <CountDialog stock={stock} onClose={() => setDialog(null)} onSaved={() => done("Stock count saved.")} />}
-      {dialog?.type === "deduct" && <DeductShiftsDialog onClose={() => setDialog(null)} onSaved={() => done("Shift sales deducted from stock.")} />}
+      {dialog?.type === "count" && <CountDialog stock={stock} onClose={() => setDialog(null)} onSaved={() => done(t("countSaved"))} />}
+      {dialog?.type === "deduct" && <DeductShiftsDialog onClose={() => setDialog(null)} onSaved={() => done(t("deducted"))} />}
     </div>
   );
 }

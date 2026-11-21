@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
+import { usePipaT } from "@/lib/pipa-i18n";
 
 /** Bottom sheet on phones, centred dialog on larger screens. */
 export default function PipaModal({ title, subtitle, onClose, children, footer }: {
@@ -9,6 +10,7 @@ export default function PipaModal({ title, subtitle, onClose, children, footer }
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  const t = usePipaT();
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
@@ -19,7 +21,7 @@ export default function PipaModal({ title, subtitle, onClose, children, footer }
             <h2 className="text-slate-900 font-bold text-base">{title}</h2>
             {subtitle && <p className="text-slate-500 text-xs mt-0.5">{subtitle}</p>}
           </div>
-          <button type="button" onClick={onClose} aria-label="Close"
+          <button type="button" onClick={onClose} aria-label={t("close")}
             className="text-slate-500 hover:text-slate-900 p-1.5 -m-1.5 rounded-lg hover:bg-slate-100 transition-colors shrink-0">
             <X className="w-5 h-5" />
           </button>

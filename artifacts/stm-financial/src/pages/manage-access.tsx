@@ -1,8 +1,62 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { UserPlus, Calculator, Check, AlertCircle, Shield, Trash2, Mail, RefreshCw, Copy, Crown, type LucideIcon } from "lucide-react";
+import { UserPlus, Calculator, Check, AlertCircle, Shield, Trash2, Mail, RefreshCw, Copy, Crown, Briefcase, type LucideIcon } from "lucide-react";
 import CeoAccessSection from "@/components/ceo-access-section";
 import StaffLoginsSection from "@/components/staff-logins-section";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { makeT } from "@/lib/app-i18n";
+
+const useT = makeT({
+  // Allowlist card
+  invalidEmail: { en: "Please enter a valid email address.", my: "မှန်ကန်သော email လိပ်စာ ထည့်ပါ။" },
+  already: { en: "{email} is already in the allowlist.", my: "{email} သည် စာရင်းထဲတွင် ရှိပြီးသား ဖြစ်သည်။" },
+  setupRequired: { en: "One-time setup required", my: "တစ်ကြိမ် စနစ်ထည့်သွင်းရန် လိုအပ်သည်" },
+  setupHelp: { en: "Run this SQL once in your Supabase SQL Editor to create the allowlist table:", my: "စာရင်း table ဖန်တီးရန် ဤ SQL ကို Supabase SQL Editor တွင် တစ်ကြိမ် run ပါ:" },
+  copied: { en: "Copied!", my: "ကူးပြီး!" },
+  copySql: { en: "Copy SQL", my: "SQL ကူးရန်" },
+  emailAddress: { en: "Email Address", my: "Email လိပ်စာ" },
+  adding: { en: "Adding…", my: "ထည့်နေသည်…" },
+  refresh: { en: "Refresh list", my: "စာရင်း ပြန်ဖွင့်ရန်" },
+  loading: { en: "Loading…", my: "ဖွင့်နေသည်…" },
+  noneYet: { en: "No one added yet.", my: "မည်သူမျှ မထည့်ရသေးပါ။" },
+  added: { en: "Added {date}", my: "{date} တွင် ထည့်ခဲ့" },
+  removeAccess: { en: "Remove access", my: "ခွင့်ပြုချက် ဖယ်ရန်" },
+  notRemoved: { en: "{email} wasn't removed — your account may not be allowed to. Refresh and try again.", my: "{email} ကို မဖယ်ရပါ — သင့်အကောင့် ခွင့်မရှိနိုင်ပါ။ ပြန်ဖွင့်ပြီး ထပ်ကြိုးစားပါ။" },
+  // Page
+  title: { en: "Staff Access", my: "ဝန်ထမ်း ခွင့်ပြုချက်" },
+  subtitle: { en: "Control who can access STM Daily and STM Financial", my: "STM Daily နှင့် STM Financial ကို မည်သူ သုံးနိုင်မည်ကို စီမံပါ" },
+  owner: { en: "Owner", my: "ပိုင်ရှင်" },
+  ownerDesc: { en: "Owners can see and change everything. Adding or removing one needs your password and is announced on Telegram.", my: "ပိုင်ရှင်များသည် အားလုံးကို ကြည့်ပြီး ပြင်နိုင်သည်။ ထည့်ရန် သို့မဟုတ် ဖယ်ရန် သင့် password လိုပြီး Telegram တွင် ကြေညာပါမည်။" },
+  selling: { en: "Selling Staff", my: "အရောင်း ဝန်ထမ်း" },
+  sellingDesc: { en: "Selling staff sign in to STM Daily to submit daily shift reports.", my: "အရောင်း ဝန်ထမ်းများသည် နေ့စဉ် ဆိုင်းစာရင်း တင်ရန် STM Daily သို့ ဝင်ပါသည်။" },
+  sellInfoTitle: { en: "Email Allowlist", my: "Email ခွင့်ပြုစာရင်း" },
+  sellInfoDesc: { en: "Only emails added here can log into the STM Daily app. Add each staff member's real email address.", my: "ဤနေရာတွင် ထည့်ထားသော email များသာ STM Daily သို့ ဝင်နိုင်သည်။ ဝန်ထမ်းတစ်ဦးစီ၏ email အမှန်ကို ထည့်ပါ။" },
+  sellAddTitle: { en: "Add Selling Staff Email", my: "အရောင်း ဝန်ထမ်း email ထည့်ရန်" },
+  sellAddBtn: { en: "Add Selling Staff", my: "အရောင်း ဝန်ထမ်း ထည့်ရန်" },
+  sellEmpty: { en: "Add an email above to let workers submit shifts.", my: "ဝန်ထမ်းများ ဆိုင်းတင်နိုင်ရန် အပေါ်တွင် email ထည့်ပါ။" },
+  sellOk: { en: "{email} can now submit shifts.", my: "{email} ယခု ဆိုင်း တင်နိုင်ပါပြီ။" },
+  sellDel: { en: "Remove {email} from the allowlist?\nThey will no longer be able to submit shifts.", my: "{email} ကို စာရင်းမှ ဖယ်မလား?\nဆိုင်း ထပ်တင်နိုင်တော့မည် မဟုတ်ပါ။" },
+  accountant: { en: "Accountant", my: "စာရင်းကိုင်" },
+  accountants: { en: "Accountants", my: "စာရင်းကိုင်များ" },
+  accDesc: { en: "Accountants can sign in to STM Financial, restricted to the Debt Tracker and Salary pages.", my: "စာရင်းကိုင်များသည် STM Financial သို့ ဝင်နိုင်ပြီး အကြွေးစာရင်း နှင့် လစာ စာမျက်နှာများသာ သုံးနိုင်သည်။" },
+  accInfoTitle: { en: "Accountant Allowlist", my: "စာရင်းကိုင် ခွင့်ပြုစာရင်း" },
+  accInfoDesc: { en: "Only emails added here can create an Accountant account for STM Financial. Access is limited to Debt Tracker and Salary.", my: "ဤနေရာတွင် ထည့်ထားသော email များသာ STM Financial စာရင်းကိုင် အကောင့် ဖွင့်နိုင်သည်။ အကြွေးစာရင်း နှင့် လစာ သာ သုံးနိုင်သည်။" },
+  accAddTitle: { en: "Add Accountant Email", my: "စာရင်းကိုင် email ထည့်ရန်" },
+  accAddBtn: { en: "Invite Accountant", my: "စာရင်းကိုင် ဖိတ်ရန်" },
+  accEmpty: { en: "Add an email above, then the accountant can set their password from the login page.", my: "အပေါ်တွင် email ထည့်ပါ၊ ထို့နောက် စာရင်းကိုင်သည် login စာမျက်နှာမှ password သတ်မှတ်နိုင်သည်။" },
+  accOk: { en: "{email} can now set their password and sign in as Accountant.", my: "{email} ယခု password သတ်မှတ်ပြီး စာရင်းကိုင် အဖြစ် ဝင်နိုင်ပါပြီ။" },
+  accDel: { en: "Remove {email} from the accountant allowlist?\nThey will no longer be able to sign in as Accountant.", my: "{email} ကို စာရင်းကိုင် စာရင်းမှ ဖယ်မလား?\nစာရင်းကိုင် အဖြစ် ထပ်ဝင်နိုင်တော့မည် မဟုတ်ပါ။" },
+  manager: { en: "Manager", my: "မန်နေဂျာ" },
+  managers: { en: "Managers", my: "မန်နေဂျာများ" },
+  mgrDesc: { en: "What managers can do hasn't been set yet. Until it is, people on this list can't sign in or see anything.", my: "မန်နေဂျာ လုပ်နိုင်သည်များကို မသတ်မှတ်ရသေးပါ။ မသတ်မှတ်မချင်း ဤစာရင်းရှိသူများ ဝင်ရောက်ခြင်း၊ ကြည့်ရှုခြင်း မပြုနိုင်ပါ။" },
+  mgrInfoTitle: { en: "Manager List", my: "မန်နေဂျာ စာရင်း" },
+  mgrInfoDesc: { en: "Only an owner can add or remove managers. Being on this list gives no access until manager permissions are set up.", my: "ပိုင်ရှင်သာ မန်နေဂျာ ထည့်/ဖယ် နိုင်သည်။ ခွင့်ပြုချက် မသတ်မှတ်မချင်း ဤစာရင်းတွင် ပါရုံဖြင့် ဘာမှ သုံးခွင့် မရပါ။" },
+  mgrAddTitle: { en: "Add Manager Email", my: "မန်နေဂျာ email ထည့်ရန်" },
+  mgrAddBtn: { en: "Add Manager", my: "မန်နေဂျာ ထည့်ရန်" },
+  mgrEmpty: { en: "Add an email above to put someone on the manager list.", my: "မန်နေဂျာ စာရင်းတွင် ထည့်ရန် အပေါ်တွင် email ထည့်ပါ။" },
+  mgrOk: { en: "{email} is now on the manager list.", my: "{email} ယခု မန်နေဂျာ စာရင်းတွင် ပါပါပြီ။" },
+  mgrDel: { en: "Remove {email} from the manager list?", my: "{email} ကို မန်နေဂျာ စာရင်းမှ ဖယ်မလား?" },
+});
 
 type AllowlistEntry = {
   id: string;
@@ -37,6 +91,7 @@ function EmailAllowlistCard({
   deleteConfirm: (email: string) => string;
   setupSql: string;
 }) {
+  const t = useT();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -54,7 +109,8 @@ function EmailAllowlistCard({
       .order("created_at", { ascending: false });
 
     if (error) {
-      if (error.message.includes("does not exist") || error.code === "42P01" || error.code === "PGRST116") {
+      // PGRST205: PostgREST can't find the table (not created yet)
+      if (error.message.includes("does not exist") || error.code === "42P01" || error.code === "PGRST116" || error.code === "PGRST205") {
         setTableError(true);
       }
     } else {
@@ -70,7 +126,7 @@ function EmailAllowlistCard({
     e.preventDefault();
     const trimmed = email.trim().toLowerCase();
     if (!trimmed.includes("@")) {
-      setResult({ success: false, message: "Please enter a valid email address." });
+      setResult({ success: false, message: t("invalidEmail") });
       return;
     }
 
@@ -83,7 +139,7 @@ function EmailAllowlistCard({
 
     if (error) {
       if (error.code === "23505") {
-        setResult({ success: false, message: `${trimmed} is already in the allowlist.` });
+        setResult({ success: false, message: t("already", { email: trimmed }) });
       } else {
         setResult({ success: false, message: error.message });
       }
@@ -97,10 +153,12 @@ function EmailAllowlistCard({
   }
 
   async function handleDelete(entry: AllowlistEntry) {
-    if (!window.confirm(deleteConfirm(entry.email))) return;
+    if (!(await confirmDialog(deleteConfirm(entry.email), { danger: true, confirmLabel: t("removeAccess") }))) return;
     setDeleting(entry.id);
-    await supabase.from(table).delete().eq("id", entry.id);
+    const { error, count } = await supabase.from(table).delete({ count: "exact" }).eq("id", entry.id);
     setDeleting(null);
+    // Say why instead of doing nothing (RLS refuses by matching no rows).
+    if (error || !count) setResult({ success: false, message: error ? error.message : t("notRemoved", { email: entry.email }) });
     fetchEntries();
   }
 
@@ -116,10 +174,10 @@ function EmailAllowlistCard({
         <div className="bg-pale-gold border border-amber-100 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-3">
             <AlertCircle className="w-5 h-5 text-pale-gold-foreground shrink-0" />
-            <p className="text-pale-gold-foreground font-semibold text-sm">One-time setup required</p>
+            <p className="text-pale-gold-foreground font-semibold text-sm">{t("setupRequired")}</p>
           </div>
           <p className="text-pale-gold-foreground/80 text-xs mb-3">
-            Run this SQL once in your Supabase SQL Editor to create the allowlist table:
+            {t("setupHelp")}
           </p>
           <pre className="bg-slate-900 rounded-lg p-3 text-xs text-slate-100 font-mono overflow-x-auto whitespace-pre-wrap mb-3">
             {setupSql}
@@ -129,7 +187,7 @@ function EmailAllowlistCard({
             className="flex items-center gap-1.5 text-xs bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-lg px-3 py-1.5 transition-colors"
           >
             <Copy className="w-3 h-3" />
-            {copied ? "Copied!" : "Copy SQL"}
+            {copied ? t("copied") : t("copySql")}
           </button>
         </div>
       )}
@@ -153,7 +211,7 @@ function EmailAllowlistCard({
         <form onSubmit={handleAdd} className="p-6 space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-              Email Address
+              {t("emailAddress")}
             </label>
             <div className="flex rounded-xl overflow-hidden border border-slate-200 focus-within:ring-2 focus-within:ring-blue-300/50 transition-all">
               <div className="flex items-center px-3 bg-slate-50 border-r border-slate-200">
@@ -194,7 +252,7 @@ function EmailAllowlistCard({
             className="w-full bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed text-primary-foreground font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
           >
             {loading ? (
-              <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Adding…</>
+              <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {t("adding")}</>
             ) : (
               <><UserPlus className="w-4 h-4" /> {addButtonLabel}</>
             )}
@@ -216,7 +274,7 @@ function EmailAllowlistCard({
             <button
               onClick={fetchEntries}
               disabled={fetching}
-              aria-label="Refresh list"
+              aria-label={t("refresh")}
               className="text-slate-400 hover:text-slate-600 transition-colors"
             >
               <RefreshCw className={`w-4 h-4 ${fetching ? "animate-spin" : ""}`} />
@@ -224,11 +282,11 @@ function EmailAllowlistCard({
           </div>
 
           {fetching ? (
-            <div className="px-6 py-8 text-center text-slate-400 text-sm">Loading…</div>
+            <div className="px-6 py-8 text-center text-slate-400 text-sm">{t("loading")}</div>
           ) : entries.length === 0 ? (
             <div className="px-6 py-8 text-center">
               <Mail className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-              <p className="text-slate-400 text-sm">No one added yet.</p>
+              <p className="text-slate-400 text-sm">{t("noneYet")}</p>
               <p className="text-slate-400 text-xs mt-1">{emptyHint}</p>
             </div>
           ) : (
@@ -244,7 +302,7 @@ function EmailAllowlistCard({
                     <div className="min-w-0">
                       <p className="text-sm text-slate-900 font-medium truncate">{entry.email}</p>
                       <p className="text-xs text-slate-400">
-                        Added {new Date(entry.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        {t("added", { date: new Date(entry.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) })}
                       </p>
                     </div>
                   </div>
@@ -252,7 +310,7 @@ function EmailAllowlistCard({
                     onClick={() => handleDelete(entry)}
                     disabled={deleting === entry.id}
                     className="shrink-0 text-slate-300 hover:text-red-500 disabled:opacity-40 transition-colors p-1"
-                    title="Remove access"
+                    title={t("removeAccess")}
                   >
                     {deleting === entry.id
                       ? <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
@@ -288,33 +346,60 @@ ALTER TABLE accountant_access ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "anon_read" ON accountant_access FOR SELECT TO anon USING (true);
 CREATE POLICY "auth_manage" ON accountant_access FOR ALL TO authenticated USING (true);`;
 
+// Owners only: read, add and remove. Nothing reads this list for access yet.
+const MANAGER_SETUP_SQL = `-- Run this once in your Supabase SQL Editor:
+create table if not exists public.manager_access (
+  id uuid primary key default gen_random_uuid(),
+  email text unique not null check (email = lower(email)),
+  created_at timestamptz not null default now()
+);
+alter table public.manager_access enable row level security;
+revoke all on public.manager_access from anon;
+drop policy if exists "owner_manage" on public.manager_access;
+create policy "owner_manage" on public.manager_access
+  for all to authenticated
+  using (public.current_app_role() = 'ceo')
+  with check (public.current_app_role() = 'ceo');`;
+
 export default function ManageAccess() {
+  const t = useT();
   return (
     <div className="flex-1 overflow-auto bg-slate-50">
       <div className="px-6 py-5 border-b border-slate-100 bg-white">
-        <h1 className="text-2xl font-bold text-slate-900">Staff Access</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Control who can access STM Daily and STM Financial</p>
+        <h1 className="text-2xl font-bold text-slate-900">{t("title")}</h1>
+        <p className="text-slate-500 text-sm mt-0.5">{t("subtitle")}</p>
       </div>
 
       <div className="p-6 max-w-xl space-y-10">
         <section>
           <div className="flex items-center gap-2 mb-1">
-            <Mail className="w-4 h-4 text-pale-blue-foreground" />
-            <h2 className="text-slate-900 font-bold text-sm">STM Daily Access</h2>
+            <Crown className="w-4 h-4 text-pale-gold-foreground" />
+            <h2 className="text-slate-900 font-bold text-sm">{t("owner")}</h2>
           </div>
-          <p className="text-slate-500 text-xs mb-4">Employees who can submit daily shift reports.</p>
+          <p className="text-slate-500 text-xs mb-4">
+            {t("ownerDesc")}
+          </p>
+          <CeoAccessSection />
+        </section>
+
+        <section>
+          <div className="flex items-center gap-2 mb-1">
+            <Mail className="w-4 h-4 text-pale-blue-foreground" />
+            <h2 className="text-slate-900 font-bold text-sm">{t("selling")}</h2>
+          </div>
+          <p className="text-slate-500 text-xs mb-4">{t("sellingDesc")}</p>
           <EmailAllowlistCard
             table="allowed_employees"
             cardIcon={UserPlus}
-            infoTitle="Email Allowlist"
-            infoDescription="Only emails added here can log into the STM Daily app. Add each employee's real email address."
-            addSectionTitle="Add Employee Email"
-            addButtonLabel="Allow This Employee"
+            infoTitle={t("sellInfoTitle")}
+            infoDescription={t("sellInfoDesc")}
+            addSectionTitle={t("sellAddTitle")}
+            addButtonLabel={t("sellAddBtn")}
             placeholder="name@company.com"
-            listTitle="Allowed Employees"
-            emptyHint="Add an email above to let workers submit shifts."
-            successMessage={email => `${email} can now submit shifts.`}
-            deleteConfirm={email => `Remove ${email} from the allowlist?\nThey will no longer be able to submit shifts.`}
+            listTitle={t("selling")}
+            emptyHint={t("sellEmpty")}
+            successMessage={email => t("sellOk", { email })}
+            deleteConfirm={email => t("sellDel", { email })}
             setupSql={EMPLOYEE_SETUP_SQL}
           />
           <div className="mt-4">
@@ -325,36 +410,49 @@ export default function ManageAccess() {
         <section>
           <div className="flex items-center gap-2 mb-1">
             <Calculator className="w-4 h-4 text-pale-blue-foreground" />
-            <h2 className="text-slate-900 font-bold text-sm">Accountant Access</h2>
+            <h2 className="text-slate-900 font-bold text-sm">{t("accountant")}</h2>
           </div>
           <p className="text-slate-500 text-xs mb-4">
-            Accountants can sign in to STM Financial, restricted to the Debt Tracker page only.
+            {t("accDesc")}
           </p>
           <EmailAllowlistCard
             table="accountant_access"
             cardIcon={Calculator}
-            infoTitle="Accountant Allowlist"
-            infoDescription="Only emails added here can create an Accountant account for STM Financial. Access is limited to Debt Tracker."
-            addSectionTitle="Add Accountant Email"
-            addButtonLabel="Invite Accountant"
+            infoTitle={t("accInfoTitle")}
+            infoDescription={t("accInfoDesc")}
+            addSectionTitle={t("accAddTitle")}
+            addButtonLabel={t("accAddBtn")}
             placeholder="accountant@company.com"
-            listTitle="Accountants"
-            emptyHint="Add an email above, then the accountant can set their password from the login page."
-            successMessage={email => `${email} can now set their password and sign in as Accountant.`}
-            deleteConfirm={email => `Remove ${email} from the accountant allowlist?\nThey will no longer be able to sign in as Accountant.`}
+            listTitle={t("accountants")}
+            emptyHint={t("accEmpty")}
+            successMessage={email => t("accOk", { email })}
+            deleteConfirm={email => t("accDel", { email })}
             setupSql={ACCOUNTANT_SETUP_SQL}
           />
         </section>
 
         <section>
           <div className="flex items-center gap-2 mb-1">
-            <Crown className="w-4 h-4 text-pale-gold-foreground" />
-            <h2 className="text-slate-900 font-bold text-sm">CEO Access</h2>
+            <Briefcase className="w-4 h-4 text-pale-blue-foreground" />
+            <h2 className="text-slate-900 font-bold text-sm">{t("manager")}</h2>
           </div>
           <p className="text-slate-500 text-xs mb-4">
-            CEOs can see and change everything. Adding or removing one needs your password and is announced on Telegram.
+            {t("mgrDesc")}
           </p>
-          <CeoAccessSection />
+          <EmailAllowlistCard
+            table="manager_access"
+            cardIcon={Briefcase}
+            infoTitle={t("mgrInfoTitle")}
+            infoDescription={t("mgrInfoDesc")}
+            addSectionTitle={t("mgrAddTitle")}
+            addButtonLabel={t("mgrAddBtn")}
+            placeholder="manager@company.com"
+            listTitle={t("managers")}
+            emptyHint={t("mgrEmpty")}
+            successMessage={email => t("mgrOk", { email })}
+            deleteConfirm={email => t("mgrDel", { email })}
+            setupSql={MANAGER_SETUP_SQL}
+          />
         </section>
       </div>
     </div>

@@ -13,7 +13,8 @@ import ManageAccess from "@/pages/manage-access";
 import PORegistry from "@/pages/po-registry";
 import PipaLedger from "@/pages/pipa-ledger";
 import DebtTracker from "@/pages/debt-tracker";
-import HomeExpenses from "@/pages/home-expenses";
+import SalaryPage from "@/pages/salary";
+import SettingsPage from "@/pages/settings";
 import ChatPage from "@/pages/chat";
 
 const queryClient = new QueryClient();
@@ -125,15 +126,21 @@ function Router() {
         </ProtectedRoute>
       </Route>
 
-      <Route path="/manage-access">
-        <ProtectedRoute>
-          <ManageAccess />
+      <Route path="/salary">
+        <ProtectedRoute allow={["ceo", "accountant"]}>
+          <SalaryPage />
         </ProtectedRoute>
       </Route>
 
-      <Route path="/home-expenses">
+      <Route path="/settings">
+        <ProtectedRoute allow={["ceo", "accountant"]}>
+          <SettingsPage />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/manage-access">
         <ProtectedRoute>
-          <HomeExpenses />
+          <ManageAccess />
         </ProtectedRoute>
       </Route>
 

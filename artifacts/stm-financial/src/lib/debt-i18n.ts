@@ -192,6 +192,10 @@ const S = {
   toDate:             { en: "To date", my: "အထိ" },
   preparing:          { en: "Preparing…", my: "ပြင်ဆင်နေသည်…" },
   downloadExcel:      { en: "Download Excel", my: "Excel ဒေါင်းလုဒ်" },
+  sendPdf:            { en: "Send PDF", my: "PDF ပို့ရန်" },
+  sendStatement:      { en: "Send statement (PDF) to customer", my: "အကြွေးစာရင်း PDF ကို ဖောက်သည်ထံ ပို့ရန်" },
+  pdfDownloaded:      { en: "PDF downloaded — attach it in Viber, Telegram or Messenger.", my: "PDF ဒေါင်းလုဒ် ပြီးပါပြီ — Viber / Telegram / Messenger တွင် ပူးတွဲ ပို့ပါ။" },
+  pdfFailed:          { en: "Couldn't make the PDF. Try again.", my: "PDF မထုတ်နိုင်ပါ။ ထပ်ကြိုးစားပါ။" },
   loadingTxns:        { en: "Loading transactions…", my: "ငွေစာရင်း ဖွင့်နေသည်…" },
   ledgerTitle:        { en: "DEBTORS LEDGER", my: "အကြွေး စာရင်းချုပ်" },
   customerName:       { en: "Customer Name", my: "ဖောက်သည် အမည်" },
@@ -244,7 +248,6 @@ const CATEGORY_MY: Record<DebtCategoryId, string> = {
   normal: "ပုံမှန် / အခြား",
   own_family: "ကိုယ်ပိုင်နှင့် မိသားစု",
   on_paper: "စာရွက်ပေါ်",
-  employees: "ဝန်ထမ်းများ",
 };
 
 export function categoryLabel(id: DebtCategoryId, en: string, lang: DebtLang): string {

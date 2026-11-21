@@ -16,6 +16,7 @@ import {
   type ChatKind, type ChatLang, type ChatMessage, type ChatRole, type ChatStringKey, type EmergencyType,
 } from "../lib/team-chat-core";
 import { EmergencyDialog, LeaveDialog, RequestCard } from "./team-chat-requests";
+import { confirmDialog } from "./confirm-dialog";
 import {
   canSend, decryptMessage, decryptPhoto, e2eSupported, encryptMessage, encryptPhoto, syncKeyring,
   type Keyring,
@@ -467,7 +468,7 @@ export default function TeamChat({ client, me, theme, lang = "en", onBack, class
 
   async function remove(m: ChatMessage) {
     setSelected(null);
-    if (!window.confirm(s("deleteConfirm"))) return;
+    if (!(await confirmDialog(s("deleteConfirm"), { danger: true, lang, theme: theme === "dark" ? "dark" : "light" }))) return;
     if (m.pending) {
       setMessages(prev => prev.filter(x => x.client_id !== m.client_id));
       return;
@@ -598,7 +599,7 @@ export default function TeamChat({ client, me, theme, lang = "en", onBack, class
                         {head && (
                           <p className={`text-[11px] font-semibold mb-0.5 px-1 flex items-center gap-1.5 ${T.name}`}>
                             <span className="capitalize">{mine ? s("you") : m.sender_name}</span>
-                            {m.sender_role === "ceo" && <span className={`text-[9px] font-bold rounded px-1 py-px ${T.ceo}`}>CEO</span>}
+                            {m.sender_role === "ceo" && <span className={`text-[9px] font-bold rounded px-1 py-px ${T.ceo}`}>{s("ownerBadge")}</span>}
                           </p>
                         )}
                         {m.kind !== "message" ? (

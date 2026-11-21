@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  supabase, DebtProfile, DEBT_TABLES, RELATIONS, DebtRelation,
+  supabase, DebtProfile, DEBT_TABLES, RELATIONS, DEBT_RELATIONS, DebtRelation,
   NO_SCORE_RELATIONS, RECEIVABLES_EXCLUDED_RELATIONS, computeReceivables,
   DebtCategoryId, DEBT_CATEGORY_RELATIONS, DEBT_CATEGORY_LABELS,
   repaymentSummary, fmtPercent, mmkFmt, formatPhone, generateTxnNumber,
@@ -13,6 +13,7 @@ import { cacheDebtProfiles, getCachedDebtProfiles, useOnlineStatus } from "@/lib
 import { useAuth } from "@/lib/auth-context";
 import { categoryLabel, relationLabel, useDebtLang, useDebtT } from "@/lib/debt-i18n";
 import DebtLangToggle from "@/components/debt-lang-toggle";
+import { confirmDialog, messageDialog } from "@/components/confirm-dialog";
 import {
   Plus, Search, SortAsc, User, Phone, X, Calendar, CreditCard,
   AlertTriangle, CheckCircle, TrendingDown, Loader2, Trash2, ShieldCheck, PieChart as PieChartIcon,
@@ -162,6 +163,7 @@ export default function DebtTracker() {
     const { data, error } = await supabase
       .from(DEBT_TABLES.PROFILES)
       .select("*")
+      .neq("relation", "Employee")   // employees are on the Salary page
       .order("created_at", { ascending: false });
     if (data) {
       setProfiles(data as DebtProfile[]);
@@ -181,9 +183,11 @@ export default function DebtTracker() {
   }, [fetchProfiles]);
 
   async function handleDeleteProfile(profile: DebtProfile) {
-    if (!window.confirm(t("confirmDeleteProfile", { name: profile.name }))) return;
-    const { error } = await supabase.from(DEBT_TABLES.PROFILES).delete().eq("id", profile.id);
-    if (!error) fetchProfiles();
+    if (!(await confirmDialog(t("confirmDeleteProfile", { name: profile.name }), { danger: true }))) return;
+    const { error, count } = await supabase.from(DEBT_TABLES.PROFILES).delete({ count: "exact" }).eq("id", profile.id);
+    // Say why instead of doing nothing (RLS refuses by matching no rows).
+    if (error || !count) { await messageDialog(error ? error.message : t("nothingDeleted")); return; }
+    fetchProfiles();
   }
 
   const DELETE_ALL_PHRASE = "DELETE ALL";
@@ -211,7 +215,7 @@ export default function DebtTracker() {
     const { error, count } = await supabase
       .from(DEBT_TABLES.PROFILES)
       .delete({ count: "exact" })
-      .not("id", "is", null);
+      .neq("relation", "Employee");   // never employees: they belong to the Salary page
     setDeletingAll(false);
     if (error) {
       setDeleteAllError(error.message);
@@ -689,7 +693,7 @@ export default function DebtTracker() {
                   onChange={e => setRelation(e.target.value as DebtRelation)}
                   className="w-full bg-white border border-slate-100 text-slate-900 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                 >
-                  {RELATIONS.map(r => <option key={r} value={r}>{relationLabel(r, lang)}</option>)}
+                  {DEBT_RELATIONS.map(r => <option key={r} value={r}>{relationLabel(r, lang)}</option>)}
                 </select>
               </div>
 

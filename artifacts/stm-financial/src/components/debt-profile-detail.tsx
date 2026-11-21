@@ -1,20 +1,22 @@
 import { useState, useEffect, useMemo } from "react";
 import {
-  supabase, DebtProfile, DebtTransaction, DEBT_TABLES, RELATIONS, DebtRelation,
+  supabase, DebtProfile, DebtTransaction, DEBT_TABLES, DEBT_RELATIONS, DebtRelation,
   NO_SCORE_RELATIONS,
   generateTxnNumber, repaymentSummary, fmtPercent, mmkFmt, formatPhone,
   getDisplayPhones, combineDateWithCurrentTime,
 } from "@/lib/debt-supabase";
 import { sortTransactionsChronological } from "@/lib/ledger";
 import { debtPayoff } from "@/lib/debt-payoff";
+import { sendCustomerStatement } from "@/lib/ledger-statement";
 import { relationLabel, useDebtLang, useDebtT } from "@/lib/debt-i18n";
+import { confirmDialog, messageDialog } from "@/components/confirm-dialog";
 import DebtLangToggle from "@/components/debt-lang-toggle";
 import { cacheDebtTransactions, getCachedDebtTransactions, useOnlineStatus } from "@/lib/offlineCache";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import {
   X, Plus, Trash2, Clock, User, Phone, CreditCard,
   AlertTriangle, CheckCircle, Loader2, Calendar, Pencil, ShieldAlert, BadgeAlert,
-  Bookmark, MessageSquarePlus, TrendingDown, TrendingUp, WifiOff,
+  Bookmark, MessageSquarePlus, TrendingDown, TrendingUp, WifiOff, Share2,
 } from "lucide-react";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -452,11 +454,16 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   }
 
   async function handleDeleteTransaction(txn: DebtTransaction) {
-    if (!window.confirm(t("confirmDeleteTxn", { n: txn.transaction_number }))) return;
+    if (!(await confirmDialog(t("confirmDeleteTxn", { n: txn.transaction_number }), { danger: true }))) return;
     setDeletingId(txn.id);
     const newBalance = profile.current_balance - txn.amount;
-    const { error } = await supabase.from(DEBT_TABLES.TRANSACTIONS).delete().eq("id", txn.id);
-    if (error) { setDeletingId(null); return; }
+    const { error, count } = await supabase.from(DEBT_TABLES.TRANSACTIONS).delete({ count: "exact" }).eq("id", txn.id);
+    if (error || !count) {
+      setDeletingId(null);
+      // Say why instead of doing nothing (RLS refuses by matching no rows).
+      await messageDialog(error ? error.message : t("nothingDeleted"));
+      return;
+    }
     const remainingTxns = transactions.filter(t => t.id !== txn.id);
     const payments = remainingTxns.filter(t => t.amount < 0);
     const lastPay = payments.length > 0
@@ -678,6 +685,24 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
             <DebtLangToggle />
+            {/* One tap: the whole statement as a PDF, straight to the share sheet (synchronous — sharing needs the tap). */}
+            <button
+              onClick={() => {
+                try {
+                  const today = new Date().toLocaleDateString("en-CA");   // local yyyy-mm-dd (UTC is still yesterday before 06:30 in Yangon)
+                  sendCustomerStatement({
+                    lang, name: profile.name, phones: displayPhones, transactions,
+                    currentBalance: profile.current_balance, from: profile.date || null, to: today,
+                  });
+                } catch {
+                  void messageDialog(t("pdfFailed"));
+                }
+              }}
+              disabled={loadingTxn}
+              title={t("sendStatement")} aria-label={t("sendStatement")}
+              className="text-emerald-600 hover:text-emerald-700 p-1.5 rounded-lg hover:bg-emerald-50 disabled:opacity-40 transition-colors">
+              <Share2 className="w-4 h-4" />
+            </button>
             <button onClick={openEdit} title={t("editProfile")} aria-label={t("editProfile")}
               className="text-slate-400 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
               <Pencil className="w-4 h-4" />
@@ -1185,7 +1210,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                 <label className={labelCls}>{t("relation")}</label>
                 <select value={editRelation} onChange={e => setEditRelation(e.target.value as DebtRelation)}
                   className={inputCls}>
-                  {RELATIONS.map(r => <option key={r} value={r}>{relationLabel(r, lang)}</option>)}
+                  {DEBT_RELATIONS.map(r => <option key={r} value={r}>{relationLabel(r, lang)}</option>)}
                 </select>
               </div>
 

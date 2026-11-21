@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase, DebtProfile, DebtTransaction, DEBT_TABLES, mmkFmt, getDisplayPhones } from "@/lib/debt-supabase";
 import { buildLedger, exportLedgerExcel } from "@/lib/ledger";
+import { sendCustomerStatement } from "@/lib/ledger-statement";
 import { cacheDebtTransactions, getCachedDebtTransactions, useOnlineStatus } from "@/lib/offlineCache";
-import { X, Download, Loader2, FileSpreadsheet, Calendar, WifiOff } from "lucide-react";
+import { X, Download, Loader2, FileSpreadsheet, Calendar, WifiOff, Share2 } from "lucide-react";
 import { useDebtLang, useDebtT } from "@/lib/debt-i18n";
 
+/** Local yyyy-mm-dd — UTC would still be yesterday before 06:30 in Yangon. */
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString("en-CA");
 }
 
 export default function DebtLedgerModal({ profile, onClose }: { profile: DebtProfile; onClose: () => void }) {
@@ -49,6 +51,20 @@ export default function DebtLedgerModal({ profile, onClose }: { profile: DebtPro
       await exportLedgerExcel(profile, phones, from, to, ledger);
     } finally {
       setExporting(false);
+    }
+  }
+
+  // Synchronous on purpose: the share sheet only opens straight from the tap.
+  const [pdfNote, setPdfNote] = useState<"" | "pdfDownloaded" | "pdfFailed">("");
+  function handleSendPdf() {
+    try {
+      const how = sendCustomerStatement({
+        lang, name: profile.name, phones, transactions,
+        currentBalance: profile.current_balance, from: from || null, to: to || todayStr(),
+      });
+      setPdfNote(how === "download" ? "pdfDownloaded" : "");
+    } catch {
+      setPdfNote("pdfFailed");
     }
   }
 
@@ -98,14 +114,27 @@ export default function DebtLedgerModal({ profile, onClose }: { profile: DebtPro
             aria-label={t("toDate")}
             className="bg-white border border-slate-100 text-slate-900 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
-          <button
-            onClick={handleExport}
-            disabled={exporting || loading}
-            className="ml-auto flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs rounded-lg px-3.5 py-2 transition-all"
-          >
-            {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-            {exporting ? t("preparing") : t("downloadExcel")}
-          </button>
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            <button
+              onClick={handleSendPdf}
+              disabled={loading}
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs rounded-lg px-3.5 py-2 transition-all"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              {t("sendPdf")}
+            </button>
+            <button
+              onClick={handleExport}
+              disabled={exporting || loading}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs rounded-lg px-3.5 py-2 transition-all"
+            >
+              {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+              {exporting ? t("preparing") : t("downloadExcel")}
+            </button>
+          </div>
+          {pdfNote && (
+            <p role="status" className={`basis-full text-right text-[11px] ${pdfNote === "pdfFailed" ? "text-red-600" : "text-emerald-700"}`}>{t(pdfNote)}</p>
+          )}
           {lang === "my" && <p className="basis-full text-right text-[10px] text-slate-400">{t("excelEnglish")}</p>}
         </div>
 
