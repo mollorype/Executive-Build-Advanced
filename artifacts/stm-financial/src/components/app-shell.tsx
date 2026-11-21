@@ -34,12 +34,12 @@ const navItems: { path: string; label: "dashboard" | "shifts" | "po" | "pp" | "d
   { path: "/dashboard", label: "dashboard", icon: LayoutDashboard, roles: ["ceo"] },
   { path: "/shifts", label: "shifts", icon: Receipt, roles: ["ceo"] },
   { path: "/po-registry", label: "po", icon: PackageSearch, roles: ["ceo"] },
-  { path: "/pipa-ledger", label: "pp", icon: Cylinder, roles: ["ceo"] },
+  { path: "/pipa-ledger", label: "pp", icon: Cylinder, roles: ["ceo", "accountant", "manager"] },
   { path: "/debt-tracker", label: "debt", icon: CreditCard, roles: ["ceo", "accountant"] },
   { path: "/salary", label: "salary", icon: Wallet, roles: ["ceo", "accountant"] },
   { path: "/chat", label: "chat", icon: MessageCircle, roles: ["ceo"] },
   { path: "/manage-access", label: "access", icon: Users, roles: ["ceo"] },
-  { path: "/settings", label: "settings", icon: Settings, roles: ["ceo", "accountant"] },
+  { path: "/settings", label: "settings", icon: Settings, roles: ["ceo", "accountant", "manager"] },
 ];
 
 export default function AppShell({ children }: Props) {

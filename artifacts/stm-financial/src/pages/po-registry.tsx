@@ -9,7 +9,7 @@ import { forceClosePO, verifyPO } from "@/lib/fifo-engine";
 import { loadUsageSums, poProfit, type Profit, type UsageSum } from "@/lib/po-usage";
 import PipaStockSummary from "@/components/pipa/stock-summary-card";
 import PipaModal, { ErrorNote, primaryBtn } from "@/components/pipa/modal";
-import DeductPODialog from "@/components/po/deduct-po-dialog";
+import ShiftDeductDialog from "@/components/shift-deduct-dialog";
 import POHistoryDialog from "@/components/po/po-history-dialog";
 import { L_PER_PP, fmtTyped, fromUnit, liters, readUnit, saveUnit, toUnit, unitSuffix, vol, type VolUnit } from "@/lib/po-units";
 import { makeT, useLang, type Lang } from "@/lib/app-i18n";
@@ -1189,7 +1189,7 @@ export default function PORegistry() {
       )}
       {editTarget && <EditPOModal po={editTarget} unit={unit} onUnit={setUnit} onClose={() => setEditTarget(null)} onDone={changed} />}
       {historyTarget && <POHistoryDialog po={historyTarget} unit={unit} onClose={() => setHistoryTarget(null)} onChanged={changed} />}
-      {deductOpen && <DeductPODialog unit={unit} onClose={() => setDeductOpen(false)} onSaved={changed} />}
+      {deductOpen && <ShiftDeductDialog unit={unit} owner onClose={() => setDeductOpen(false)} onSaved={changed} />}
     </div>
   );
 }

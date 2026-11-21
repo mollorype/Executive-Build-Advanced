@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   PIPA_MOVEMENTS_TABLE, PIPA_PRODUCTS, PIPA_STATIONS_TABLE,
@@ -8,7 +8,8 @@ import {
 import MovementDialog from "@/components/pipa/movement-dialog";
 import StationDialog from "@/components/pipa/station-dialog";
 import CountDialog from "@/components/pipa/count-dialog";
-import DeductShiftsDialog from "@/components/pipa/deduct-shifts-dialog";
+import ShiftDeductDialog from "@/components/shift-deduct-dialog";
+import { useAuth } from "@/lib/auth-context";
 import { usePipaT, pipaProduct, type PipaT } from "@/lib/pipa-i18n";
 import { confirmDialog } from "@/components/confirm-dialog";
 import { AlertTriangle, ClipboardCheck, Cylinder, Loader2, Phone, Plus, Receipt, Store, Trash2, X } from "lucide-react";
@@ -43,15 +44,32 @@ function describe(m: PipaMovement, station: string, t: PipaT): { title: string; 
   }
 }
 
+/** Notes the database writes on shift-deduction lines are in English; show them in the chosen language. */
+function noteText(m: PipaMovement, t: PipaT): string {
+  const auto = m.shift_batch_id && m.note ? /^Shift sales: ([\d.]+) L from (\d+) shift/.exec(m.note) : null;
+  return auto ? t("shiftNote", { liters: fmtLiters(Number(auto[1])), n: auto[2] }) : m.note ?? "";
+}
+
 export default function PipaLedger() {
   const t = usePipaT();
+  const { profile } = useAuth();
+  const owner = profile?.role === "ceo";
   const [stations, setStations] = useState<PipaStation[]>([]);
   const [movements, setMovements] = useState<PipaMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [dialog, setDialog] = useState<Dialog>(null);
   const [historyStation, setHistoryStation] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNoticeText] = useState("");
+  const noticeTimer = useRef<number | undefined>(undefined);
+  // A success message fades after 3 s; an error stays. A newer message always
+  // replaces an older one (and cancels its fade, so it can't wipe the new one).
+  const setNotice = useCallback((message: string, fade = false) => {
+    window.clearTimeout(noticeTimer.current);
+    setNoticeText(message);
+    if (fade && message) noticeTimer.current = window.setTimeout(() => setNoticeText(""), 3000);
+  }, []);
+  useEffect(() => () => window.clearTimeout(noticeTimer.current), []);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -87,9 +105,8 @@ export default function PipaLedger() {
 
   function done(message: string) {
     setDialog(null);
-    setNotice(message);
+    setNotice(message, true);
     load();
-    setTimeout(() => setNotice(""), 3000);
   }
 
   async function remove(m: PipaMovement) {
@@ -103,7 +120,11 @@ export default function PipaLedger() {
       ? await supabase.rpc("undo_pipa_shift_usage", { p_batch: m.shift_batch_id }).then(r => ({ error: r.error, count: 1 }))
       : await supabase.from(PIPA_MOVEMENTS_TABLE).delete({ count: "exact" }).eq("id", m.id);
     setDeletingId(null);
-    if (error) { setNotice(t("deleteFailed", { msg: error.message })); return; }
+    if (error) {
+      const msg = /newer deduction/.test(error.message) ? t("undoNewer") : /force-closed/.test(error.message) ? t("undoClosed") : error.message;
+      setNotice(t("deleteFailed", { msg }));
+      return;
+    }
     if (!count) { setNotice(t("notDeleted")); load(); return; }   // RLS refuses by matching nothing
     done(isShiftBatch ? t("shiftUndone") : t("recordDeleted"));
   }
@@ -286,7 +307,7 @@ export default function PipaLedger() {
                       <p className="text-sm font-semibold text-slate-900">{d.title}</p>
                       {d.detail && <p className="text-xs text-slate-600 break-words">{d.detail}</p>}
                       <p className="text-xs text-slate-400 mt-0.5 break-words">
-                        {m.occurred_on}{m.note ? ` · ${m.note}` : ""}{m.po_id ? t("inPO") : ""}
+                        {m.occurred_on}{m.note ? ` · ${noteText(m, t)}` : ""}{m.po_id ? t("inPO") : ""}
                       </p>
                     </div>
                     <span className={`shrink-0 text-sm font-bold tabular-nums ${delta > 0 ? "text-pale-green-foreground" : delta < 0 ? "text-pale-red-foreground" : "text-slate-400"}`}
@@ -331,7 +352,7 @@ export default function PipaLedger() {
         />
       )}
       {dialog?.type === "count" && <CountDialog stock={stock} onClose={() => setDialog(null)} onSaved={() => done(t("countSaved"))} />}
-      {dialog?.type === "deduct" && <DeductShiftsDialog onClose={() => setDialog(null)} onSaved={() => done(t("deducted"))} />}
+      {dialog?.type === "deduct" && <ShiftDeductDialog unit="pp" owner={owner} onClose={() => setDialog(null)} onSaved={done} />}
     </div>
   );
 }
