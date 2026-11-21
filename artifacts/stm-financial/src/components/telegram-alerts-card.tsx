@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { AlertTriangle, BellRing, CheckCircle, ExternalLink, Loader2, Send } from "lucide-react";
 import { makeT } from "@/lib/app-i18n";
+import { confirmDialog } from "@/components/confirm-dialog";
 
 const useT = makeT({
   unreachable: { en: "Couldn't reach the Telegram service. Check your connection and try again.", my: "Telegram ဝန်ဆောင်မှုကို မချိတ်နိုင်ပါ။ အင်တာနက် စစ်ပြီး ထပ်ကြိုးစားပါ။" },
@@ -121,7 +122,7 @@ export default function TelegramAlertsCard() {
   }
 
   async function disconnect() {
-    if (!user || !window.confirm(t("confirmOff"))) return;
+    if (!user || !(await confirmDialog(t("confirmOff"), { confirmLabel: t("turnOff") }))) return;
     reset();
     setBusy("unlink");
     const { error: delErr } = await supabase.from("telegram_links").delete().eq("user_id", user.id);

@@ -4,6 +4,7 @@ import { PIPA_STATIONS_TABLE, type PipaStation } from "@/lib/pipa-ledger";
 import PipaModal, { ErrorNote, fieldCls, labelCls, primaryBtn } from "./modal";
 import { Loader2, Trash2 } from "lucide-react";
 import { usePipaT } from "@/lib/pipa-i18n";
+import { confirmDialog } from "@/components/confirm-dialog";
 
 /** Add a station, or edit/delete an existing one. */
 export default function StationDialog({ station, onClose, onSaved }: {
@@ -32,9 +33,9 @@ export default function StationDialog({ station, onClose, onSaved }: {
   }
 
   async function remove() {
-    if (!station || !window.confirm(t("confirmDeleteStation", { name: station.name }))) return;
+    if (!station || !(await confirmDialog(t("confirmDeleteStation", { name: station.name }), { danger: true }))) return;
     setBusy(true); setError("");
-    const { error: err } = await supabase.from(PIPA_STATIONS_TABLE).delete().eq("id", station.id);
+    const { error: err, count } = await supabase.from(PIPA_STATIONS_TABLE).delete({ count: "exact" }).eq("id", station.id);
     setBusy(false);
     if (err) {
       // 23503: movements still reference it (ON DELETE RESTRICT) — history must not lose its station.
@@ -43,6 +44,7 @@ export default function StationDialog({ station, onClose, onSaved }: {
         : err.message);
       return;
     }
+    if (!count) { setError(t("notDeleted")); return; }   // RLS refuses by matching nothing
     onSaved();
   }
 

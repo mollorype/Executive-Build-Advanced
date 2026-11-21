@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { KeyRound, Loader2, RefreshCw } from "lucide-react";
 import { makeT } from "@/lib/app-i18n";
+import { confirmDialog } from "@/components/confirm-dialog";
 
 const useT = makeT({
   unreachable: { en: "Couldn't reach the server. Check your connection and try again.", my: "server ကို မချိတ်နိုင်ပါ။ အင်တာနက် စစ်ပြီး ထပ်ကြိုးစားပါ။" },
@@ -65,7 +66,7 @@ export default function StaffLoginsSection() {
   useEffect(() => { load(); }, [load]);
 
   async function reset(email: string) {
-    if (!window.confirm(t("confirmReset", { email }))) return;
+    if (!(await confirmDialog(t("confirmReset", { email }), { danger: true, confirmLabel: t("reset") }))) return;
     setResetting(email);
     setNotice("");
     try {

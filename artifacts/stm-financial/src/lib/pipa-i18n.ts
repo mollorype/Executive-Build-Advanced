@@ -58,6 +58,7 @@ export const usePipaT = makeT({
   confirmDelete: { en: "Delete this record?\n\n{title}", my: "ဤမှတ်တမ်းကို ဖျက်မလား?\n\n{title}" },
   poKept: { en: "\n\nIts purchase order in PO Registry is kept.", my: "\n\nPO မှတ်ပုံတင်ရှိ ၎င်း၏ PO ကို ဆက်ထားပါမည်။" },
   deleteFailed: { en: "Couldn't delete: {msg}", my: "မဖျက်နိုင်ပါ: {msg}" },
+  notDeleted: { en: "Nothing was deleted — your account may not be allowed to. Refresh and try again.", my: "ဘာမှ မဖျက်ရပါ — သင့်အကောင့် ဖျက်ခွင့် မရှိနိုင်ပါ။ ပြန်ဖွင့်ပြီး ထပ်ကြိုးစားပါ။" },
   shiftUndone: { en: "Shift deduction undone.", my: "ဆိုင်း နုတ်ချက် ပြန်ဖျက်ပြီး။" },
   recordDeleted: { en: "Record deleted.", my: "မှတ်တမ်း ဖျက်ပြီး။" },
   title: { en: "P-P Ledger", my: "P-P စာရင်း" },

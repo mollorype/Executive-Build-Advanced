@@ -8,6 +8,7 @@ import { supabase, FuelPurchaseOrder } from "@/lib/supabase";
 import { runFIFOEngine, forceClosePO, verifyPO, calcNetProfit, FIFORunResult } from "@/lib/fifo-engine";
 import PipaStockSummary from "@/components/pipa/stock-summary-card";
 import { makeT, useLang, type Lang } from "@/lib/app-i18n";
+import { confirmDialog, messageDialog } from "@/components/confirm-dialog";
 
 const useT = makeT({
   // Force close
@@ -590,12 +591,12 @@ export default function PORegistry() {
 
   async function handleSetActive(po: FuelPurchaseOrder) {
     const confirmMsg = t("confirmActive", { name: po.name ?? po.id.slice(0, 8), product: P(po.product_type) });
-    if (!window.confirm(confirmMsg)) return;
+    if (!(await confirmDialog(confirmMsg, { confirmLabel: t("setActive") }))) return;
     const { error } = await supabase
       .from("fuel_purchase_orders")
       .update({ status: "ACTIVE" })
       .eq("id", po.id);
-    if (error) { alert(t("activeFailed") + error.message); return; }
+    if (error) { await messageDialog(t("activeFailed") + error.message); return; }
     fetchPOs(page);
   }
 
@@ -627,7 +628,7 @@ export default function PORegistry() {
   }
 
   async function handleDeletePO(po: FuelPurchaseOrder) {
-    if (!window.confirm(t("confirmDelete", { name: po.name ?? po.id.slice(0, 8), product: P(po.product_type) }))) return;
+    if (!(await confirmDialog(t("confirmDelete", { name: po.name ?? po.id.slice(0, 8), product: P(po.product_type) }), { danger: true }))) return;
     setDeleting(true);
     setDeleteError("");
     const err = await deletePOIds([po.id]);
@@ -640,7 +641,7 @@ export default function PORegistry() {
   async function handleDeleteSelected() {
     const ids = [...selectedIds];
     if (!ids.length) return;
-    if (!window.confirm(t("confirmDeleteMany", { n: ids.length }))) return;
+    if (!(await confirmDialog(t("confirmDeleteMany", { n: ids.length }), { danger: true }))) return;
     setDeleting(true);
     setDeleteError("");
     const err = await deletePOIds(ids);

@@ -13,6 +13,7 @@ import { cacheDebtProfiles, getCachedDebtProfiles, useOnlineStatus } from "@/lib
 import { useAuth } from "@/lib/auth-context";
 import { categoryLabel, relationLabel, useDebtLang, useDebtT } from "@/lib/debt-i18n";
 import DebtLangToggle from "@/components/debt-lang-toggle";
+import { confirmDialog, messageDialog } from "@/components/confirm-dialog";
 import {
   Plus, Search, SortAsc, User, Phone, X, Calendar, CreditCard,
   AlertTriangle, CheckCircle, TrendingDown, Loader2, Trash2, ShieldCheck, PieChart as PieChartIcon,
@@ -182,9 +183,11 @@ export default function DebtTracker() {
   }, [fetchProfiles]);
 
   async function handleDeleteProfile(profile: DebtProfile) {
-    if (!window.confirm(t("confirmDeleteProfile", { name: profile.name }))) return;
-    const { error } = await supabase.from(DEBT_TABLES.PROFILES).delete().eq("id", profile.id);
-    if (!error) fetchProfiles();
+    if (!(await confirmDialog(t("confirmDeleteProfile", { name: profile.name }), { danger: true }))) return;
+    const { error, count } = await supabase.from(DEBT_TABLES.PROFILES).delete({ count: "exact" }).eq("id", profile.id);
+    // Say why instead of doing nothing (RLS refuses by matching no rows).
+    if (error || !count) { await messageDialog(error ? error.message : t("nothingDeleted")); return; }
+    fetchProfiles();
   }
 
   const DELETE_ALL_PHRASE = "DELETE ALL";

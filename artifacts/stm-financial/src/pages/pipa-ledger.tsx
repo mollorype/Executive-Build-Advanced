@@ -10,6 +10,7 @@ import StationDialog from "@/components/pipa/station-dialog";
 import CountDialog from "@/components/pipa/count-dialog";
 import DeductShiftsDialog from "@/components/pipa/deduct-shifts-dialog";
 import { usePipaT, pipaProduct, type PipaT } from "@/lib/pipa-i18n";
+import { confirmDialog } from "@/components/confirm-dialog";
 import { AlertTriangle, ClipboardCheck, Cylinder, Loader2, Phone, Plus, Receipt, Store, Trash2, X } from "lucide-react";
 
 type Dialog =
@@ -96,13 +97,14 @@ export default function PipaLedger() {
     const msg = isShiftBatch
       ? t("confirmUndoShift")
       : t("confirmDelete", { title: describe(m, stationName[m.station_id ?? ""] ?? "", t).title }) + (m.po_id ? t("poKept") : "");
-    if (!window.confirm(msg)) return;
+    if (!(await confirmDialog(msg, { danger: true, confirmLabel: isShiftBatch ? t("undoShift") : undefined }))) return;
     setDeletingId(m.id);
-    const { error } = isShiftBatch
-      ? await supabase.rpc("undo_pipa_shift_usage", { p_batch: m.shift_batch_id })
-      : await supabase.from(PIPA_MOVEMENTS_TABLE).delete().eq("id", m.id);
+    const { error, count } = isShiftBatch
+      ? await supabase.rpc("undo_pipa_shift_usage", { p_batch: m.shift_batch_id }).then(r => ({ error: r.error, count: 1 }))
+      : await supabase.from(PIPA_MOVEMENTS_TABLE).delete({ count: "exact" }).eq("id", m.id);
     setDeletingId(null);
     if (error) { setNotice(t("deleteFailed", { msg: error.message })); return; }
+    if (!count) { setNotice(t("notDeleted")); load(); return; }   // RLS refuses by matching nothing
     done(isShiftBatch ? t("shiftUndone") : t("recordDeleted"));
   }
 

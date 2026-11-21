@@ -5,6 +5,7 @@ import ShiftDetailPanel from "@/components/shift-detail-panel";
 import ShiftEditDialog from "@/components/shift-edit-dialog";
 import TelegramAlertsCard from "@/components/telegram-alerts-card";
 import { makeT } from "@/lib/app-i18n";
+import { confirmDialog } from "@/components/confirm-dialog";
 
 const useT = makeT({
   badLink: { en: "That shift link isn't valid.", my: "ဤဆိုင်း link မမှန်ပါ။" },
@@ -244,7 +245,7 @@ export default function Shifts() {
   }
 
   async function handleDeleteShift(shift: Shift) {
-    if (!window.confirm(t("confirmOne", { name: shift.employee_username || t("unknown") }))) return;
+    if (!(await confirmDialog(t("confirmOne", { name: shift.employee_username || t("unknown") }), { danger: true }))) return;
     setDeleting(true);
     setDeleteError("");
     const err = await deleteShiftIds([shift.id]);
@@ -257,7 +258,7 @@ export default function Shifts() {
   async function handleDeleteSelected() {
     const ids = [...selectedIds];
     if (!ids.length) return;
-    if (!window.confirm(t("confirmMany", { n: ids.length }))) return;
+    if (!(await confirmDialog(t("confirmMany", { n: ids.length }), { danger: true }))) return;
     setDeleting(true);
     setDeleteError("");
     const err = await deleteShiftIds(ids);

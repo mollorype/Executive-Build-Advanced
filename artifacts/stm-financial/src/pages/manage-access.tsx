@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { UserPlus, Calculator, Check, AlertCircle, Shield, Trash2, Mail, RefreshCw, Copy, Crown, Briefcase, type LucideIcon } from "lucide-react";
 import CeoAccessSection from "@/components/ceo-access-section";
 import StaffLoginsSection from "@/components/staff-logins-section";
+import { confirmDialog } from "@/components/confirm-dialog";
 import { makeT } from "@/lib/app-i18n";
 
 const useT = makeT({
@@ -20,6 +21,7 @@ const useT = makeT({
   noneYet: { en: "No one added yet.", my: "မည်သူမျှ မထည့်ရသေးပါ။" },
   added: { en: "Added {date}", my: "{date} တွင် ထည့်ခဲ့" },
   removeAccess: { en: "Remove access", my: "ခွင့်ပြုချက် ဖယ်ရန်" },
+  notRemoved: { en: "{email} wasn't removed — your account may not be allowed to. Refresh and try again.", my: "{email} ကို မဖယ်ရပါ — သင့်အကောင့် ခွင့်မရှိနိုင်ပါ။ ပြန်ဖွင့်ပြီး ထပ်ကြိုးစားပါ။" },
   // Page
   title: { en: "Staff Access", my: "ဝန်ထမ်း ခွင့်ပြုချက်" },
   subtitle: { en: "Control who can access STM Daily and STM Financial", my: "STM Daily နှင့် STM Financial ကို မည်သူ သုံးနိုင်မည်ကို စီမံပါ" },
@@ -151,10 +153,12 @@ function EmailAllowlistCard({
   }
 
   async function handleDelete(entry: AllowlistEntry) {
-    if (!window.confirm(deleteConfirm(entry.email))) return;
+    if (!(await confirmDialog(deleteConfirm(entry.email), { danger: true, confirmLabel: t("removeAccess") }))) return;
     setDeleting(entry.id);
-    await supabase.from(table).delete().eq("id", entry.id);
+    const { error, count } = await supabase.from(table).delete({ count: "exact" }).eq("id", entry.id);
     setDeleting(null);
+    // Say why instead of doing nothing (RLS refuses by matching no rows).
+    if (error || !count) setResult({ success: false, message: error ? error.message : t("notRemoved", { email: entry.email }) });
     fetchEntries();
   }
 

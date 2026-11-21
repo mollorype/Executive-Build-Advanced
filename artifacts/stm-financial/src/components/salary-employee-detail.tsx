@@ -6,6 +6,7 @@ import { mmkFmt } from "@/lib/debt-supabase";
 import { useDebtLang } from "@/lib/debt-i18n";
 import DebtLangToggle from "@/components/debt-lang-toggle";
 import { useSalaryT, typeLabel } from "@/lib/salary-i18n";
+import { confirmDialog } from "@/components/confirm-dialog";
 import {
   summarizeMonth, pendingItems, monthHistory, monthLabel, monthName, defaultDayIn, signedAmount, dailyNote,
   summaryFromPayment, sameSummary, type SalaryItem, type SalaryItemType, type SalaryPayment,
@@ -82,7 +83,7 @@ export default function SalaryEmployeeDetail({ employee, month, items, payment, 
     if (await run("edit", () => updateEmployee(employee.id, eName, ePhone, Number(eBase) || 0, eEmail))) setEditing(false);
   }
   async function removeEmployee() {
-    if (!window.confirm(t("confirmDelete", { name: employee.name }))) return;
+    if (!(await confirmDialog(t("confirmDelete", { name: employee.name }), { danger: true }))) return;
     setBusy("delete");
     const err = await deleteEmployee(employee.id);
     setBusy(null);
@@ -199,7 +200,7 @@ export default function SalaryEmployeeDetail({ employee, month, items, payment, 
                   <p className="text-sm font-bold text-emerald-800 flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> {t("paidTitle", { month: mName })} · {mmkFmt(payment.net)}</p>
                   <p className="text-xs text-emerald-800/80 mt-0.5">{t("paidOn", { date: new Date(payment.paid_at).toLocaleString("en-GB", { timeZone: "Asia/Yangon", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }) })}{payment.paid_by ? ` · ${payment.paid_by}` : ""}</p>
                 </div>
-                <button onClick={() => { if (window.confirm(t("confirmUndoPay"))) run("unpay", () => undoPayment(payment.id)); }} disabled={busy === "unpay"}
+                <button onClick={async () => { if (await confirmDialog(t("confirmUndoPay"), { danger: true, confirmLabel: t("undoPay") })) run("unpay", () => undoPayment(payment.id)); }} disabled={busy === "unpay"}
                   className="shrink-0 text-xs font-semibold text-emerald-800 hover:text-emerald-950 border border-emerald-200 bg-white rounded-lg px-2.5 py-1.5 disabled:opacity-50">
                   {busy === "unpay" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : t("undoPay")}
                 </button>
@@ -208,9 +209,9 @@ export default function SalaryEmployeeDetail({ employee, month, items, payment, 
             </div>
           ) : (
             <button
-              onClick={() => {
+              onClick={async () => {
                 const msg = t("confirmPay", { name: employee.name, month: mLabel, a: mmkFmt(live.net) }) + (pending.length ? t("confirmPayPending", { n: pending.length }) : "");
-                if (window.confirm(msg)) run("pay", () => payMonth(employee.id, month, live));
+                if (await confirmDialog(msg)) run("pay", () => payMonth(employee.id, month, live));
               }}
               disabled={busy === "pay"}
               className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl py-3">
@@ -242,7 +243,7 @@ export default function SalaryEmployeeDetail({ employee, month, items, payment, 
                           {busy === p.id && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                           {took ? t("deductFrom", { month: mName }) : t("addBackTo", { month: mName })}
                         </button>
-                        <button onClick={() => { if (window.confirm(t("confirmDismiss"))) run(p.id, () => decideItem(p.id, "dismissed")); }} disabled={busy === p.id}
+                        <button onClick={async () => { if (await confirmDialog(t("confirmDismiss"))) run(p.id, () => decideItem(p.id, "dismissed")); }} disabled={busy === p.id}
                           className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg bg-white disabled:opacity-50">
                           {t("dismiss")}
                         </button>
@@ -319,7 +320,7 @@ export default function SalaryEmployeeDetail({ employee, month, items, payment, 
                             {busy === h.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Undo2 className="w-3.5 h-3.5" />}
                           </button>
                         ) : (
-                          <button onClick={() => { if (window.confirm(t("confirmDeleteEntry"))) run(h.id, () => deleteItem(h.id)); }} disabled={busy === h.id}
+                          <button onClick={async () => { if (await confirmDialog(t("confirmDeleteEntry"), { danger: true })) run(h.id, () => deleteItem(h.id)); }} disabled={busy === h.id}
                             title={t("deleteEntry")} aria-label={t("deleteEntry")}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-white disabled:opacity-40">
                             {busy === h.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}

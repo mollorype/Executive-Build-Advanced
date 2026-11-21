@@ -4,6 +4,7 @@ import TeamChat, { useChatKeyMaintenance, useChatUnread } from "./components/tea
 import TelegramCard from "./components/telegram-card";
 import { CHAT_STRINGS } from "./lib/team-chat-core";
 import { enqueueShift, flushQueue, useOfflineSync, useQueueItemStatus, type LinkedExpensePayload } from "./lib/offlineQueue";
+import { confirmDialog } from "./components/confirm-dialog";
 import "./index.css";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -1413,10 +1414,10 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
     setForm(f => ({ ...f, fuel92NewOpen: true }));
   }
 
-  function closeNewPump() {
+  async function closeNewPump() {
     const r = form.fuel92New;
     if ((n(r.totalAmount) > 0 || n(r.liters) > 0)
-        && !window.confirm(t(lang, "closeNewPumpQ"))) return;
+        && !(await confirmDialog(t(lang, "closeNewPumpQ"), { lang, theme: "dark", danger: true, confirmLabel: lang === "my" ? "ပိတ်ရန်" : "Close" }))) return;
     saveNewPumpOpen(false);
     // Clear it, so nothing hidden is ever counted; keep the price for next time.
     setForm(f => ({ ...f, fuel92NewOpen: false, fuel92New: { ...EMPTY.fuel92New, price: f.fuel92New.price } }));

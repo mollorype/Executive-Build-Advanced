@@ -9,6 +9,7 @@ import { sortTransactionsChronological } from "@/lib/ledger";
 import { debtPayoff } from "@/lib/debt-payoff";
 import { sendCustomerStatement } from "@/lib/ledger-statement";
 import { relationLabel, useDebtLang, useDebtT } from "@/lib/debt-i18n";
+import { confirmDialog, messageDialog } from "@/components/confirm-dialog";
 import DebtLangToggle from "@/components/debt-lang-toggle";
 import { cacheDebtTransactions, getCachedDebtTransactions, useOnlineStatus } from "@/lib/offlineCache";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
@@ -453,11 +454,16 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
   }
 
   async function handleDeleteTransaction(txn: DebtTransaction) {
-    if (!window.confirm(t("confirmDeleteTxn", { n: txn.transaction_number }))) return;
+    if (!(await confirmDialog(t("confirmDeleteTxn", { n: txn.transaction_number }), { danger: true }))) return;
     setDeletingId(txn.id);
     const newBalance = profile.current_balance - txn.amount;
-    const { error } = await supabase.from(DEBT_TABLES.TRANSACTIONS).delete().eq("id", txn.id);
-    if (error) { setDeletingId(null); return; }
+    const { error, count } = await supabase.from(DEBT_TABLES.TRANSACTIONS).delete({ count: "exact" }).eq("id", txn.id);
+    if (error || !count) {
+      setDeletingId(null);
+      // Say why instead of doing nothing (RLS refuses by matching no rows).
+      await messageDialog(error ? error.message : t("nothingDeleted"));
+      return;
+    }
     const remainingTxns = transactions.filter(t => t.id !== txn.id);
     const payments = remainingTxns.filter(t => t.amount < 0);
     const lastPay = payments.length > 0
@@ -689,7 +695,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                     currentBalance: profile.current_balance, from: profile.date || null, to: today,
                   });
                 } catch {
-                  window.alert(t("pdfFailed"));
+                  void messageDialog(t("pdfFailed"));
                 }
               }}
               disabled={loadingTxn}

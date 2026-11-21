@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authClient, storedStaffUser } from "../lib/supabase";
+import { confirmDialog } from "./confirm-dialog";
 
 type Lang = "en" | "my";
 type Link = { telegram_username: string | null; telegram_first_name: string | null; notify_chat: boolean };
@@ -93,7 +94,7 @@ export default function TelegramCard({ lang }: { lang: Lang }) {
   }
 
   async function disconnect() {
-    if (!window.confirm(t(lang, "confirmOff"))) return;
+    if (!(await confirmDialog(t(lang, "confirmOff"), { lang, theme: "dark", confirmLabel: t(lang, "disconnect") }))) return;
     setBusy("off"); setError(""); setNote("");
     const { error: e } = await authClient.from("telegram_links").delete().eq("user_id", me!.id);
     setBusy("");
