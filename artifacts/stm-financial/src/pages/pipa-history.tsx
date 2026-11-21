@@ -52,14 +52,20 @@ function describe(m: PipaMovement, station: string, t: PipaT): { title: string; 
 /** Shift "sold" lines carry the employee's name in their note: "Shift sales: 300 L · Ma Hla". */
 const shiftName = (m: PipaMovement) => /·\s*(.+)$/.exec(m.note ?? "")?.[1]?.trim() || "—";
 
-/** Every P-P line, newest first, with delete / undo (a reason is always asked). */
-export default function PipaHistory() {
+/**
+ * Every P-P line, newest first, with delete / undo (a reason is always asked).
+ * Used on its own page (accountants, managers) and inside the owner's Profit page.
+ */
+export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
   const t = usePipaT();
   const { profile } = useAuth();
   const owner = profile?.role === "ceo";
   const [, setLocation] = useLocation();
   const search = useSearch();
-  const stationFilter = new URLSearchParams(search).get("station") ?? "";
+  // On its own page the station filter lives in the address (?station=); inside Profit, just here.
+  const [localStation, setLocalStation] = useState("");
+  const stationFilter = embedded ? localStation : new URLSearchParams(search).get("station") ?? "";
+  const filterBy = (id: string) => (embedded ? setLocalStation(id) : setLocation(id ? `/pipa-ledger/history?station=${id}` : "/pipa-ledger/history"));
   const [stations, setStations] = useState<PipaStation[]>([]);
   const [movements, setMovements] = useState<PipaMovement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -136,16 +142,7 @@ export default function PipaHistory() {
   const by = (who: string | null | undefined) => (owner && who && who !== "auto" ? t("by", { who }) : "");
 
   return (
-    <div className="flex-1 overflow-auto bg-slate-50">
-      <div className="px-4 md:px-6 py-5 border-b border-slate-100 bg-white">
-        <button onClick={() => setLocation("/pipa-ledger")} className="flex items-center gap-1 text-xs font-semibold text-pale-blue-foreground mb-2">
-          <ArrowLeft className="w-3.5 h-3.5" /> {t("title")}
-        </button>
-        <h1 className="text-2xl font-bold text-slate-900">{t("historyTitle")}</h1>
-        <p className="text-slate-400 text-sm mt-0.5">{t("historySub")}</p>
-      </div>
-
-      <div className="p-4 md:p-6 space-y-4">
+      <div className="space-y-4">
         {loadError && (
           <div role="alert" className="flex items-start gap-2 bg-pale-red border border-red-200 rounded-xl px-4 py-3 text-sm text-pale-red-foreground">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> {loadError}
@@ -155,12 +152,12 @@ export default function PipaHistory() {
 
         {stations.length > 0 && (
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" role="group" aria-label={t("stations")}>
-            <button onClick={() => setLocation("/pipa-ledger/history")}
+            <button onClick={() => filterBy("")}
               className={`shrink-0 text-xs font-semibold rounded-lg px-2.5 py-1.5 border ${!stationFilter ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-200"}`}>
               {t("allLines")}
             </button>
             {stations.map(s => (
-              <button key={s.id} onClick={() => setLocation(`/pipa-ledger/history?station=${s.id}`)}
+              <button key={s.id} onClick={() => filterBy(stationFilter === s.id ? "" : s.id)}
                 className={`shrink-0 inline-flex items-center gap-1 text-xs font-semibold rounded-lg px-2.5 py-1.5 border ${stationFilter === s.id ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-200"}`}>
                 {s.name}{stationFilter === s.id && <X className="w-3 h-3" />}
               </button>
@@ -220,6 +217,25 @@ export default function PipaHistory() {
           </ul>
         )}
         <p className="text-[11px] text-slate-400">{t("cashNote")}</p>
+      </div>
+  );
+}
+
+/** The history page (accountants and managers; owners also have it inside Profit). */
+export default function PipaHistory() {
+  const t = usePipaT();
+  const [, setLocation] = useLocation();
+  return (
+    <div className="flex-1 overflow-auto bg-slate-50">
+      <div className="px-4 md:px-6 py-5 border-b border-slate-100 bg-white">
+        <button onClick={() => setLocation("/pipa-ledger")} className="flex items-center gap-1 text-xs font-semibold text-pale-blue-foreground mb-2">
+          <ArrowLeft className="w-3.5 h-3.5" /> {t("title")}
+        </button>
+        <h1 className="text-2xl font-bold text-slate-900">{t("historyTitle")}</h1>
+        <p className="text-slate-400 text-sm mt-0.5">{t("historySub")}</p>
+      </div>
+      <div className="p-4 md:p-6">
+        <PipaHistoryList />
       </div>
     </div>
   );

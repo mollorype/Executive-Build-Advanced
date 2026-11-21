@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Archive, Calculator, Loader2, PackagePlus, TrendingUp } from "lucide-react";
+import { useLocation, useSearch } from "wouter";
+import { AlertTriangle, Archive, Calculator, Cylinder, History, Loader2, TrendingUp } from "lucide-react";
+import StockView from "@/components/profit/stock-view";
+import { PipaHistoryList } from "@/pages/pipa-history";
 import { supabase } from "@/lib/supabase";
 import { makeT } from "@/lib/app-i18n";
 import { usePPSettings } from "@/lib/pp-settings";
@@ -35,17 +38,6 @@ const useT = makeT({
   byFuel: { en: "By fuel", my: "ဆီအလိုက်" },
   byDay: { en: "By day", my: "နေ့အလိုက်" },
   nothing: { en: "No sales or stock changes in this period.", my: "ဤကာလတွင် အရောင်း သို့မဟုတ် လက်ကျန် ပြောင်းလဲမှု မရှိပါ။" },
-  purchases: { en: "Purchases and stock in", my: "အဝယ် နှင့် ဝင်လာသော လက်ကျန်" },
-  purchasesEmpty: { en: "Nothing recorded yet. Purchases come from the P-P Ledger.", my: "မှတ်တမ်း မရှိသေးပါ။ အဝယ်များကို P-P စာရင်းမှ မှတ်ပါ။" },
-  left: { en: "{v} left", my: "ကျန် {v}" },
-  costL: { en: "{c}/L", my: "{c}/L" },
-  noCost: { en: "no price", my: "စျေး မရှိ" },
-  s_shop: { en: "Shop purchase", my: "ဆိုင်မှ ဝယ်" },
-  s_official: { en: "Official purchase", my: "တရားဝင် အဝယ်" },
-  s_borrow: { en: "Borrowed", my: "ချေးယူ" },
-  s_lend_return: { en: "Returned to us", my: "ပြန်ရ" },
-  s_count_gain: { en: "Count: extra", my: "စစ်ဆေးချက်: ပို" },
-  s_opening: { en: "Opening stock", my: "စတင်လက်ကျန်" },
   archive: { en: "Deleted (archive)", my: "ဖျက်ထားသည်များ (မှတ်တမ်းဟောင်း)" },
   archiveHelp: { en: "Every deleted P-P line and undone shift deduction, with the reason. Only owners see this.", my: "ဖျက်ထားသော P-P စာကြောင်း နှင့် ပြန်ဖျက်ထားသော ဆိုင်း နုတ်ချက်အားလုံး၊ အကြောင်းပြချက်နှင့်တကွ။ ပိုင်ရှင်သာ မြင်ရသည်။" },
   archiveEmpty: { en: "Nothing has been deleted.", my: "ဖျက်ထားသည် မရှိပါ။" },
@@ -53,13 +45,19 @@ const useT = makeT({
   byWhen: { en: "{who} · {when}", my: "{who} · {when}" },
   needsUpdate: { en: "This needs the latest database update. Run the pp_profit_engine SQL in the Supabase SQL Editor.", my: "နောက်ဆုံး database update လိုပါသည်။ Supabase SQL Editor တွင် pp_profit_engine SQL ကို run ပါ။" },
   shiftUndo: { en: "Shift deduction undone", my: "ဆိုင်း နုတ်ချက် ပြန်ဖျက်" },
+  tab_profit: { en: "Profit", my: "အမြတ်" },
+  tab_stock: { en: "P-P stock", my: "P-P လက်ကျန်" },
+  tab_history: { en: "P-P history", my: "P-P မှတ်တမ်း" },
+  tab_deleted: { en: "Deleted", my: "ဖျက်ထားသည်" },
 });
+
+const TABS = ["profit", "stock", "history", "deleted"] as const;
+type Tab = (typeof TABS)[number];
 
 type Totals = { liters: number; revenue: number; cost: number; settle: number; loss: number; used: number; unpriced: number; profit: number };
 type ProductRow = { product: PipaProduct; liters: number; revenue: number; cost: number; profit: number; loss: number; unpriced: number };
 type DayRow = { day: string; liters: number; revenue: number; cost: number; profit: number };
 type Result = { from: string; to: string; totals: Totals; products: ProductRow[]; days: DayRow[] };
-type Lot = { id: string; product: PipaProduct; source: string; station_id: string | null; occurred_on: string; liters: number; remaining: number; price_per_liter: number | null; fees_per_liter: number; cost_per_liter: number | null };
 type ArchiveRow = { id: string; kind: "movement" | "shift"; summary: string; snapshot: Record<string, unknown>; reason: string; archived_by: string | null; archived_at: string };
 type Period = "today" | "week" | "month" | "lastMonth" | "custom";
 
@@ -95,10 +93,15 @@ export default function ProfitPage() {
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [lots, setLots] = useState<Lot[] | null>(null);
-  const [stations, setStations] = useState<Record<string, string>>({});
   const [archive, setArchive] = useState<ArchiveRow[] | null>(null);
   const [autoDone, setAutoDone] = useState(false);
+
+  // Each window has its own address (/profit?tab=stock), so it can be opened directly.
+  const [, setLocation] = useLocation();
+  const search = useSearch();
+  const tabParam = new URLSearchParams(search).get("tab");
+  const tab: Tab = (TABS as readonly string[]).includes(tabParam ?? "") ? (tabParam as Tab) : "profit";
+  const openTab = (x: Tab) => setLocation(x === "profit" ? "/profit" : `/profit?tab=${x}`);
 
   const product = (p: string) => ((PIPA_PRODUCTS as string[]).includes(p) ? t(`p_${p as PipaProduct}`) : p);
   const pick = (p: Period) => {
@@ -128,14 +131,7 @@ export default function ProfitPage() {
 
   useEffect(() => {
     (async () => {
-      const [l, s, a] = await Promise.all([
-        supabase.from("pp_lots").select("*").order("occurred_on", { ascending: false }).order("created_at", { ascending: false }).limit(60),
-        supabase.from("pipa_stations").select("id, name"),
-        supabase.from("pp_archive").select("id, kind, summary, snapshot, reason, archived_by, archived_at").order("archived_at", { ascending: false }).limit(60),
-      ]);
-      setLots(l.error ? [] : ((l.data ?? []) as Lot[]).map(x => ({ ...x, liters: n(x.liters), remaining: n(x.remaining), fees_per_liter: n(x.fees_per_liter),
-        price_per_liter: x.price_per_liter == null ? null : n(x.price_per_liter), cost_per_liter: x.cost_per_liter == null ? null : n(x.cost_per_liter) })));
-      setStations(Object.fromEntries(((s.data ?? []) as { id: string; name: string }[]).map(x => [x.id, x.name])));
+      const a = await supabase.from("pp_archive").select("id, kind, summary, snapshot, reason, archived_by, archived_at").order("archived_at", { ascending: false }).limit(60);
       setArchive(a.error ? [] : (a.data ?? []) as ArchiveRow[]);
     })();
   }, []);
@@ -170,7 +166,24 @@ export default function ProfitPage() {
         </span>
       </div>
 
+      <div className="px-4 md:px-6 pt-4 max-w-4xl">
+        <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 rounded-xl" role="tablist" aria-label={t("title")}>
+          {TABS.map(x => {
+            const Icon = { profit: TrendingUp, stock: Cylinder, history: History, deleted: Archive }[x];
+            return (
+              <button key={x} type="button" role="tab" aria-selected={tab === x} onClick={() => openTab(x)} data-testid={`profit-tab-${x}`}
+                className={`flex flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${tab === x ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>
+                <Icon className="w-4 h-4" /> <span className="text-center">{t(`tab_${x}`)}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="p-4 md:p-6 space-y-5 max-w-4xl">
+        {tab === "stock" && <StockView unit={unit} />}
+        {tab === "history" && <PipaHistoryList embedded />}
+        {tab === "profit" && <>
         {/* Period + calculate */}
         <section className={`${card} space-y-3`}>
           <div className="flex flex-wrap gap-2">
@@ -256,29 +269,10 @@ export default function ProfitPage() {
           </section>
         )}
 
-        {/* Purchases / stock in */}
-        <section className={card}>
-          <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900 mb-2"><PackagePlus className="w-4 h-4 text-pale-blue-foreground" /> {t("purchases")}</h2>
-          {lots === null ? <Loader2 className="w-5 h-5 text-slate-300 animate-spin" /> : lots.length === 0 ? (
-            <p className="text-sm text-slate-500">{t("purchasesEmpty")}</p>
-          ) : (
-            <ul className="divide-y divide-slate-100" data-testid="profit-lots">
-              {lots.map(l => (
-                <li key={l.id} className="py-2 text-sm">
-                  <div className="flex justify-between gap-2">
-                    <span className="min-w-0 truncate"><span className="font-semibold text-slate-900">{t(`s_${l.source}` as "s_shop")}</span> · {product(l.product)}{l.station_id && stations[l.station_id] ? ` · ${stations[l.station_id]}` : ""}</span>
-                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{l.cost_per_liter == null ? t("noCost") : t("costL", { c: mmk(l.cost_per_liter) })}</span>
-                  </div>
-                  <p className="text-xs text-slate-500 tabular-nums">{l.occurred_on} · {vol(l.liters, unit)} · {t("left", { v: vol(l.remaining, unit) })}
-                    {l.fees_per_liter > 0 && l.price_per_liter != null ? ` · ${mmk(l.price_per_liter)} + ${mmk(l.fees_per_liter)}` : ""}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        </>}
 
         {/* Archive */}
-        <section className={card}>
+        {tab === "deleted" && <section className={card}>
           <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900 mb-1"><Archive className="w-4 h-4 text-pale-blue-foreground" /> {t("archive")}</h2>
           <p className="text-xs text-slate-500 mb-2">{t("archiveHelp")}</p>
           {archive === null ? <Loader2 className="w-5 h-5 text-slate-300 animate-spin" /> : archive.length === 0 ? (
@@ -294,7 +288,7 @@ export default function ProfitPage() {
               ))}
             </ul>
           )}
-        </section>
+        </section>}
       </div>
     </div>
   );

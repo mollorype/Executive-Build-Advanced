@@ -108,7 +108,7 @@ export default function PipaLedger() {
           <button onClick={() => setDialog({ type: "deduct" })} disabled={!!loadError} className={actionBtn}><Receipt className="w-4 h-4" /> {t("deductBtn")}</button>
           <button onClick={() => setDialog({ type: "count" })} disabled={!!loadError} className={actionBtn}><ClipboardCheck className="w-4 h-4" /> {t("countBtn")}</button>
           <button onClick={() => setDialog({ type: "station", station: null })} disabled={!!loadError} className={actionBtn}><Store className="w-4 h-4" /> {t("addStation")}</button>
-          <button onClick={() => setLocation("/pipa-ledger/history")} className={actionBtn} data-testid="pp-open-history"><History className="w-4 h-4" /> {t("history")}</button>
+          <button onClick={() => setLocation(owner ? "/profit?tab=history" : "/pipa-ledger/history")} className={actionBtn} data-testid="pp-open-history"><History className="w-4 h-4" /> {t("history")}</button>
         </div>
         {settings.auto_deduct && !loadError && <p className="text-[11px] text-slate-500 -mt-3" data-testid="pp-auto-note">{t("autoOn")}</p>}
 

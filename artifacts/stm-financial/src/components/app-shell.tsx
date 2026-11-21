@@ -35,7 +35,8 @@ const navItems: { path: string; label: "dashboard" | "shifts" | "profit" | "pp" 
   { path: "/dashboard", label: "dashboard", icon: LayoutDashboard, roles: ["ceo"] },
   { path: "/shifts", label: "shifts", icon: Receipt, roles: ["ceo"] },
   { path: "/pipa-ledger", label: "pp", icon: Cylinder, roles: ["ceo", "accountant", "manager"] },
-  { path: "/pipa-ledger/history", label: "ppHistory", icon: History, roles: ["ceo", "accountant", "manager"] },
+  // Owners have the history inside Profit.
+  { path: "/pipa-ledger/history", label: "ppHistory", icon: History, roles: ["accountant", "manager"] },
   { path: "/profit", label: "profit", icon: TrendingUp, roles: ["ceo"] },
   { path: "/debt-tracker", label: "debt", icon: CreditCard, roles: ["ceo", "accountant"] },
   { path: "/salary", label: "salary", icon: Wallet, roles: ["ceo", "accountant"] },
