@@ -10,6 +10,15 @@ import { tr, type DebtKey, type DebtLang } from "./debt-i18n";
 import { buildLedger, type Ledger } from "./ledger";
 import { debtPayoff, type DebtPayoff } from "./debt-payoff";
 import type { DebtTransaction } from "./debt-supabase";
+import logoUrl from "../assets/stm-logo.jpg";
+
+// The Shwe Thazin Moe logo, watermarked on every page. Loaded ahead of time
+// because the PDF is built inside the tap and can't wait for an image.
+let logo: HTMLImageElement | null = null;
+if (typeof Image !== "undefined") {
+  logo = new Image();
+  logo.src = logoUrl;
+}
 
 export type StatementInput = {
   lang: DebtLang;
@@ -222,6 +231,17 @@ export function drawStatementPages(input: StatementInput, makeCanvas: () => HTML
     hline(PAGE_H - FOOTER_H + 20, C.line, 1);
     font(18); text(fmtStamp(now), M, PAGE_H - FOOTER_H + 60, "left", C.faint);
     text(`${p + 1} / ${pages.length}`, PAGE_W - M, PAGE_H - FOOTER_H + 60, "right", C.faint);
+
+    // Watermark, drawn last: "multiply" tints whatever is underneath (rows, boxes)
+    // evenly, the logo's white background changes nothing, and text stays readable.
+    if (logo?.complete && logo.naturalWidth > 0) {
+      const w = PAGE_W * 0.7, h = (w * logo.naturalHeight) / logo.naturalWidth;
+      ctx.save();
+      ctx.globalCompositeOperation = "multiply";
+      ctx.globalAlpha = 0.1;
+      ctx.drawImage(logo, (PAGE_W - w) / 2, (PAGE_H - h) / 2, w, h);
+      ctx.restore();
+    }
     return cv;
   });
 }
