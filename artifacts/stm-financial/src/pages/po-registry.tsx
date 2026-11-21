@@ -7,6 +7,7 @@ import {
 import { supabase, FuelPurchaseOrder } from "@/lib/supabase";
 import { runFIFOEngine, forceClosePO, verifyPO, calcNetProfit, FIFORunResult } from "@/lib/fifo-engine";
 import PipaStockSummary from "@/components/pipa/stock-summary-card";
+import { DEFAULT_LITERS_PER_PIPA } from "@/lib/pipa-ledger";
 import { makeT, useLang, type Lang } from "@/lib/app-i18n";
 import { confirmDialog, messageDialog } from "@/components/confirm-dialog";
 
@@ -18,7 +19,7 @@ const useT = makeT({
   forceCloseTitle: { en: "Force Close — Dip Mismatch", my: "အတင်းပိတ်ရန် — Dip မကိုက်ညီ" },
   expectedRemaining: { en: "Expected Remaining", my: "ကျန်ရမည့် ပမာဏ" },
   calibration: { en: "Calibration Factor", my: "Calibration Factor" },
-  dipReading: { en: "Physical Dip-Stick Reading (L)", my: "Dip-Stick တိုင်းတာချက် အမှန် (L)" },
+  dipReading: { en: "Physical reading ({u})", my: "တကယ်ရှိသော ပမာဏ ({u})" },
   dipPlaceholder: { en: "Enter actual physical volume…", my: "တကယ်ရှိသော ပမာဏ ထည့်ပါ…" },
   shortage: { en: "Shortage", my: "လိုငွေ" },
   surplus: { en: "Surplus", my: "ပိုငွေ" },
@@ -28,10 +29,10 @@ const useT = makeT({
   // Verify
   allFour: { en: "All four fields are required.", my: "အကွက် လေးခုလုံး ဖြည့်ရန် လိုအပ်သည်။" },
   unlockProfit: { en: "Unlock Net Profit", my: "အသားတင်အမြတ် ဖွင့်ရန်" },
-  wholesale: { en: "Wholesale Price (MMK/L)", my: "လက်ကား စျေး (MMK/L)" },
-  transport: { en: "Transportation Fees (MMK/L)", my: "သယ်ယူစရိတ် (MMK/L)" },
-  confidential: { en: "Confidential Fees (MMK/L)", my: "လျှို့ဝှက် စရိတ် (MMK/L)" },
-  retail: { en: "Retail Price Set (MMK/L)", my: "လက်လီ စျေး (MMK/L)" },
+  wholesale: { en: "Wholesale Price (MMK/{u})", my: "လက်ကား စျေး (MMK/{u})" },
+  transport: { en: "Transportation Fees (MMK/{u})", my: "သယ်ယူစရိတ် (MMK/{u})" },
+  confidential: { en: "Confidential Fees (MMK/{u})", my: "လျှို့ဝှက် စရိတ် (MMK/{u})" },
+  retail: { en: "Retail Price Set (MMK/{u})", my: "လက်လီ စျေး (MMK/{u})" },
   saving: { en: "Saving…", my: "သိမ်းနေသည်…" },
   saveUnlock: { en: "Save & Unlock Profit", my: "သိမ်းပြီး အမြတ် ဖွင့်ရန်" },
   // Create
@@ -44,8 +45,12 @@ const useT = makeT({
   poName: { en: "PO Name", my: "PO အမည်" },
   poNamePh: { en: "e.g. Mandalay Depot Batch 23", my: "ဥပမာ - မန္တလေး Depot အသုတ် 23" },
   productType: { en: "Product Type", my: "ကုန်ပစ္စည်း အမျိုးအစား" },
-  totalVolume: { en: "Total Volume (L)", my: "စုစုပေါင်း ပမာဏ (L)" },
-  egVolume: { en: "e.g. 10000", my: "ဥပမာ 10000" },
+  totalVolume: { en: "Total Volume ({u})", my: "စုစုပေါင်း ပမာဏ ({u})" },
+  egVolume: { en: "e.g. {n}", my: "ဥပမာ {n}" },
+  equalsLiters: { en: "= {l} (1 P-P = {size} L)", my: "= {l} (1 P-P = {size} L)" },
+  unit: { en: "Unit", my: "ယူနစ်" },
+  unitPP: { en: "P-P", my: "P-P" },
+  unitL: { en: "Litres (L)", my: "လီတာ (L)" },
   default1: { en: "(default 1.00)", my: "(မူလ 1.00)" },
   default0: { en: "(default 0)", my: "(မူလ 0)" },
   creating: { en: "Creating…", my: "ဖန်တီးနေသည်…" },
@@ -76,7 +81,7 @@ const useT = makeT({
   shiftsProcessed: { en: "Shifts processed:", my: "တွက်ပြီး ဆိုင်း:" },
   posUpdated: { en: "POs updated:", my: "ပြင်ပြီး PO:" },
   writeFailures: { en: "Write failures:", my: "သိမ်းမရ:" },
-  totalLiters: { en: "Total liters processed:", my: "တွက်ပြီး လီတာ စုစုပေါင်း:" },
+  totalLiters: { en: "Total processed:", my: "တွက်ပြီး ပမာဏ စုစုပေါင်း:" },
   showFailures: { en: "Show {n} failure detail(s)", my: "အမှား အသေးစိတ် {n} ခု ပြရန်" },
   noShifts: { en: "No shifts were found — nothing to deduct.", my: "ဆိုင်း မတွေ့ပါ — နုတ်စရာ မရှိပါ။" },
   noLiters: { en: "Shifts exist but none report fuel liters sold. Nothing to deduct.", my: "ဆိုင်းများ ရှိသော်လည်း ရောင်းလီတာ မပါပါ။ နုတ်စရာ မရှိပါ။" },
@@ -143,9 +148,32 @@ function mmk(v: number | null | undefined) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(v) + " MMK";
 }
 
+// Volumes are stored in litres (the FIFO engine takes litres out of each shift).
+// The page shows and takes them in P-P by default, or in litres — the owner's
+// choice, remembered on this device. Per-unit prices follow the same unit.
+type VolUnit = "pp" | "l";
+const L_PER_PP = DEFAULT_LITERS_PER_PIPA;   // 215 L, as in STM Daily and the P-P Ledger
+const UNIT_KEY = "stm_po_unit";
+function readUnit(): VolUnit {
+  try { return localStorage.getItem(UNIT_KEY) === "l" ? "l" : "pp"; } catch { return "pp"; }
+}
+const unitSuffix = (u: VolUnit) => (u === "pp" ? "P-P" : "L");
+/** the chosen unit → litres */
+const fromUnit = (v: number, u: VolUnit) => (u === "pp" ? v * L_PER_PP : v);
+/** MMK per litre → MMK per chosen unit (and back) */
+const priceToUnit = (perL: number, u: VolUnit) => (u === "pp" ? perL * L_PER_PP : perL);
+const priceFromUnit = (v: number, u: VolUnit) => (u === "pp" ? v / L_PER_PP : v);
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 function liters(v: number | null | undefined) {
   if (v == null) return "—";
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(v) + " L";
+}
+/** A volume (stored in litres) in the chosen unit. */
+function vol(litres: number | null | undefined, u: VolUnit) {
+  if (litres == null) return "—";
+  if (u === "l") return liters(litres);
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(litres / L_PER_PP) + " P-P";
 }
 
 function pct(remaining: number, initial: number) {
@@ -157,10 +185,12 @@ function pct(remaining: number, initial: number) {
 
 function ForceCloseModal({
   po,
+  unit,
   onClose,
   onDone,
 }: {
   po: FuelPurchaseOrder;
+  unit: VolUnit;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -174,13 +204,14 @@ function ForceCloseModal({
     const val = parseFloat(physical);
     if (isNaN(val) || val < 0) { setErr(t("badDip")); return; }
     setLoading(true);
-    const res = await forceClosePO(po.id, val, po.remaining_volume);
+    const res = await forceClosePO(po.id, fromUnit(val, unit), po.remaining_volume);
     setLoading(false);
     if (!res.success) { setErr(res.error ?? t("unknownError")); return; }
     onDone();
   }
 
-  const shortage = physical ? Math.max(0, po.remaining_volume - parseFloat(physical || "0")) : null;
+  // In litres, like everything stored.
+  const shortage = physical ? Math.max(0, po.remaining_volume - fromUnit(parseFloat(physical || "0"), unit)) : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -202,7 +233,7 @@ function ForceCloseModal({
         <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 mb-4 text-sm">
           <div className="flex justify-between mb-1">
             <span className="text-slate-400">{t("expectedRemaining")}</span>
-            <span className="text-slate-900 font-medium">{liters(po.remaining_volume)}</span>
+            <span className="text-slate-900 font-medium">{vol(po.remaining_volume, unit)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-400">{t("calibration")}</span>
@@ -211,7 +242,7 @@ function ForceCloseModal({
         </div>
 
         <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-          {t("dipReading")}
+          {t("dipReading", { u: unitSuffix(unit) })}
         </label>
         <input
           type="number"
@@ -231,7 +262,7 @@ function ForceCloseModal({
               {shortage > 0 ? t("shortage") : t("surplus")}
             </span>
             <span className={`font-bold ${shortage > 0 ? "text-pale-red-foreground" : "text-pale-green-foreground"}`}>
-              {liters(Math.abs(shortage))}
+              {vol(Math.abs(shortage), unit)}
             </span>
           </div>
         )}
@@ -262,20 +293,23 @@ function ForceCloseModal({
 
 function VerifyModal({
   po,
+  unit,
   onClose,
   onDone,
 }: {
   po: FuelPurchaseOrder;
+  unit: VolUnit;
   onClose: () => void;
   onDone: () => void;
 }) {
   const tr = useT();
   const lang = useLang();
   const [form, setForm] = useState({
-    wholesale_price: String(po.wholesale_price ?? ""),
-    transportation_fees: String(po.transportation_fees ?? ""),
-    confidential_fees: String(po.confidential_fees ?? ""),
-    retail_price_set: String(po.retail_price_set ?? ""),
+    // Stored per litre; shown per chosen unit.
+    wholesale_price: po.wholesale_price == null ? "" : String(round2(priceToUnit(po.wholesale_price, unit))),
+    transportation_fees: po.transportation_fees == null ? "" : String(round2(priceToUnit(po.transportation_fees, unit))),
+    confidential_fees: po.confidential_fees == null ? "" : String(round2(priceToUnit(po.confidential_fees, unit))),
+    retail_price_set: po.retail_price_set == null ? "" : String(round2(priceToUnit(po.retail_price_set, unit))),
   });
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
@@ -292,10 +326,10 @@ function VerifyModal({
     }
     setLoading(true);
     const res = await verifyPO(po.id, {
-      wholesale_price: w,
-      transportation_fees: t,
-      confidential_fees: c,
-      retail_price_set: r,
+      wholesale_price: priceFromUnit(w, unit),
+      transportation_fees: priceFromUnit(t, unit),
+      confidential_fees: priceFromUnit(c, unit),
+      retail_price_set: priceFromUnit(r, unit),
     });
     setLoading(false);
     if (!res.success) { setErr(res.error ?? tr("unknownError")); return; }
@@ -335,10 +369,10 @@ function VerifyModal({
         </div>
 
         <div className="space-y-3 mb-4">
-          <Field label={tr("wholesale")} field="wholesale_price" />
-          <Field label={tr("transport")} field="transportation_fees" />
-          <Field label={tr("confidential")} field="confidential_fees" />
-          <Field label={tr("retail")} field="retail_price_set" />
+          <Field label={tr("wholesale", { u: unitSuffix(unit) })} field="wholesale_price" />
+          <Field label={tr("transport", { u: unitSuffix(unit) })} field="transportation_fees" />
+          <Field label={tr("confidential", { u: unitSuffix(unit) })} field="confidential_fees" />
+          <Field label={tr("retail", { u: unitSuffix(unit) })} field="retail_price_set" />
         </div>
 
         {err && <p className="text-pale-red-foreground text-xs mb-3">{err}</p>}
@@ -365,7 +399,7 @@ function VerifyModal({
 
 // ─── Create PO Form ──────────────────────────────────────────────────────────
 
-function CreatePOForm({ onCreated }: { onCreated: () => void }) {
+function CreatePOForm({ unit, onCreated }: { unit: VolUnit; onCreated: () => void }) {
   const t = useT();
   const lang = useLang();
   const [open, setOpen] = useState(false);
@@ -386,9 +420,9 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(""); setOkMsg("");
-    const vol = parseFloat(volume);
+    const amount = parseFloat(volume);
     if (!name.trim()) { setErr(t("nameRequired")); return; }
-    if (isNaN(vol) || vol <= 0) { setErr(t("volPositive")); return; }
+    if (isNaN(amount) || amount <= 0) { setErr(t("volPositive")); return; }
     const cal = calibration.trim() === "" ? 1.0 : parseFloat(calibration);
     if (isNaN(cal) || cal <= 0) { setErr(t("calPositive")); return; }
     const ws = wholesale.trim() === "" ? 0 : parseFloat(wholesale);
@@ -399,10 +433,11 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
       name: name.trim(),
       product_type: productType,
       status: "QUEUED",
-      initial_volume: vol,
-      remaining_volume: vol,
+      // Stored in litres (and MMK per litre), whatever unit was typed.
+      initial_volume: fromUnit(amount, unit),
+      remaining_volume: fromUnit(amount, unit),
       calibration_factor: cal,
-      wholesale_price: ws,
+      wholesale_price: priceFromUnit(ws, unit),
       is_verified: false,
       total_volume_sold: 0,
     });
@@ -458,14 +493,18 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{t("totalVolume")}</label>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{t("totalVolume", { u: unitSuffix(unit) })}</label>
               <input
+                id="po-volume"
                 type="number" min="0" step="0.01"
                 value={volume}
                 onChange={e => setVolume(e.target.value)}
-                placeholder={t("egVolume")}
+                placeholder={t("egVolume", { n: unit === "pp" ? "40" : "10000" })}
                 className="w-full bg-white border border-slate-100 text-slate-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+              {unit === "pp" && parseFloat(volume) > 0 && (
+                <p className="text-[11px] text-slate-400 mt-1" data-testid="po-volume-liters">{t("equalsLiters", { l: liters(fromUnit(parseFloat(volume), "pp")), size: L_PER_PP })}</p>
+              )}
             </div>
 
             <div>
@@ -483,7 +522,7 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
 
             <div>
               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                {t("wholesale")} <span className="text-slate-400 normal-case font-normal">{t("default0")}</span>
+                {t("wholesale", { u: unitSuffix(unit) })} <span className="text-slate-400 normal-case font-normal">{t("default0")}</span>
               </label>
               <input
                 type="number" min="0" step="0.01"
@@ -526,6 +565,8 @@ export default function PORegistry() {
   const t = useT();
   const lang = useLang();
   const P = (code: string) => productLabel(code, lang);
+  const [unit, setUnitState] = useState<VolUnit>(readUnit);
+  const setUnit = (u: VolUnit) => { setUnitState(u); try { localStorage.setItem(UNIT_KEY, u); } catch { /* private mode: just this visit */ } };
   // The engine reports progress in English; show it in the app language.
   const fifoProgress = useCallback((m: string) => setFifoMsg(lang === "my" ? FIFO_PROGRESS[m] ?? m : m), [lang]);
   const [pos, setPos] = useState<FuelPurchaseOrder[]>([]);
@@ -673,6 +714,17 @@ export default function PORegistry() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900">{t("title")}</h1>
             <p className="text-slate-400 text-sm mt-0.5">{t("subtitle")}</p>
+            <div className="mt-2 inline-flex items-center gap-2" role="group" aria-label={t("unit")}>
+              <span className="text-xs font-semibold text-slate-500">{t("unit")}</span>
+              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5" data-testid="po-unit">
+                {(["pp", "l"] as const).map(u => (
+                  <button key={u} type="button" onClick={() => setUnit(u)} aria-pressed={unit === u}
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-colors ${unit === u ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>
+                    {u === "pp" ? t("unitPP") : t("unitL")}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {selectedIds.size > 0 && (
@@ -750,16 +802,16 @@ export default function PORegistry() {
                   <div>
                     <span className="opacity-60">{t("totalLiters")}</span>
                     <span className="font-bold ml-1">
-                      {Object.values(fifoResult.productVolumes).reduce((a, b) => a + b, 0).toFixed(1)}
+                      {vol(Object.values(fifoResult.productVolumes).reduce((a, b) => a + b, 0), unit)}
                     </span>
                   </div>
                 </div>
 
                 {Object.keys(fifoResult.productVolumes).length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {Object.entries(fifoResult.productVolumes).map(([p, vol]) => (
+                    {Object.entries(fifoResult.productVolumes).map(([p, litres]) => (
                       <span key={p} className="text-xs bg-black/20 rounded-full px-2.5 py-0.5">
-                        {P(p)}: <span className="font-bold">{vol.toFixed(1)} L</span>
+                        {P(p)}: <span className="font-bold">{vol(litres, unit)}</span>
                       </span>
                     ))}
                   </div>
@@ -796,7 +848,7 @@ export default function PORegistry() {
 
       <div className="p-6 space-y-6">
         {/* Create New PO */}
-        <CreatePOForm onCreated={() => fetchPOs(page)} />
+        <CreatePOForm unit={unit} onCreated={() => fetchPOs(page)} />
 
         {/* Pipa stock, calculated from the Pipa Ledger */}
         <PipaStockSummary />
@@ -843,8 +895,8 @@ export default function PORegistry() {
                           />
                         </div>
                         <div className="flex justify-between text-xs text-slate-500 mt-1">
-                          <span>{liters(po.remaining_volume)}</span>
-                          <span>{t("of", { n: liters(po.initial_volume) })}</span>
+                          <span>{vol(po.remaining_volume, unit)}</span>
+                          <span>{t("of", { n: vol(po.initial_volume, unit) })}</span>
                         </div>
                       </div>
 
@@ -981,11 +1033,11 @@ export default function PORegistry() {
                             {t(po.status)}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 text-right text-slate-700 text-sm tabular-nums">{liters(po.initial_volume)}</td>
+                        <td className="px-5 py-3.5 text-right text-slate-700 text-sm tabular-nums">{vol(po.initial_volume, unit)}</td>
                         <td className="px-5 py-3.5 text-right">
                           <div className="flex flex-col items-end gap-1">
                             <span className={`text-sm font-semibold tabular-nums ${fillPct < 20 ? "text-pale-red-foreground" : "text-slate-900"}`}>
-                              {liters(po.remaining_volume)}
+                              {vol(po.remaining_volume, unit)}
                             </span>
                             {po.status === "ACTIVE" && (
                               <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -998,11 +1050,11 @@ export default function PORegistry() {
                           </div>
                         </td>
                         <td className="px-5 py-3.5 text-right text-slate-400 text-sm tabular-nums">
-                          {liters(po.total_volume_sold)}
+                          {vol(po.total_volume_sold, unit)}
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           {po.shortage_liters != null ? (
-                            <span className="text-pale-red-foreground text-sm font-semibold tabular-nums">{liters(po.shortage_liters)}</span>
+                            <span className="text-pale-red-foreground text-sm font-semibold tabular-nums">{vol(po.shortage_liters, unit)}</span>
                           ) : (
                             <span className="text-slate-400 text-sm">—</span>
                           )}
@@ -1097,6 +1149,7 @@ export default function PORegistry() {
       {forceCloseTarget && (
         <ForceCloseModal
           po={forceCloseTarget}
+          unit={unit}
           onClose={() => setForceCloseTarget(null)}
           onDone={() => { setForceCloseTarget(null); fetchPOs(page); }}
         />
@@ -1104,6 +1157,7 @@ export default function PORegistry() {
       {verifyTarget && (
         <VerifyModal
           po={verifyTarget}
+          unit={unit}
           onClose={() => setVerifyTarget(null)}
           onDone={() => { setVerifyTarget(null); fetchPOs(page); }}
         />
