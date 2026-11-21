@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import {
-  supabase, DebtProfile, DebtTransaction, DEBT_TABLES, RELATIONS, DebtRelation,
+  supabase, DebtProfile, DebtTransaction, DEBT_TABLES, DEBT_RELATIONS, DebtRelation,
   NO_SCORE_RELATIONS,
   generateTxnNumber, repaymentSummary, fmtPercent, mmkFmt, formatPhone,
   getDisplayPhones, combineDateWithCurrentTime,
@@ -1204,7 +1204,7 @@ export default function DebtProfileDetail({ profile, onClose, onUpdated, onProfi
                 <label className={labelCls}>{t("relation")}</label>
                 <select value={editRelation} onChange={e => setEditRelation(e.target.value as DebtRelation)}
                   className={inputCls}>
-                  {RELATIONS.map(r => <option key={r} value={r}>{relationLabel(r, lang)}</option>)}
+                  {DEBT_RELATIONS.map(r => <option key={r} value={r}>{relationLabel(r, lang)}</option>)}
                 </select>
               </div>
 

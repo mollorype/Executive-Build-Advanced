@@ -19,7 +19,7 @@ export default function Dashboard() {
   const [recentShifts, setRecentShifts] = useState<Shift[]>([]);
 
   const fetchDebtProfiles = useCallback(async () => {
-    const { data } = await supabase.from(DEBT_TABLES.PROFILES).select("id, relation, current_balance");
+    const { data } = await supabase.from(DEBT_TABLES.PROFILES).select("id, relation, current_balance").neq("relation", "Employee");
     if (data) setDebtProfiles(data as DebtProfile[]);
   }, []);
 
@@ -121,7 +121,6 @@ export default function Dashboard() {
     normal: "hsl(var(--chart-1))",
     own_family: "hsl(var(--chart-2))",
     on_paper: "hsl(var(--chart-3))",
-    employees: "hsl(var(--chart-4))",
   };
   const debtCategoryData = (Object.keys(DEBT_CATEGORY_LABELS) as DebtCategoryId[]).map(id => {
     const inCategory = debtProfiles.filter(p => DEBT_CATEGORY_RELATIONS[id].includes(p.relation));

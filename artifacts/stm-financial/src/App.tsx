@@ -13,6 +13,7 @@ import ManageAccess from "@/pages/manage-access";
 import PORegistry from "@/pages/po-registry";
 import PipaLedger from "@/pages/pipa-ledger";
 import DebtTracker from "@/pages/debt-tracker";
+import SalaryPage from "@/pages/salary";
 import HomeExpenses from "@/pages/home-expenses";
 import ChatPage from "@/pages/chat";
 
@@ -122,6 +123,12 @@ function Router() {
       <Route path="/debt-tracker">
         <ProtectedRoute allow={["ceo", "accountant"]}>
           <DebtTracker />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/salary">
+        <ProtectedRoute allow={["ceo", "accountant"]}>
+          <SalaryPage />
         </ProtectedRoute>
       </Route>
 

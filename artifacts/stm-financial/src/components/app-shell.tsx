@@ -5,7 +5,7 @@ import { useChatKeyMaintenance, useChatUnread } from "@/components/team-chat";
 import { useAuth } from "@/lib/auth-context";
 import { supabase, ROLE_LABELS, type Role } from "@/lib/supabase";
 import {
-  Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, PackageSearch, CreditCard, Receipt, Home, Cylinder, KeyRound, MessageCircle,
+  Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, PackageSearch, CreditCard, Receipt, Home, Cylinder, KeyRound, MessageCircle, Wallet,
 } from "lucide-react";
 
 type Props = { children: React.ReactNode };
@@ -16,6 +16,7 @@ const navItems: { path: string; label: string; icon: typeof LayoutDashboard; rol
   { path: "/po-registry", label: "PO Registry", icon: PackageSearch, roles: ["ceo"] },
   { path: "/pipa-ledger", label: "Pipa Ledger", icon: Cylinder, roles: ["ceo"] },
   { path: "/debt-tracker", label: "Debt Tracker", icon: CreditCard, roles: ["ceo", "accountant"] },
+  { path: "/salary", label: "Salary", icon: Wallet, roles: ["ceo", "accountant"] },
   { path: "/home-expenses", label: "I/C", icon: Home, roles: ["ceo"] },
   { path: "/chat", label: "Team Chat", icon: MessageCircle, roles: ["ceo"] },
   { path: "/manage-access", label: "Staff Access", icon: Users, roles: ["ceo"] },

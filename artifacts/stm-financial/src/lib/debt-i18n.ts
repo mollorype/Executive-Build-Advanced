@@ -248,7 +248,6 @@ const CATEGORY_MY: Record<DebtCategoryId, string> = {
   normal: "ပုံမှန် / အခြား",
   own_family: "ကိုယ်ပိုင်နှင့် မိသားစု",
   on_paper: "စာရွက်ပေါ်",
-  employees: "ဝန်ထမ်းများ",
 };
 
 export function categoryLabel(id: DebtCategoryId, en: string, lang: DebtLang): string {
