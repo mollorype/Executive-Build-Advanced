@@ -87,10 +87,16 @@ export function mapRowToShift(row: Record<string, unknown>): Shift {
   };
 }
 
-export type Role = "ceo" | "accountant";
+export const ROLES = ["ceo", "accountant", "manager"] as const;
+export type Role = (typeof ROLES)[number];
 
 /** What each role is called on screen. The stored role names (and every check on them) stay the same. */
-export const ROLE_LABELS: Record<Role, string> = { ceo: "Owner", accountant: "Accountant" };
+export const ROLE_LABELS: Record<Role, string> = { ceo: "Owner", accountant: "Accountant", manager: "Manager" };
+
+/** Where a role lands when it logs in fresh, or hits a page it isn't allowed on. */
+export function homeFor(role?: Role | null): string {
+  return role === "accountant" ? "/debt-tracker" : role === "manager" ? "/pipa-ledger" : "/dashboard";
+}
 
 export type Profile = {
   id: string;

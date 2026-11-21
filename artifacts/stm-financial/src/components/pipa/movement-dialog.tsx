@@ -58,22 +58,24 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
     if (info.price && (isNaN(nPrice) || nPrice < 0)) return setError(t("priceErr"));
 
     setBusy(true);
-    let poId: string | null = null;
-    if (kind === "buy" && addToPO && price) {
-      // Same shape the PO Registry's own "New PO" form inserts, in litres of the real fuel.
-      const { data: po, error: poErr } = await supabase.from("fuel_purchase_orders").insert({
-        name: `P-P · ${stationName} · ${occurredOn}`,
-        product_type: product,
-        status: "QUEUED",
-        initial_volume: price.liters,
-        remaining_volume: price.liters,
-        calibration_factor: 1,
-        wholesale_price: price.perLiter,
-        is_verified: false,
-        total_volume_sold: 0,
-      }).select("id").single();
-      if (poErr) { setBusy(false); return setError(t("poFailed", { msg: poErr.message })); }
-      poId = po.id as string;
+    if (kind === "buy" && addToPO) {
+      // The purchase and its queued PO (in litres, at the price per litre) are
+      // saved together by the database — accountants and managers can't write
+      // POs themselves, and nothing is left half-saved.
+      const { error: buyErr } = await supabase.rpc("record_pipa_buy", {
+        p_movement: {
+          occurred_on: occurredOn, station_id: stationId, product, pipas: nPipas,
+          liters_per_pipa: nLiters, price_mode: priceMode, unit_price: nPrice, note: note.trim() || null,
+        },
+        p_add_po: true,
+      });
+      setBusy(false);
+      if (buyErr) {
+        return setError(buyErr.code === "PGRST202" || buyErr.code === "42883"
+          ? t("buyNotInstalled")
+          : t("poFailed", { msg: buyErr.message }));
+      }
+      return onSaved();
     }
 
     const { error: mvErr } = await supabase.from(PIPA_MOVEMENTS_TABLE).insert({
@@ -87,11 +89,8 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
       unit_price: info.price ? nPrice : null,
       total_amount: price ? price.total : null,
       note: note.trim() || null,
-      po_id: poId,
     });
     if (mvErr) {
-      // Don't leave an orphan PO behind if the movement itself failed.
-      if (poId) await supabase.from("fuel_purchase_orders").delete().eq("id", poId);
       setBusy(false);
       return setError(mvErr.message);
     }

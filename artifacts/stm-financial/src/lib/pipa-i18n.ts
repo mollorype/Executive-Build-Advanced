@@ -54,11 +54,14 @@ export const usePipaT = makeT({
 
   // Page
   notInstalled: { en: "The P-P Ledger isn't installed in the database yet. Run the pipa_ledger migration in the Supabase SQL Editor.", my: "P-P စာရင်းကို database တွင် မထည့်ရသေးပါ။ Supabase SQL Editor တွင် pipa_ledger migration ကို run ပါ။" },
-  confirmUndoShift: { en: "Undo this shift deduction? Every fuel line from that deduction is removed, and its shifts can be deducted again.", my: "ဤဆိုင်း နုတ်ချက်ကို ပြန်ဖျက်မလား? ထိုနုတ်ချက်မှ ဆီ စာကြောင်းအားလုံး ဖယ်ရှားပြီး ဆိုင်းများကို ထပ်နုတ်နိုင်ပါမည်။" },
+  confirmUndoShift: { en: "Undo this shift deduction? Every fuel line from that deduction is removed, its litres go back on the POs, and its shifts can be deducted again.", my: "ဤဆိုင်း နုတ်ချက်ကို ပြန်ဖျက်မလား? ထိုနုတ်ချက်မှ ဆီ စာကြောင်းအားလုံး ဖယ်ရှားပြီး လီတာများ PO များသို့ ပြန်ရောက်ကာ ဆိုင်းများကို ထပ်နုတ်နိုင်ပါမည်။" },
+  undoNewer: { en: "undo the newer deduction for this fuel first.", my: "ဤဆီအတွက် နောက်မှ နုတ်ထားသည်ကို အရင် ပြန်ဖျက်ပါ။" },
+  undoClosed: { en: "a PO in this deduction was force-closed afterwards, so it can't be undone.", my: "ဤနုတ်ချက်ပါ PO ကို နောက်မှ အတင်းပိတ်ထားသဖြင့် ပြန်ဖျက်၍ မရပါ။" },
   confirmDelete: { en: "Delete this record?\n\n{title}", my: "ဤမှတ်တမ်းကို ဖျက်မလား?\n\n{title}" },
   poKept: { en: "\n\nIts purchase order in PO Registry is kept.", my: "\n\nPO မှတ်ပုံတင်ရှိ ၎င်း၏ PO ကို ဆက်ထားပါမည်။" },
   deleteFailed: { en: "Couldn't delete: {msg}", my: "မဖျက်နိုင်ပါ: {msg}" },
   notDeleted: { en: "Nothing was deleted — your account may not be allowed to. Refresh and try again.", my: "ဘာမှ မဖျက်ရပါ — သင့်အကောင့် ဖျက်ခွင့် မရှိနိုင်ပါ။ ပြန်ဖွင့်ပြီး ထပ်ကြိုးစားပါ။" },
+  shiftNote: { en: "Shift sales: {liters} from {n} shift(s)", my: "ဆိုင်း ရောင်းအား: ဆိုင်း {n} ခုမှ {liters}" },
   shiftUndone: { en: "Shift deduction undone.", my: "ဆိုင်း နုတ်ချက် ပြန်ဖျက်ပြီး။" },
   recordDeleted: { en: "Record deleted.", my: "မှတ်တမ်း ဖျက်ပြီး။" },
   title: { en: "P-P Ledger", my: "P-P စာရင်း" },
@@ -90,7 +93,6 @@ export const usePipaT = makeT({
   stationSaved: { en: "Station saved.", my: "ဆိုင် သိမ်းပြီး။" },
   stationAdded: { en: "Station added.", my: "ဆိုင် ထည့်ပြီး။" },
   countSaved: { en: "Stock count saved.", my: "လက်ကျန် စစ်ဆေးချက် သိမ်းပြီး။" },
-  deducted: { en: "Shift sales deducted from stock.", my: "ဆိုင်း ရောင်းအားကို လက်ကျန်မှ နုတ်ပြီး။" },
 
   // Shared dialog bits
   close: { en: "Close", my: "ပိတ်ရန်" },
@@ -106,7 +108,8 @@ export const usePipaT = makeT({
   nothingOwed: { en: "Nothing is owed for {product} with {station}.", my: "{station} နှင့် {product} အတွက် အကြွေး မရှိပါ။" },
   onlyOwed: { en: "Only {n} P-P of {product} are owed with {station}.", my: "{station} နှင့် {product} P-P {n} သာ အကြွေး ရှိပါသည်။" },
   priceErr: { en: "Enter the price.", my: "စျေး ထည့်ပါ။" },
-  poFailed: { en: "Couldn't add the purchase order: {msg}", my: "PO မထည့်နိုင်ပါ: {msg}" },
+  poFailed: { en: "Couldn't save the purchase with its purchase order: {msg}", my: "အဝယ် နှင့် ၎င်း၏ PO ကို မသိမ်းနိုင်ပါ: {msg}" },
+  buyNotInstalled: { en: "Saving a purchase with its PO needs the latest database update. Run the manager_shared_pp_po SQL in the Supabase SQL Editor, or untick the PO box.", my: "အဝယ်ကို PO နှင့်အတူ သိမ်းရန် နောက်ဆုံး database update လိုပါသည်။ Supabase SQL Editor တွင် manager_shared_pp_po SQL ကို run ပါ၊ သို့မဟုတ် PO အကွက်ကို ဖြုတ်ပါ။" },
   station: { en: "Station *", my: "ဆိုင် *" },
   firstStation: { en: "+ Add your first station", my: "+ ပထမဆုံး ဆိုင် ထည့်ရန်" },
   choose: { en: "Choose…", my: "ရွေးပါ…" },
@@ -121,7 +124,7 @@ export const usePipaT = makeT({
   totalFor: { en: "Total ", my: "စုစုပေါင်း " },
   forLiters: { en: " for {liters}", my: " ({liters} အတွက်)" },
   addToPOa: { en: "Also add to ", my: "" },
-  addToPOb: { en: " (queued, in litres) so profit tracking includes it", my: " တွင်လည်း ထည့်ရန် (စောင့်ဆိုင်း၊ လီတာဖြင့်) — အမြတ်တွက်ရာတွင် ပါစေရန်" },
+  addToPOb: { en: " as the next ACTIVE batch (Batch 1, 2, 3… in order, in litres) so profit tracking includes it", my: " တွင် အသုံးပြုဆဲ အသုတ်အဖြစ်လည်း ထည့်ရန် (Batch 1, 2, 3… အစဉ်လိုက်၊ လီတာဖြင့်) — အမြတ်တွက်ရာတွင် ပါစေရန်" },
   poRegistry: { en: "PO Registry", my: "PO မှတ်ပုံတင်" },
 
   // Count dialog
@@ -134,16 +137,6 @@ export const usePipaT = makeT({
   extra: { en: "Extra", my: "ပို" },
   countedOf: { en: "Counted P-P of {product}", my: "{product} စစ်ထားသော P-P" },
   counted: { en: "Counted", my: "စစ်ထားသည်" },
-
-  // Deduct dialog
-  alreadyDeducted: { en: "One of these shifts was already deducted (perhaps from another device). Close this and try again.", my: "ဤဆိုင်းများထဲမှ တစ်ခုကို နုတ်ပြီးသား ဖြစ်နေသည် (အခြားစက်မှ ဖြစ်နိုင်)။ ပိတ်ပြီး ထပ်ကြိုးစားပါ။" },
-  deductTitle: { en: "Deduct shift sales", my: "ဆိုင်း ရောင်းအား နုတ်ရန်" },
-  deductSub: { en: "Takes the litres sold in these shifts out of P-P stock. Each shift can only be deducted once.", my: "ဤဆိုင်းများတွင် ရောင်းသော လီတာကို P-P လက်ကျန်မှ နုတ်ပါမည်။ ဆိုင်းတစ်ခုကို တစ်ကြိမ်သာ နုတ်နိုင်သည်။" },
-  deductN: { en: "Deduct {n} shift(s) from stock", my: "ဆိုင်း {n} ခုကို လက်ကျန်မှ နုတ်ရန်" },
-  allDeducted: { en: "Every recent shift has already been deducted.", my: "မကြာသေးမီ ဆိုင်းအားလုံး နုတ်ပြီးပါပြီ။" },
-  willDeduct: { en: "Will be deducted", my: "နုတ်မည့် ပမာဏ" },
-  includeShift: { en: "Include shift {when}", my: "{when} ဆိုင်း ထည့်ရန်" },
-  noFuel: { en: "No fuel litres", my: "ဆီ လီတာ မရှိ" },
 
   // Station dialog
   nameRequired: { en: "Station name is required.", my: "ဆိုင်အမည် လိုအပ်သည်။" },

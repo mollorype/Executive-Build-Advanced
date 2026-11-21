@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
-import type { Role } from "@/lib/supabase";
+import { homeFor, type Role } from "@/lib/supabase";
 import AppShell from "@/components/app-shell";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
@@ -18,11 +18,6 @@ import SettingsPage from "@/pages/settings";
 import ChatPage from "@/pages/chat";
 
 const queryClient = new QueryClient();
-
-/** Where a role lands when it hits a page it isn't allowed on, or logs in fresh. */
-function homeFor(role: Role): string {
-  return role === "accountant" ? "/debt-tracker" : "/dashboard";
-}
 
 function ProtectedRoute({ children, allow = ["ceo"] }: { children: React.ReactNode; allow?: Role[] }) {
   const { user, profile, loading } = useAuth();
@@ -115,7 +110,7 @@ function Router() {
       </Route>
 
       <Route path="/pipa-ledger">
-        <ProtectedRoute>
+        <ProtectedRoute allow={["ceo", "accountant", "manager"]}>
           <PipaLedger />
         </ProtectedRoute>
       </Route>
@@ -133,7 +128,7 @@ function Router() {
       </Route>
 
       <Route path="/settings">
-        <ProtectedRoute allow={["ceo", "accountant"]}>
+        <ProtectedRoute allow={["ceo", "accountant", "manager"]}>
           <SettingsPage />
         </ProtectedRoute>
       </Route>

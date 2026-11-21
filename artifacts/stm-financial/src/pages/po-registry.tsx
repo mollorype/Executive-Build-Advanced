@@ -9,7 +9,7 @@ import { forceClosePO, verifyPO } from "@/lib/fifo-engine";
 import { loadUsageSums, poProfit, type Profit, type UsageSum } from "@/lib/po-usage";
 import PipaStockSummary from "@/components/pipa/stock-summary-card";
 import PipaModal, { ErrorNote, primaryBtn } from "@/components/pipa/modal";
-import DeductPODialog from "@/components/po/deduct-po-dialog";
+import ShiftDeductDialog from "@/components/shift-deduct-dialog";
 import POHistoryDialog from "@/components/po/po-history-dialog";
 import { L_PER_PP, fmtTyped, fromUnit, liters, readUnit, saveUnit, toUnit, unitSuffix, vol, type VolUnit } from "@/lib/po-units";
 import { makeT, useLang, type Lang } from "@/lib/app-i18n";
@@ -526,6 +526,13 @@ function CreatePOForm({ unit, onUnit, onCreated }: { unit: VolUnit; onUnit: (u: 
     setCalibration(""); setWholesale(""); setErr(""); setOkMsg("");
   }
 
+  // Offer the next name in order (Batch 1, 2, 3…); anything typed is kept.
+  const suggestName = useCallback(async () => {
+    const { data } = await supabase.rpc("next_po_batch_name");
+    if (typeof data === "string" && data) setName(n => (n.trim() ? n : data));
+  }, []);
+  useEffect(() => { if (open) suggestName(); }, [open, suggestName]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(""); setOkMsg("");
@@ -552,8 +559,10 @@ function CreatePOForm({ unit, onUnit, onCreated }: { unit: VolUnit; onUnit: (u: 
     });
     setSaving(false);
     if (error) { setErr(error.message); return; }
-    setOkMsg(t("created", { name: name.trim() }));
+    const created = name.trim();
     reset();
+    setOkMsg(t("created", { name: created }));   // after reset(), which clears it
+    suggestName();
     onCreated();
     setTimeout(() => setOkMsg(""), 3000);
   }
@@ -1189,7 +1198,7 @@ export default function PORegistry() {
       )}
       {editTarget && <EditPOModal po={editTarget} unit={unit} onUnit={setUnit} onClose={() => setEditTarget(null)} onDone={changed} />}
       {historyTarget && <POHistoryDialog po={historyTarget} unit={unit} onClose={() => setHistoryTarget(null)} onChanged={changed} />}
-      {deductOpen && <DeductPODialog unit={unit} onClose={() => setDeductOpen(false)} onSaved={changed} />}
+      {deductOpen && <ShiftDeductDialog unit={unit} owner onClose={() => setDeductOpen(false)} onSaved={changed} />}
     </div>
   );
 }
