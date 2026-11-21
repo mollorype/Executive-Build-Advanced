@@ -124,7 +124,7 @@ export const usePipaT = makeT({
   totalFor: { en: "Total ", my: "စုစုပေါင်း " },
   forLiters: { en: " for {liters}", my: " ({liters} အတွက်)" },
   addToPOa: { en: "Also add to ", my: "" },
-  addToPOb: { en: " (queued, in litres) so profit tracking includes it", my: " တွင်လည်း ထည့်ရန် (စောင့်ဆိုင်း၊ လီတာဖြင့်) — အမြတ်တွက်ရာတွင် ပါစေရန်" },
+  addToPOb: { en: " as the next ACTIVE batch (Batch 1, 2, 3… in order, in litres) so profit tracking includes it", my: " တွင် အသုံးပြုဆဲ အသုတ်အဖြစ်လည်း ထည့်ရန် (Batch 1, 2, 3… အစဉ်လိုက်၊ လီတာဖြင့်) — အမြတ်တွက်ရာတွင် ပါစေရန်" },
   poRegistry: { en: "PO Registry", my: "PO မှတ်ပုံတင်" },
 
   // Count dialog

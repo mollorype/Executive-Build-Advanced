@@ -526,6 +526,13 @@ function CreatePOForm({ unit, onUnit, onCreated }: { unit: VolUnit; onUnit: (u: 
     setCalibration(""); setWholesale(""); setErr(""); setOkMsg("");
   }
 
+  // Offer the next name in order (Batch 1, 2, 3…); anything typed is kept.
+  const suggestName = useCallback(async () => {
+    const { data } = await supabase.rpc("next_po_batch_name");
+    if (typeof data === "string" && data) setName(n => (n.trim() ? n : data));
+  }, []);
+  useEffect(() => { if (open) suggestName(); }, [open, suggestName]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(""); setOkMsg("");
@@ -552,8 +559,10 @@ function CreatePOForm({ unit, onUnit, onCreated }: { unit: VolUnit; onUnit: (u: 
     });
     setSaving(false);
     if (error) { setErr(error.message); return; }
-    setOkMsg(t("created", { name: name.trim() }));
+    const created = name.trim();
     reset();
+    setOkMsg(t("created", { name: created }));   // after reset(), which clears it
+    suggestName();
     onCreated();
     setTimeout(() => setOkMsg(""), 3000);
   }
