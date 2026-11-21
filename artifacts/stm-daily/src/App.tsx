@@ -31,6 +31,9 @@ interface ExpenseItem { name: string; amount: string; profileId?: string; txnTyp
 type PipaProduct = "92" | "95" | "PD" | "D";
 interface PipaItem { product: PipaProduct; containers: string; price: string; total: string; auto?: "containers" | "total" | null; }
 interface JellyCanItem { product: PipaProduct; pieces: string; liters: string; price: string; total: string; auto?: "pieces" | "total" | null; }
+/** How the Pipa + Jelly Can total was paid. `amount`: cash received (partial) or the extra paid ahead (advance). */
+type PipaJellyPayMode = "full" | "partial" | "advance";
+interface PipaJellyPay { mode: PipaJellyPayMode; amount: string; note: string; }
 interface FormData {
   fuel92: FuelRow;          // Fuel 92 — normal pump
   fuel92New: FuelRow;       // Fuel 92 — new pump (closable)
@@ -39,6 +42,8 @@ interface FormData {
   premiumDiesel: FuelRow;
   pipa: PipaItem[];
   jellyCan: JellyCanItem[];
+  /** Missing on drafts saved before this existed — treated as paid in full. */
+  pipaJellyPay?: PipaJellyPay;
   diesel: DieselRow;
   expenses: ExpenseItem[];
   actualCash: string;
@@ -142,6 +147,23 @@ const STRINGS = {
   totalMMK:             { en: "Total: {a} MMK", my: "စုစုပေါင်း: {a} MMK" },
   jellyCan:             { en: "Jelly Can", my: "ပုံးဝါ" },
   jellyManual:          { en: "Enter liters manually", my: "လီတာ ကိုယ်တိုင် ထည့်ပါ" },
+  pjTitle:              { en: "Pipa & Jelly Can — Total", my: "ပီပါ နှင့် ပုံးဝါ — စုစုပေါင်း" },
+  pjSum:                { en: "Total", my: "စုစုပေါင်း" },
+  pjPipaCount:          { en: "{c} pipa", my: "{c} လုံး" },
+  pjJellyCount:         { en: "{c} cans", my: "{c} ပုံး" },
+  pjPayment:            { en: "Payment", my: "ငွေပေးချေမှု" },
+  pjFull:               { en: "All paid in cash", my: "ငွေသား အပြည့်" },
+  pjPartial:            { en: "Partly paid", my: "တစ်စိတ်တစ်ပိုင်း" },
+  pjAdvance:            { en: "Extra paid in advance", my: "အပို ကြိုတင်ငွေ" },
+  pjReceived:           { en: "Cash received", my: "ရရှိသော ငွေသား" },
+  pjExtra:              { en: "Extra paid in advance", my: "အပို ကြိုတင်ငွေ" },
+  pjUnpaid:             { en: "{a} MMK still to be paid", my: "ကျန်ငွေ {a} MMK (နောက်မှ ပေးမည်)" },
+  pjOverHint:           { en: "More than the total — choose “Extra paid in advance”.", my: "စုစုပေါင်းထက် များနေသည် — “အပို ကြိုတင်ငွေ” ကို ရွေးပါ။" },
+  pjCashIn:             { en: "Cash for Pipa & Jelly Can", my: "ပီပါ/ပုံးဝါ ငွေသား ရရှိငွေ" },
+  pjNote:               { en: "Note (who / why) — optional", my: "မှတ်ချက် (ဘယ်သူ / ဘာကြောင့်) — မထည့်လည်းရ" },
+  pjNotePh:             { en: "e.g. Ko Aung pays the rest tomorrow", my: "ဥပမာ ကိုအောင် ကျန်ငွေ မနက်ဖြန် ပေးမည်" },
+  pjUnpaidLine:         { en: "− Pipa / Jelly Can not yet paid", my: "− ပီပါ/ပုံးဝါ မရသေးငွေ" },
+  pjAdvanceLine:        { en: "+ Pipa / Jelly Can paid in advance", my: "+ ပီပါ/ပုံးဝါ ကြိုတင်ငွေ" },
   noJelly:              { en: "No jelly can entries — tap + to add one", my: "ပုံးဝါ မရှိသေးပါ — + နှိပ်၍ ထည့်ပါ" },
   removeJellyN:         { en: "Remove jelly can entry {n}", my: "ပုံးဝါ {n} ဖယ်ရန်" },
   pieces:               { en: "Pieces", my: "အရေအတွက်" },
@@ -255,6 +277,7 @@ const EMPTY: FormData = {
   premiumDiesel:  { totalAmount: "", price: "", liters: "" },
   pipa:           [],
   jellyCan:       [],
+  pipaJellyPay:   { mode: "full", amount: "", note: "" },
   diesel:         { cash: "", price: "" },
   expenses:       [],
   actualCash:     "",
@@ -336,6 +359,18 @@ function GoldInput({
 
 // ─── Pipa / Jelly Can money ─────────────────────────────────────────────────
 /** An entry's ရောင်းရငွေ: what was typed, else quantity × price. */
+/**
+ * Cash in the till for Pipa + Jelly Can: the whole total (paid in full), only what
+ * was received (partly paid), or the total plus what was paid ahead (advance).
+ * Sales always count the full total; only the expected cash changes.
+ */
+function pipaJellyCash(total: number, pay: PipaJellyPay | undefined): number {
+  if (total <= 0) return 0;
+  if (pay?.mode === "partial") return Math.min(total, Math.max(0, n(pay.amount)));
+  if (pay?.mode === "advance") return total + Math.max(0, n(pay.amount));
+  return total;
+}
+
 function pipaItemTotal(i: PipaItem): number {
   return n(i.total ?? "") > 0 ? n(i.total) : n(i.containers) * n(i.price);
 }
@@ -628,6 +663,97 @@ function JellyCanPanel({ items, onChange, lang }: {
         {items.length > 0 && (
           <span className="text-xs font-bold text-teal-400">{t(lang, "totalMMK", { a: fmt(panelTotal) })}</span>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Pipa + Jelly Can: one total, with how it was paid ─────────────────────────
+function PipaJellySummary({ pipa, jelly, pay, onPay, lang }: {
+  pipa: PipaItem[];
+  jelly: JellyCanItem[];
+  pay: PipaJellyPay;
+  onPay: (p: PipaJellyPay) => void;
+  lang: Lang;
+}) {
+  const rows = [
+    ...pipa.map(i => ({ kind: "pipa" as const, product: i.product, count: n(i.containers), total: pipaItemTotal(i) })),
+    ...jelly.map(i => ({ kind: "jelly" as const, product: i.product, count: n(i.pieces), total: jellyItemTotal(i) })),
+  ].filter(r => r.total > 0);
+  const total = rows.reduce((s, r) => s + r.total, 0);
+  if (total <= 0) return null;
+
+  const cash = pipaJellyCash(total, pay);
+  const typed = n(pay.amount);
+  const money = (v: number) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(v);
+  const modes: { id: PipaJellyPayMode; key: StrKey; on: string }[] = [
+    { id: "full", key: "pjFull", on: "bg-emerald-600 border-emerald-500 text-white" },
+    { id: "partial", key: "pjPartial", on: "bg-amber-500 border-amber-400 text-black" },
+    { id: "advance", key: "pjAdvance", on: "bg-sky-600 border-sky-500 text-white" },
+  ];
+
+  return (
+    <div className="bg-[#161b22] rounded-2xl border border-[#30363d] overflow-hidden" data-testid="pipa-jelly-summary">
+      <div className="px-4 py-2.5 flex items-center justify-between gap-2 bg-[#1c2433] border-b border-[#30363d]">
+        <span className="text-xs font-bold text-amber-300 uppercase tracking-widest">{t(lang, "pjTitle")}</span>
+        <span className="text-sm font-bold text-white tabular-nums">{fmt(total)} MMK</span>
+      </div>
+
+      {/* Breakdown */}
+      <div className="divide-y divide-[#30363d]">
+        {rows.map((r, i) => (
+          <div key={i} className="px-4 py-2.5 flex items-center justify-between gap-3 text-sm">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className={`text-[10px] font-bold text-white rounded px-1.5 py-0.5 ${PIPA_COLORS[r.product]}`}>{r.product}</span>
+              <span className={`font-semibold ${r.kind === "pipa" ? "text-amber-400" : "text-teal-400"}`}>{t(lang, r.kind === "pipa" ? "pipa" : "jellyCan")}</span>
+              {r.count > 0 && <span className="text-xs text-gray-500">{t(lang, r.kind === "pipa" ? "pjPipaCount" : "pjJellyCount", { c: r.count })}</span>}
+            </div>
+            <span className="font-semibold text-gray-200 tabular-nums">{fmt(r.total)}</span>
+          </div>
+        ))}
+        <div className="px-4 py-2.5 flex items-center justify-between text-sm bg-[#1c2433]/60">
+          <span className="font-bold text-gray-300">{t(lang, "pjSum")}</span>
+          <span className="font-bold text-white tabular-nums">{fmt(total)} MMK</span>
+        </div>
+      </div>
+
+      {/* How it was paid */}
+      <div className="px-4 py-3 border-t border-[#30363d] space-y-3">
+        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "pjPayment")}</p>
+        <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label={t(lang, "pjPayment")}>
+          {modes.map(m => (
+            <button key={m.id} type="button" role="radio" aria-checked={pay.mode === m.id}
+              onClick={() => onPay({ ...pay, mode: m.id, amount: m.id === pay.mode ? pay.amount : "" })}
+              className={`rounded-xl border px-1.5 py-2 text-[11px] font-bold leading-tight transition-colors ${pay.mode === m.id ? m.on : "border-[#30363d] text-gray-400 hover:text-white"}`}>
+              {t(lang, m.key)}
+            </button>
+          ))}
+        </div>
+
+        {pay.mode === "partial" && (
+          <div className="space-y-1.5">
+            <GoldInput label={t(lang, "pjReceived")} value={pay.amount} onChange={v => onPay({ ...pay, amount: v })} prefix="K" />
+            {typed > total
+              ? <p className="text-[11px] text-sky-300">{t(lang, "pjOverHint")}</p>
+              : <p className="text-[11px] font-semibold text-amber-400">{t(lang, "pjUnpaid", { a: money(total - cash) })}</p>}
+          </div>
+        )}
+        {pay.mode === "advance" && (
+          <GoldInput label={t(lang, "pjExtra")} value={pay.amount} onChange={v => onPay({ ...pay, amount: v })} prefix="K" />
+        )}
+        {pay.mode !== "full" && (
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="pj-note" className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "pjNote")}</label>
+            <input id="pj-note" type="text" value={pay.note} maxLength={200} onChange={e => onPay({ ...pay, note: e.target.value })}
+              placeholder={t(lang, "pjNotePh")}
+              className="w-full rounded-xl border px-3 py-3 text-sm font-medium outline-none bg-[#0d1117] text-white placeholder:text-gray-700 border-[#30363d] focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+          </div>
+        )}
+
+        <div className="flex items-center justify-between rounded-xl bg-[#1c2433] border border-[#30363d] px-3 py-2.5">
+          <span className="text-xs font-semibold text-gray-400">{t(lang, "pjCashIn")}</span>
+          <span data-testid="pj-cash" className={`text-sm font-bold tabular-nums ${cash < total ? "text-amber-400" : cash > total ? "text-sky-300" : "text-emerald-400"}`}>{money(cash)} MMK</span>
+        </div>
       </div>
     </div>
   );
@@ -1269,7 +1395,9 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
   const totalIncome     = form.expenses.reduce((s, i) => s + (i.txnType === "payment"  ? n(i.amount) : 0), 0);
   const totalExp        = totalDeductions;
   // Every product, Pipa and Jelly Can included, is expected in cash
-  const netExpected     = grandTotal - totalDeductions + totalIncome;
+  // Pipa + Jelly Can: sales count the full total; the till holds what was actually paid
+  const pjAdjust        = pipaJellyCash(tPipa + tJelly, form.pipaJellyPay) - (tPipa + tJelly);
+  const netExpected     = grandTotal - totalDeductions + totalIncome + pjAdjust;
   const difference      = actualCash - netExpected;
 
   function handleSubmit(e: React.FormEvent) {
@@ -1358,6 +1486,9 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
             <JellyCanPanel
               items={form.jellyCan}
               onChange={items => setForm(f => ({ ...f, jellyCan: items }))} lang={lang} />
+            <PipaJellySummary pipa={form.pipa} jelly={form.jellyCan} lang={lang}
+              pay={form.pipaJellyPay ?? EMPTY.pipaJellyPay!}
+              onPay={p => setForm(f => ({ ...f, pipaJellyPay: p }))} />
 
             {/* Diesel — cash only */}
             <div className="bg-[#161b22] rounded-2xl border border-[#30363d] border-l-4 border-l-orange-500 overflow-hidden">
@@ -1392,6 +1523,12 @@ function ShiftForm({ employeeName, onSubmit, onLogout, onBack, lang, setLang, in
             <ExpensesPanel items={form.expenses} onChange={items => setForm(f => ({ ...f, expenses: items }))} lang={lang} />
           </div>
 
+          {pjAdjust !== 0 && (
+            <div className="flex items-center justify-between rounded-xl px-4 py-2.5 border border-[#30363d]">
+              <span className="text-xs font-semibold text-gray-400">{t(lang, pjAdjust < 0 ? "pjUnpaidLine" : "pjAdvanceLine")}</span>
+              <span className={`text-sm font-bold tabular-nums ${pjAdjust < 0 ? "text-amber-400" : "text-sky-300"}`}>{pjAdjust < 0 ? "−" : "+"}{fmt(Math.abs(pjAdjust))} MMK</span>
+            </div>
+          )}
           <div className="flex items-center justify-between bg-[#1c2433] rounded-xl px-4 py-2.5 border border-[#30363d]">
             <span className="text-xs font-semibold text-gray-400">{t(lang, "netExpected")}</span>
             <span className="text-sm font-bold text-white tabular-nums">{fmt(netExpected)} MMK</span>
@@ -1437,6 +1574,8 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
   const totalIncome     = form.expenses.reduce((s, i) => s + (i.txnType === "payment"  ? n(i.amount) : 0), 0);
   const totalExp        = totalDeductions;
   const actualCash      = n(form.actualCash);
+  const pjPay           = form.pipaJellyPay;
+  const pjAdjust        = pipaJellyCash(tPipa + tJelly, pjPay) - (tPipa + tJelly);
 
   const rows = [
     // With the new pump open, each pump gets its own line (empty ones are hidden below).
@@ -1524,6 +1663,15 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
                 </div>
               );
             })}
+            {tPipa + tJelly > 0 && (
+              <div className="px-4 py-3 flex items-start justify-between gap-3" data-testid="review-pj-payment">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white">{t(lang, "pjPayment")} · {t(lang, pjPay?.mode === "partial" ? "pjPartial" : pjPay?.mode === "advance" ? "pjAdvance" : "pjFull")}</p>
+                  {pjPay && pjPay.mode !== "full" && pjPay.note.trim() && <p className="text-xs text-gray-400 break-words">{pjPay.note.trim()}</p>}
+                </div>
+                <p className="text-sm font-bold text-gray-200 tabular-nums whitespace-nowrap">{fmt(pipaJellyCash(tPipa + tJelly, pjPay))} MMK</p>
+              </div>
+            )}
             {tD > 0 && (
               <div className="px-4 py-3 flex items-center justify-between">
                 <div>
@@ -1560,10 +1708,13 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
             {totalIncome > 0 && (
               <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "paymentIncome")}</span><span className="font-semibold text-emerald-400 tabular-nums">+{fmt(totalIncome)} MMK</span></div>
             )}
+            {pjAdjust !== 0 && (
+              <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, pjAdjust < 0 ? "pjUnpaidLine" : "pjAdvanceLine")}</span><span className={`font-semibold tabular-nums ${pjAdjust < 0 ? "text-amber-400" : "text-sky-300"}`}>{pjAdjust < 0 ? "−" : "+"}{fmt(Math.abs(pjAdjust))} MMK</span></div>
+            )}
             {totalDeductions > 0 && (
               <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "otherCosts")}</span><span className="font-semibold text-red-400 tabular-nums">−{fmt(totalDeductions)} MMK</span></div>
             )}
-            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "netExpected")}</span><span className="font-bold text-white tabular-nums">{fmt(grandTotal - totalDeductions + totalIncome)} MMK</span></div>
+            <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "netExpected")}</span><span className="font-bold text-white tabular-nums">{fmt(grandTotal - totalDeductions + totalIncome + pjAdjust)} MMK</span></div>
             <div className="px-4 py-3 flex justify-between text-sm"><span className="text-gray-500">{t(lang, "actualCollected")}</span><span className="font-bold text-white tabular-nums">{fmt(actualCash)} MMK</span></div>
             <div className={["px-4 py-3 flex justify-between text-sm font-bold", difference === 0 ? "bg-[#1c2433]" : difference > 0 ? "bg-emerald-500/10" : "bg-red-500/10"].join(" ")}>
               <span className={difference === 0 ? "text-gray-400" : difference > 0 ? "text-emerald-400" : "text-red-400"}>{t(lang, "difference")}</span>
@@ -2000,8 +2151,11 @@ export default function App() {
     const totalIncome     = formData.expenses.reduce((s, i) => s + (i.txnType === "payment"  ? n(i.amount) : 0), 0);
     const totalExp        = totalDeductions - totalIncome; // net effect on expected cash
     const actualCash      = n(formData.actualCash);
-    // Every product, Pipa and Jelly Can included, is expected in cash
-    const cashGrandTotal  = t92 + t95 + tPD + n(formData.diesel.cash) + tPipa + tJelly;
+    // Every product is expected in cash; for Pipa + Jelly Can, what was actually paid
+    const pjTotal         = tPipa + tJelly;
+    const pjPay           = formData.pipaJellyPay;
+    const pjCash          = pipaJellyCash(pjTotal, pjPay);
+    const cashGrandTotal  = t92 + t95 + tPD + n(formData.diesel.cash) + pjCash;
 
     const payload: ShiftPayload = {
       employee_name: employeeName,
@@ -2023,6 +2177,12 @@ export default function App() {
         pipa_total:            tPipa,
         pipa_items:            pipaItems,
         jelly_can_items:       jellyCanItems,
+        ...(pjTotal > 0 ? { pipa_jelly_payment: {
+          mode: pjPay?.mode ?? "full",
+          total: pjTotal,
+          cash: pjCash,
+          ...(pjPay && pjPay.mode !== "full" && pjPay.note.trim() ? { note: pjPay.note.trim().slice(0, 200) } : {}),
+        } } : {}),
         diesel_cash:           n(formData.diesel.cash),
         diesel_price:          n(formData.diesel.price),
       },

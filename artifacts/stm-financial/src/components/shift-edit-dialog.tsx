@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { X, Save, AlertTriangle, CalendarDays, Plus } from "lucide-react";
-import { Shift, ExpenseItem, updateShift, updateDebtTransactionDates } from "@/lib/supabase";
+import { Shift, ExpenseItem, updateShift, updateDebtTransactionDates, pipaJellyCash } from "@/lib/supabase";
 
 type Props = {
   shift: Shift;
@@ -114,10 +114,14 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
   const tPipa = pipaUnchanged && shift.pipa_total != null ? shift.pipa_total : n(pipaAmt) * n(pipaPrice);
   const tJelly = (shift.jelly_can_items ?? []).reduce((s, i) => s + (i.total || 0), 0);
   const tDiesel = n(dieselCash);
-  // Every product, Pipa and Jelly Can included, is expected in cash — same as STM Daily.
+  // Every product is expected in cash — same as STM Daily. For Pipa + Jelly Can that is
+  // what was actually paid (partly paid / advance), kept in step if their total is edited.
   const grandTotal = t92 + t95 + tPD + tPipa + tJelly + tDiesel;
+  const pjPay = shift.pipa_jelly_payment;
+  const pjCash = pipaJellyCash(tPipa + tJelly, pjPay);
+  const pjAdjust = pjCash - (tPipa + tJelly);
   const totalExp = expenses.reduce((s, e) => s + (e.amount || 0), 0);
-  const netExpected = grandTotal - totalExp;
+  const netExpected = grandTotal + pjAdjust - totalExp;
   const diff = n(actualCash) - netExpected;
 
   function fmt(v: number) {
@@ -143,6 +147,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
       diesel_cash: n(dieselCash), diesel_price: shift.diesel_price ?? 0,
       pipa_items: shift.pipa_items ?? [],
       jelly_can_items: shift.jelly_can_items ?? [],
+      ...(pjPay ? { pipa_jelly_payment: { ...pjPay, total: tPipa + tJelly, cash: pjCash } } : {}),
       // Keep STM Daily's per-pump Fuel 92 split only while Fuel 92 is unchanged;
       // after an edit it would no longer add up, so it's dropped.
       ...(shift.fuel_92_pumps && f92l === fmtInput(shift.fuel_92_liters) && f92p === fmtInput(shift.fuel_92_price)
@@ -283,6 +288,12 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
               <span className="text-slate-400">Grand Total (Sales)</span>
               <span className="text-slate-900 font-medium tabular-nums">{fmt(grandTotal)}</span>
             </div>
+            {pjAdjust !== 0 && (
+              <div className="px-4 py-2.5 flex justify-between text-sm">
+                <span className="text-slate-400">{pjAdjust < 0 ? "Pipa / Jelly Can not yet paid" : "Pipa / Jelly Can paid in advance"}</span>
+                <span className={`font-medium tabular-nums ${pjAdjust < 0 ? "text-amber-700" : "text-sky-700"}`}>{pjAdjust < 0 ? "−" : "+"}{fmt(Math.abs(pjAdjust))}</span>
+              </div>
+            )}
             <div className="px-4 py-2.5 flex justify-between text-sm">
               <span className="text-slate-400">Total Expenses</span>
               <span className="text-pale-gold-foreground font-medium tabular-nums">{fmt(totalExp)}</span>

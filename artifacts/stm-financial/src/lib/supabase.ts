@@ -81,6 +81,7 @@ export function mapRowToShift(row: Record<string, unknown>): Shift {
     pipa_total: fuel.pipa_total ?? null,
     pipa_items: Array.isArray(fuel.pipa_items) ? fuel.pipa_items : null,
     jelly_can_items: Array.isArray(fuel.jelly_can_items) ? fuel.jelly_can_items : null,
+    pipa_jelly_payment: parsePipaJellyPayment((fuel as Record<string, unknown>).pipa_jelly_payment),
     diesel_cash: fuel.diesel_cash ?? null,
     diesel_price: fuel.diesel_price ?? null,
   };
@@ -198,6 +199,8 @@ export type Shift = {
   pipa_total: number | null;
   pipa_items: { product: string; containers: number; price: number; total: number }[] | null;
   jelly_can_items: { product: string; pieces: number; liters_per_can: number; total_liters: number; price: number; total: number }[] | null;
+  /** How STM Daily recorded the Pipa + Jelly Can total being paid (newer shifts only). */
+  pipa_jelly_payment: PipaJellyPayment | null;
 
   diesel_cash: number | null;
   diesel_price: number | null;
@@ -210,6 +213,32 @@ export type Shift = {
 };
 
 export const RED_FLAG_THRESHOLD = 10_000;
+
+/** Pipa + Jelly Can: paid in full, partly paid (cash < total) or with extra paid in advance (cash > total). */
+export type PipaJellyPayment = { mode: "full" | "partial" | "advance"; total: number; cash: number; note?: string };
+
+function parsePipaJellyPayment(raw: unknown): PipaJellyPayment | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const mode = r.mode === "partial" || r.mode === "advance" ? r.mode : "full";
+  const total = Number(r.total) || 0;
+  const cash = Number(r.cash);
+  return {
+    mode, total, cash: Number.isFinite(cash) ? cash : total,
+    ...(typeof r.note === "string" && r.note.trim() ? { note: r.note.trim() } : {}),
+  };
+}
+
+/**
+ * Cash the till should hold for Pipa + Jelly Can when their total is `total` —
+ * same rule as STM Daily: everything, only what was received, or plus the advance.
+ */
+export function pipaJellyCash(total: number, pay: PipaJellyPayment | null): number {
+  if (total <= 0) return 0;
+  if (pay?.mode === "partial") return Math.min(total, Math.max(0, pay.cash));
+  if (pay?.mode === "advance") return total + Math.max(0, pay.cash - pay.total);
+  return total;
+}
 
 /** Grand total sales for a shift, including pipa & jelly can (for display/reporting). */
 export function shiftTotalSales(shift: Shift): number {

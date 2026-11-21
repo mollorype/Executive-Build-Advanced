@@ -1,5 +1,5 @@
 import { X, User, Clock, Fuel, Receipt, BadgeDollarSign, AlertTriangle } from "lucide-react";
-import { Shift } from "@/lib/supabase";
+import { Shift, type PipaJellyPayment } from "@/lib/supabase";
 
 type Props = {
   shift: Shift;
@@ -82,6 +82,23 @@ function ItemizedBreakdown({ title, entries }: { title: string; entries: Itemize
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** How the Pipa + Jelly Can total was paid, as STM Daily recorded it. */
+function PipaJellyPaymentNote({ pay }: { pay: PipaJellyPayment }) {
+  const mmk = (v: number) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(v) + " MMK";
+  const style = pay.mode === "partial" ? "bg-amber-50 border-amber-200 text-amber-900"
+    : pay.mode === "advance" ? "bg-sky-50 border-sky-200 text-sky-900" : "bg-emerald-50 border-emerald-100 text-emerald-900";
+  return (
+    <div className={`mt-3 rounded-xl border px-4 py-3 text-sm ${style}`} data-testid="pj-payment-note">
+      <p className="font-semibold">
+        Pipa &amp; Jelly Can · {pay.mode === "partial" ? "Partly paid" : pay.mode === "advance" ? "Extra paid in advance" : "Paid in full (cash)"}
+      </p>
+      {pay.mode === "partial" && <p className="text-xs mt-0.5">Received {mmk(pay.cash)} of {mmk(pay.total)} · <b>{mmk(pay.total - pay.cash)} still to be paid</b></p>}
+      {pay.mode === "advance" && <p className="text-xs mt-0.5">Received {mmk(pay.cash)} for {mmk(pay.total)} · <b>{mmk(pay.cash - pay.total)} paid in advance</b></p>}
+      {pay.note && <p className="text-xs mt-1 break-words">“{pay.note}”</p>}
     </div>
   );
 }
@@ -264,6 +281,7 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
 
             <ItemizedBreakdown title="Pipa — Itemized" entries={pipaEntries} />
             <ItemizedBreakdown title="Jelly Can — Itemized" entries={jellyEntries} />
+            {shift.pipa_jelly_payment && <PipaJellyPaymentNote pay={shift.pipa_jelly_payment} />}
           </div>
 
           {/* Operational Expenses */}
