@@ -14,6 +14,7 @@ import PORegistry from "@/pages/po-registry";
 import PipaLedger from "@/pages/pipa-ledger";
 import DebtTracker from "@/pages/debt-tracker";
 import SalaryPage from "@/pages/salary";
+import SettingsPage from "@/pages/settings";
 import ChatPage from "@/pages/chat";
 
 const queryClient = new QueryClient();
@@ -128,6 +129,12 @@ function Router() {
       <Route path="/salary">
         <ProtectedRoute allow={["ceo", "accountant"]}>
           <SalaryPage />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/settings">
+        <ProtectedRoute allow={["ceo", "accountant"]}>
+          <SettingsPage />
         </ProtectedRoute>
       </Route>
 

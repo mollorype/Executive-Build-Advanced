@@ -1,28 +1,53 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import ChangePasswordDialog from "@/components/change-password-dialog";
 import { useChatKeyMaintenance, useChatUnread } from "@/components/team-chat";
 import { useAuth } from "@/lib/auth-context";
-import { supabase, ROLE_LABELS, type Role } from "@/lib/supabase";
+import { supabase, type Role } from "@/lib/supabase";
+import { makeT, roleLabel, useLang } from "@/lib/app-i18n";
 import {
-  Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, PackageSearch, CreditCard, Receipt, Cylinder, KeyRound, MessageCircle, Wallet,
+  Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, PackageSearch, CreditCard, Receipt, Cylinder, KeyRound, MessageCircle, Wallet, Settings,
 } from "lucide-react";
 
 type Props = { children: React.ReactNode };
 
-const navItems: { path: string; label: string; icon: typeof LayoutDashboard; roles: Role[] }[] = [
-  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["ceo"] },
-  { path: "/shifts", label: "Shifts", icon: Receipt, roles: ["ceo"] },
-  { path: "/po-registry", label: "PO Registry", icon: PackageSearch, roles: ["ceo"] },
-  { path: "/pipa-ledger", label: "P-P Ledger", icon: Cylinder, roles: ["ceo"] },
-  { path: "/debt-tracker", label: "Debt Tracker", icon: CreditCard, roles: ["ceo", "accountant"] },
-  { path: "/salary", label: "Salary", icon: Wallet, roles: ["ceo", "accountant"] },
-  { path: "/chat", label: "Team Chat", icon: MessageCircle, roles: ["ceo"] },
-  { path: "/manage-access", label: "Staff Access", icon: Users, roles: ["ceo"] },
+const useT = makeT({
+  dashboard: { en: "Dashboard", my: "အကျဉ်းချုပ်" },
+  shifts: { en: "Shifts", my: "ဆိုင်းစာရင်းများ" },
+  po: { en: "PO Registry", my: "PO စာရင်း" },
+  pp: { en: "P-P Ledger", my: "P-P စာရင်း" },
+  debt: { en: "Debt Tracker", my: "အကြွေးစာရင်း" },
+  salary: { en: "Salary", my: "လစာ" },
+  chat: { en: "Team Chat", my: "အဖွဲ့ Chat" },
+  access: { en: "Staff Access", my: "ဝန်ထမ်း ဝင်ခွင့်" },
+  settings: { en: "Settings", my: "ဆက်တင်" },
+  portal: { en: "Executive Portal", my: "စီမံခန့်ခွဲမှု Portal" },
+  executive: { en: "Executive", my: "စီမံသူ" },
+  changePw: { en: "Change password", my: "စကားဝှက် ပြောင်းရန်" },
+  signOut: { en: "Sign Out", my: "ထွက်ရန်" },
+  openMenu: { en: "Open menu", my: "Menu ဖွင့်ရန်" },
+  closeMenu: { en: "Close menu", my: "Menu ပိတ်ရန်" },
+  newChat: { en: "{n} new team chat messages", my: "Chat စာအသစ် {n} စောင်" },
+});
+
+const navItems: { path: string; label: "dashboard" | "shifts" | "po" | "pp" | "debt" | "salary" | "chat" | "access" | "settings"; icon: typeof LayoutDashboard; roles: Role[] }[] = [
+  { path: "/dashboard", label: "dashboard", icon: LayoutDashboard, roles: ["ceo"] },
+  { path: "/shifts", label: "shifts", icon: Receipt, roles: ["ceo"] },
+  { path: "/po-registry", label: "po", icon: PackageSearch, roles: ["ceo"] },
+  { path: "/pipa-ledger", label: "pp", icon: Cylinder, roles: ["ceo"] },
+  { path: "/debt-tracker", label: "debt", icon: CreditCard, roles: ["ceo", "accountant"] },
+  { path: "/salary", label: "salary", icon: Wallet, roles: ["ceo", "accountant"] },
+  { path: "/chat", label: "chat", icon: MessageCircle, roles: ["ceo"] },
+  { path: "/manage-access", label: "access", icon: Users, roles: ["ceo"] },
+  { path: "/settings", label: "settings", icon: Settings, roles: ["ceo", "accountant"] },
 ];
 
 export default function AppShell({ children }: Props) {
   const { user, profile, signOut } = useAuth();
+  const t = useT();
+  const lang = useLang();
+  // Screen readers and the browser's own controls follow the chosen language.
+  useEffect(() => { document.documentElement.lang = lang === "my" ? "my" : "en"; }, [lang]);
   const [location, setLocation] = useLocation();
   const unread = useChatUnread(supabase, profile?.role === "ceo" ? user?.id ?? null : null, location !== "/chat");
   // While the portal is open, hand the chat's encryption key to staff's new phones.
@@ -53,7 +78,7 @@ export default function AppShell({ children }: Props) {
             </div>
             <div>
               <p className="text-slate-900 font-bold text-sm leading-tight">STM Financial</p>
-              <p className="text-slate-500 text-xs">Executive Portal</p>
+              <p className="text-slate-500 text-xs">{t("portal")}</p>
             </div>
           </div>
         </div>
@@ -64,8 +89,8 @@ export default function AppShell({ children }: Props) {
               {profile?.username?.[0]?.toUpperCase() ?? "C"}
             </div>
             <div className="min-w-0">
-              <p className="text-slate-900 text-sm font-semibold truncate">{profile?.username ?? ROLE_LABELS.ceo}</p>
-              <p className="text-slate-500 text-xs uppercase tracking-wider">{profile ? ROLE_LABELS[profile.role] : "Executive"}</p>
+              <p className="text-slate-900 text-sm font-semibold truncate">{profile?.username ?? roleLabel("ceo", lang)}</p>
+              <p className="text-slate-500 text-xs uppercase tracking-wider">{profile ? roleLabel(profile.role, lang) : t("executive")}</p>
             </div>
           </div>
         </div>
@@ -84,7 +109,7 @@ export default function AppShell({ children }: Props) {
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />
-                {label}
+                {t(label)}
                 {badge(path) ?? (active && <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-60" />)}
               </button>
             );
@@ -97,14 +122,14 @@ export default function AppShell({ children }: Props) {
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-all"
           >
             <KeyRound className="w-4 h-4 shrink-0" />
-            Change password
+            {t("changePw")}
           </button>
           <button
             onClick={handleSignOut}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all"
           >
             <LogOut className="w-4 h-4 shrink-0" />
-            Sign Out
+            {t("signOut")}
           </button>
         </div>
       </aside>
@@ -113,13 +138,13 @@ export default function AppShell({ children }: Props) {
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-end">
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          aria-label={mobileOpen ? t("closeMenu") : t("openMenu")}
           aria-expanded={mobileOpen}
           className="relative text-slate-500 hover:text-slate-900 p-1"
         >
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           {!mobileOpen && unread > 0 && (
-            <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white" aria-label={`${unread} new team chat messages`} />
+            <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white" aria-label={t("newChat", { n: unread })} />
           )}
         </button>
       </div>
@@ -142,7 +167,7 @@ export default function AppShell({ children }: Props) {
                   }`}
                 >
                   <Icon className="w-4 h-4" />
-                  {label}
+                  {t(label)}
                   {badge(path)}
                 </button>
               );
@@ -152,14 +177,14 @@ export default function AppShell({ children }: Props) {
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-all mt-4"
             >
               <KeyRound className="w-4 h-4" />
-              Change password
+              {t("changePw")}
             </button>
             <button
               onClick={handleSignOut}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all"
             >
               <LogOut className="w-4 h-4" />
-              Sign Out
+              {t("signOut")}
             </button>
           </div>
         </div>
