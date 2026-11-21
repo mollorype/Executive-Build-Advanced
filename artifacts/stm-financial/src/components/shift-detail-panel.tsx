@@ -94,7 +94,7 @@ function PipaJellyPaymentNote({ pay }: { pay: PipaJellyPayment }) {
   return (
     <div className={`mt-3 rounded-xl border px-4 py-3 text-sm ${style}`} data-testid="pj-payment-note">
       <p className="font-semibold">
-        Pipa &amp; Jelly Can · {pay.mode === "partial" ? "Partly paid" : pay.mode === "advance" ? "Extra paid in advance" : "Paid in full (cash)"}
+        P-P &amp; J-C · {pay.mode === "partial" ? "Partly paid" : pay.mode === "advance" ? "Extra paid in advance" : "Paid in full (cash)"}
       </p>
       {pay.mode === "partial" && <p className="text-xs mt-0.5">Received {mmk(pay.cash)} of {mmk(pay.total)} · <b>{mmk(pay.total - pay.cash)} still to be paid</b></p>}
       {pay.mode === "advance" && <p className="text-xs mt-0.5">Received {mmk(pay.cash)} for {mmk(pay.total)} · <b>{mmk(pay.cash - pay.total)} paid in advance</b></p>}
@@ -171,20 +171,20 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
         litersPerUnit: PIPA_LITERS_PER_CONTAINER,
         totalLiters: item.containers * PIPA_LITERS_PER_CONTAINER,
         unitPrice: item.price,
-        unitPriceNoun: "pipa",
+        unitPriceNoun: "P-P",
         total: item.total,
       }))
     // Older shifts recorded only the blended pipa_amount/price/total, with no per-product breakdown.
     : shift.pipa_amount
     ? [{
         key: "legacy",
-        product: "Pipa",
+        product: "P-P",
         unitCount: shift.pipa_amount,
         unitNoun: "containers",
         litersPerUnit: PIPA_LITERS_PER_CONTAINER,
         totalLiters: shift.pipa_amount * PIPA_LITERS_PER_CONTAINER,
         unitPrice: shift.pipa_price ?? 0,
-        unitPriceNoun: "pipa",
+        unitPriceNoun: "P-P",
         total: shift.pipa_total ?? 0,
       }]
     : [];
@@ -279,8 +279,8 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
               isCashOnly
             />
 
-            <ItemizedBreakdown title="Pipa — Itemized" entries={pipaEntries} />
-            <ItemizedBreakdown title="Jelly Can — Itemized" entries={jellyEntries} />
+            <ItemizedBreakdown title="P-P — Itemized" entries={pipaEntries} />
+            <ItemizedBreakdown title="J-C — Itemized" entries={jellyEntries} />
             {shift.pipa_jelly_payment && <PipaJellyPaymentNote pay={shift.pipa_jelly_payment} />}
           </div>
 

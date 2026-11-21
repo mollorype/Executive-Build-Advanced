@@ -15,7 +15,7 @@ const PRODUCT_LABELS: Record<string, string> = {
   "95": "95 RON",
   PD: "PD (Premium Diesel)",
   D: "Diesel",
-  pipa: "Pipa",
+  pipa: "P-P",
 };
 
 const STATUS_CONFIG = {

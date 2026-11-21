@@ -37,7 +37,7 @@ export default function StationDialog({ station, onClose, onSaved }: {
     if (err) {
       // 23503: movements still reference it (ON DELETE RESTRICT) — history must not lose its station.
       setError(err.code === "23503"
-        ? "This station has pipa history, so it can't be deleted. Its records stay in the ledger."
+        ? "This station has P-P history, so it can't be deleted. Its records stay in the ledger."
         : err.message);
       return;
     }

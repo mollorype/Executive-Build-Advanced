@@ -20,11 +20,11 @@ type Dialog =
 
 /** History line for one movement. */
 function describe(m: PipaMovement, station: string): { title: string; detail: string } {
-  const qty = `${fmtPipas(Math.abs(m.pipas))} pipa · ${PRODUCT_LABELS[m.product]}`;
+  const qty = `${fmtPipas(Math.abs(m.pipas))} P-P · ${PRODUCT_LABELS[m.product]}`;
   const price = m.price_mode && m.unit_price != null
     ? (() => {
         const b = priceBreakdown(m.price_mode, m.unit_price, m.pipas, m.liters_per_pipa);
-        return `${fmtMMK(b.perPipa)}/pipa (${fmtMMK(b.perLiter)}/L) · total ${fmtMMK(b.total)}`;
+        return `${fmtMMK(b.perPipa)}/P-P (${fmtMMK(b.perLiter)}/L) · total ${fmtMMK(b.total)}`;
       })()
     : "";
   switch (m.kind) {
@@ -59,7 +59,7 @@ export default function PipaLedger() {
     const err = st.error ?? mv.error;
     if (err) {
       setLoadError(err.code === "PGRST205" || err.code === "42P01"
-        ? "The Pipa Ledger isn't installed in the database yet. Run the pipa_ledger migration in the Supabase SQL Editor."
+        ? "The P-P Ledger isn't installed in the database yet. Run the pipa_ledger migration in the Supabase SQL Editor."
         : err.message);
       return;
     }
@@ -110,8 +110,8 @@ export default function PipaLedger() {
       <div className="px-4 md:px-6 py-5 border-b border-slate-100 bg-white">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Pipa Ledger</h1>
-            <p className="text-slate-400 text-sm mt-0.5">Pipas bought, borrowed and lent — by station</p>
+            <h1 className="text-2xl font-bold text-slate-900">P-P Ledger</h1>
+            <p className="text-slate-400 text-sm mt-0.5">P-P bought, borrowed and lent — by station</p>
           </div>
           <button onClick={() => setDialog({ type: "movement" })} disabled={!!loadError}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold rounded-xl px-4 py-2 text-sm transition-colors">
@@ -150,7 +150,7 @@ export default function PipaLedger() {
                   {loading ? <Loader2 className="w-5 h-5 text-slate-300 animate-spin" /> : (
                     <>
                       <p className={`text-2xl font-bold tabular-nums ${negative ? "text-pale-red-foreground" : "text-slate-900"}`}>
-                        {fmtPipas(s.pipas)} <span className="text-sm font-semibold text-slate-400">pipa</span>
+                        {fmtPipas(s.pipas)} <span className="text-sm font-semibold text-slate-400">P-P</span>
                       </p>
                       <p className="text-xs text-slate-500 tabular-nums">{fmtLiters(s.liters)}</p>
                       {negative && <p className="text-[11px] text-pale-red-foreground mt-1">Below zero — run a stock count</p>}
@@ -204,7 +204,7 @@ export default function PipaLedger() {
                       <ul className="space-y-0.5">
                         {owing.map(o => (
                           <li key={`${o.p}-${o.we}`} className={`text-sm font-semibold ${o.we ? "text-pale-red-foreground" : "text-pale-green-foreground"}`}>
-                            {o.we ? "You owe them" : "They owe you"} {fmtPipas(o.n)} pipa · {PRODUCT_LABELS[o.p]}
+                            {o.we ? "You owe them" : "They owe you"} {fmtPipas(o.n)} P-P · {PRODUCT_LABELS[o.p]}
                           </li>
                         ))}
                       </ul>
@@ -269,7 +269,7 @@ export default function PipaLedger() {
           {loading ? (
             <div className="py-8 text-center"><Loader2 className="w-6 h-6 text-blue-500/50 animate-spin mx-auto" /></div>
           ) : history.length === 0 ? (
-            <p className="bg-white border border-slate-100 rounded-xl p-6 text-center text-sm text-slate-500">No pipa movements yet.</p>
+            <p className="bg-white border border-slate-100 rounded-xl p-6 text-center text-sm text-slate-500">No P-P movements yet.</p>
           ) : (
             <ul className="bg-white border border-slate-100 rounded-xl divide-y divide-slate-100">
               {history.map(m => {
@@ -299,7 +299,7 @@ export default function PipaLedger() {
             </ul>
           )}
           <p className="text-[11px] text-slate-400 mt-2">
-            Cash settlements (paying for borrowed pipas, or being paid for lent ones) clear what's owed without moving any pipas, so they show ±0.
+            Cash settlements (paying for borrowed P-P, or being paid for lent ones) clear what's owed without moving any P-P, so they show ±0.
           </p>
         </section>
       </div>

@@ -79,7 +79,7 @@ export default function DeductShiftsDialog({ onClose, onSaved }: { onClose: () =
   return (
     <PipaModal
       title="Deduct shift sales"
-      subtitle="Takes the litres sold in these shifts out of pipa stock. Each shift can only be deducted once."
+      subtitle="Takes the litres sold in these shifts out of P-P stock. Each shift can only be deducted once."
       onClose={onClose}
       footer={rows && rows.length > 0 ? (
         <button type="button" onClick={deduct} disabled={busy || selected.size === 0 || !anyLiters} className={primaryBtn}>
@@ -100,7 +100,7 @@ export default function DeductShiftsDialog({ onClose, onSaved }: { onClose: () =
               {PIPA_PRODUCTS.map(p => (
                 <div key={p} className="text-sm">
                   <span className="text-slate-600">{PRODUCT_LABELS[p]}: </span>
-                  <span className="font-semibold text-slate-900">{fmtPipas(round3(totals[p] / DEFAULT_LITERS_PER_PIPA))} pipa</span>
+                  <span className="font-semibold text-slate-900">{fmtPipas(round3(totals[p] / DEFAULT_LITERS_PER_PIPA))} P-P</span>
                   <span className="text-slate-400 text-xs"> ({fmtLiters(totals[p])})</span>
                 </div>
               ))}

@@ -238,7 +238,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
             <Field label="Price / Liter" value={fPDp} onChange={setFPDp} prefix="K" hint={tPD > 0 ? `Total: ${fmt(tPD)}` : undefined} />
           </div>
 
-          <SectionTitle>Pipa</SectionTitle>
+          <SectionTitle>P-P</SectionTitle>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Containers" value={pipaAmt} onChange={setPipaAmt} suffix="ctn" />
             <Field label="Price / Container" value={pipaPrice} onChange={setPipaPrice} prefix="K" hint={tPipa > 0 ? `Total: ${fmt(tPipa)}` : undefined} />
@@ -290,7 +290,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
             </div>
             {pjAdjust !== 0 && (
               <div className="px-4 py-2.5 flex justify-between text-sm">
-                <span className="text-slate-400">{pjAdjust < 0 ? "Pipa / Jelly Can not yet paid" : "Pipa / Jelly Can paid in advance"}</span>
+                <span className="text-slate-400">{pjAdjust < 0 ? "P-P / J-C not yet paid" : "P-P / J-C paid in advance"}</span>
                 <span className={`font-medium tabular-nums ${pjAdjust < 0 ? "text-amber-700" : "text-sky-700"}`}>{pjAdjust < 0 ? "−" : "+"}{fmt(Math.abs(pjAdjust))}</span>
               </div>
             )}
