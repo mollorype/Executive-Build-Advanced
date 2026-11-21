@@ -7,21 +7,134 @@ import {
 import { supabase, FuelPurchaseOrder } from "@/lib/supabase";
 import { runFIFOEngine, forceClosePO, verifyPO, calcNetProfit, FIFORunResult } from "@/lib/fifo-engine";
 import PipaStockSummary from "@/components/pipa/stock-summary-card";
+import { makeT, useLang, type Lang } from "@/lib/app-i18n";
+
+const useT = makeT({
+  // Force close
+  badDip: { en: "Enter a valid dip-stick reading (liters).", my: "မှန်ကန်သော dip-stick တိုင်းတာချက် (လီတာ) ထည့်ပါ။" },
+  unknownError: { en: "Unknown error", my: "အမည်မသိ အမှား" },
+  close: { en: "Close", my: "ပိတ်ရန်" },
+  forceCloseTitle: { en: "Force Close — Dip Mismatch", my: "အတင်းပိတ်ရန် — Dip မကိုက်ညီ" },
+  expectedRemaining: { en: "Expected Remaining", my: "ကျန်ရမည့် ပမာဏ" },
+  calibration: { en: "Calibration Factor", my: "Calibration Factor" },
+  dipReading: { en: "Physical Dip-Stick Reading (L)", my: "Dip-Stick တိုင်းတာချက် အမှန် (L)" },
+  dipPlaceholder: { en: "Enter actual physical volume…", my: "တကယ်ရှိသော ပမာဏ ထည့်ပါ…" },
+  shortage: { en: "Shortage", my: "လိုငွေ" },
+  surplus: { en: "Surplus", my: "ပိုငွေ" },
+  cancel: { en: "Cancel", my: "မလုပ်တော့ပါ" },
+  closing: { en: "Closing…", my: "ပိတ်နေသည်…" },
+  confirmForceClose: { en: "Confirm Force Close", my: "အတင်းပိတ်ရန် အတည်ပြု" },
+  // Verify
+  allFour: { en: "All four fields are required.", my: "အကွက် လေးခုလုံး ဖြည့်ရန် လိုအပ်သည်။" },
+  unlockProfit: { en: "Unlock Net Profit", my: "အသားတင်အမြတ် ဖွင့်ရန်" },
+  wholesale: { en: "Wholesale Price (MMK/L)", my: "လက်ကား စျေး (MMK/L)" },
+  transport: { en: "Transportation Fees (MMK/L)", my: "သယ်ယူစရိတ် (MMK/L)" },
+  confidential: { en: "Confidential Fees (MMK/L)", my: "လျှို့ဝှက် စရိတ် (MMK/L)" },
+  retail: { en: "Retail Price Set (MMK/L)", my: "လက်လီ စျေး (MMK/L)" },
+  saving: { en: "Saving…", my: "သိမ်းနေသည်…" },
+  saveUnlock: { en: "Save & Unlock Profit", my: "သိမ်းပြီး အမြတ် ဖွင့်ရန်" },
+  // Create
+  nameRequired: { en: "PO Name is required.", my: "PO အမည် လိုအပ်သည်။" },
+  volPositive: { en: "Total Volume must be a positive number.", my: "စုစုပေါင်း ပမာဏ သည် အပေါင်းကိန်း ဖြစ်ရမည်။" },
+  calPositive: { en: "Calibration Factor must be a positive number.", my: "Calibration Factor သည် အပေါင်းကိန်း ဖြစ်ရမည်။" },
+  wsMin: { en: "Wholesale Price must be 0 or greater.", my: "လက်ကား စျေး သည် 0 သို့မဟုတ် ပိုများရမည်။" },
+  created: { en: "Created \"{name}\" — queued.", my: "\"{name}\" ဖန်တီးပြီး — စောင့်ဆိုင်းစာရင်းတွင်။" },
+  createTitle: { en: "Create New Purchase Order", my: "အော်ဒါ (PO) အသစ် ဖန်တီးရန်" },
+  poName: { en: "PO Name", my: "PO အမည်" },
+  poNamePh: { en: "e.g. Mandalay Depot Batch 23", my: "ဥပမာ - မန္တလေး Depot အသုတ် 23" },
+  productType: { en: "Product Type", my: "ကုန်ပစ္စည်း အမျိုးအစား" },
+  totalVolume: { en: "Total Volume (L)", my: "စုစုပေါင်း ပမာဏ (L)" },
+  egVolume: { en: "e.g. 10000", my: "ဥပမာ 10000" },
+  default1: { en: "(default 1.00)", my: "(မူလ 1.00)" },
+  default0: { en: "(default 0)", my: "(မူလ 0)" },
+  creating: { en: "Creating…", my: "ဖန်တီးနေသည်…" },
+  createPO: { en: "Create Purchase Order", my: "PO ဖန်တီးရန်" },
+  defaultsA: { en: "Defaults to ", my: "မူလအားဖြင့် " },
+  defaultsB: { en: " — promote to ACTIVE from the table.", my: " ဖြစ်သည် — ဇယားမှ အသုံးပြုဆဲ သို့ ပြောင်းပါ။" },
+  // Statuses
+  ACTIVE: { en: "ACTIVE", my: "အသုံးပြုဆဲ" },
+  QUEUED: { en: "QUEUED", my: "စောင့်ဆိုင်း" },
+  DONE: { en: "DONE", my: "ပြီးဆုံး" },
+  // Page
+  confirmActive: { en: "Promote \"{name}\" ({product}) to ACTIVE?\n\nThis marks it as the current on-hand batch for this product.", my: "\"{name}\" ({product}) ကို အသုံးပြုဆဲ အဖြစ် ပြောင်းမလား?\n\nဤကုန်ပစ္စည်းအတွက် လက်ရှိ အသုတ်အဖြစ် သတ်မှတ်ပါမည်။" },
+  activeFailed: { en: "Failed to set active: ", my: "အသုံးပြုဆဲ အဖြစ် မပြောင်းနိုင်ပါ: " },
+  blocked: { en: "The delete was blocked by a permissions rule. Contact your system administrator.", my: "ခွင့်ပြုချက် စည်းကမ်းကြောင့် မဖျက်နိုင်ပါ။" },
+  confirmDelete: { en: "Delete PO \"{name}\" ({product})?\n\nThis cannot be undone.", my: "PO \"{name}\" ({product}) ကို ဖျက်မလား?\n\nပြန်ယူ၍ မရပါ။" },
+  confirmDeleteMany: { en: "Delete {n} selected PO(s)?\n\nThis cannot be undone.", my: "ရွေးထားသော PO {n} ခုကို ဖျက်မလား?\n\nပြန်ယူ၍ မရပါ။" },
+  init: { en: "Initializing…", my: "စတင်နေသည်…" },
+  newShift: { en: "New shift detected — recalculating inventory…", my: "ဆိုင်းအသစ် ရောက်လာ — လက်ကျန် ပြန်တွက်နေသည်…" },
+  title: { en: "PO Registry", my: "PO မှတ်ပုံတင်" },
+  subtitle: { en: "Fuel purchase orders · FIFO inventory engine", my: "ဆီ အော်ဒါများ · FIFO လက်ကျန် တွက်စက်" },
+  deleting: { en: "Deleting…", my: "ဖျက်နေသည်…" },
+  deleteSelected: { en: "Delete Selected ({n})", my: "ရွေးထားသည်ကို ဖျက်ရန် ({n})" },
+  running: { en: "Running…", my: "လုပ်ဆောင်နေသည်…" },
+  runFifo: { en: "Run FIFO Engine", my: "FIFO တွက်ရန်" },
+  fifoFailed: { en: "FIFO engine failed", my: "FIFO တွက်ချက်မှု မအောင်မြင်ပါ" },
+  completedFailures: { en: "Completed with {n} write failure(s)", my: "ပြီးဆုံး — သိမ်းမရသည် {n} ခု" },
+  completedOk: { en: "FIFO engine completed successfully", my: "FIFO တွက်ချက်မှု အောင်မြင်စွာ ပြီးဆုံး" },
+  shiftsProcessed: { en: "Shifts processed:", my: "တွက်ပြီး ဆိုင်း:" },
+  posUpdated: { en: "POs updated:", my: "ပြင်ပြီး PO:" },
+  writeFailures: { en: "Write failures:", my: "သိမ်းမရ:" },
+  totalLiters: { en: "Total liters processed:", my: "တွက်ပြီး လီတာ စုစုပေါင်း:" },
+  showFailures: { en: "Show {n} failure detail(s)", my: "အမှား အသေးစိတ် {n} ခု ပြရန်" },
+  noShifts: { en: "No shifts were found — nothing to deduct.", my: "ဆိုင်း မတွေ့ပါ — နုတ်စရာ မရှိပါ။" },
+  noLiters: { en: "Shifts exist but none report fuel liters sold. Nothing to deduct.", my: "ဆိုင်းများ ရှိသော်လည်း ရောင်းလီတာ မပါပါ။ နုတ်စရာ မရှိပါ။" },
+  activeBatches: { en: "Active Batches", my: "အသုံးပြုဆဲ အသုတ်များ" },
+  remaining: { en: "Remaining", my: "ကျန်" },
+  of: { en: "of {n}", my: "{n} အနက်" },
+  pendingCosts: { en: "[ PENDING ] — Costs not verified", my: "[ စောင့်ဆဲ ] — ကုန်ကျစရိတ် မစစ်ရသေး" },
+  netProfit: { en: "Net Profit", my: "အသားတင်အမြတ်" },
+  forceCloseBtn: { en: "Force Close / Dip Mismatch", my: "အတင်းပိတ် / Dip မကိုက်" },
+  edit: { en: "Edit", my: "ပြင်ရန်" },
+  verify: { en: "Verify", my: "စစ်ရန်" },
+  allPOs: { en: "All Purchase Orders", my: "PO အားလုံး" },
+  total: { en: "{n} total", my: "စုစုပေါင်း {n}" },
+  dismissError: { en: "Dismiss error", my: "ပိတ်ရန်" },
+  loading: { en: "Loading purchase orders…", my: "PO များ ဖွင့်နေသည်…" },
+  none: { en: "No purchase orders found", my: "PO မရှိပါ" },
+  getStarted: { en: "Create a purchase order to get started", my: "စတင်ရန် PO တစ်ခု ဖန်တီးပါ" },
+  selectAll: { en: "Select all purchase orders", my: "PO အားလုံး ရွေးရန်" },
+  product: { en: "Product", my: "ကုန်ပစ္စည်း" },
+  status: { en: "Status", my: "အခြေအနေ" },
+  initialVol: { en: "Initial Vol", my: "မူလ ပမာဏ" },
+  sold: { en: "Sold", my: "ရောင်းပြီး" },
+  calShort: { en: "Cal. Factor", my: "Cal. Factor" },
+  actions: { en: "Actions", my: "လုပ်ဆောင်ချက်" },
+  selectPO: { en: "Select purchase order {name}", my: "PO {name} ကို ရွေးရန်" },
+  pending: { en: "PENDING", my: "စောင့်ဆဲ" },
+  promoteTitle: { en: "Promote to ACTIVE — current on-hand batch", my: "အသုံးပြုဆဲ သို့ ပြောင်းရန် — လက်ရှိ အသုတ်" },
+  setActive: { en: "Set Active", my: "အသုံးပြုရန်" },
+  editCosts: { en: "Edit costs", my: "ကုန်ကျစရိတ် ပြင်ရန်" },
+  verifyCosts: { en: "Verify costs", my: "ကုန်ကျစရိတ် စစ်ရန်" },
+  deletePO: { en: "Delete this PO", my: "ဤ PO ကို ဖျက်ရန်" },
+  page: { en: "Page {p} of {n} · {total} POs", my: "စာမျက်နှာ {p} / {n} · PO {total} ခု" },
+  prev: { en: "Previous Page", my: "ယခင်" },
+  next: { en: "Next Page", my: "နောက်" },
+});
+
+// Progress lines from the FIFO engine (lib/fifo-engine.ts), shown in the status bar.
+const FIFO_PROGRESS: Record<string, string> = {
+  "Fetching purchase orders…": "PO များ ရယူနေသည်…",
+  "Fetching shifts…": "ဆိုင်းများ ရယူနေသည်…",
+  "Writing results…": "ရလဒ် သိမ်းနေသည်…",
+  "Done.": "ပြီးပါပြီ။",
+};
 
 const PAGE_SIZE = 20;
 
-const PRODUCT_LABELS: Record<string, string> = {
-  "92": "92 RON",
-  "95": "95 RON",
-  PD: "PD (Premium Diesel)",
-  D: "Diesel",
-  pipa: "P-P",
+const PRODUCT_LABELS: Record<string, { en: string; my: string }> = {
+  "92": { en: "92 RON", my: "92 RON" },
+  "95": { en: "95 RON", my: "95 RON" },
+  PD: { en: "PD (Premium Diesel)", my: "PD (ပရီမီယံ ဒီဇယ်)" },
+  D: { en: "Diesel", my: "ဒီဇယ်" },
+  pipa: { en: "P-P", my: "P-P" },
 };
+const productLabel = (code: string, lang: Lang) => PRODUCT_LABELS[code]?.[lang] ?? code;
 
 const STATUS_CONFIG = {
-  ACTIVE: { label: "ACTIVE", bg: "bg-pale-green", border: "border-emerald-100", text: "text-pale-green-foreground", dot: "bg-emerald-400" },
-  QUEUED: { label: "QUEUED", bg: "bg-pale-gold", border: "border-amber-100", text: "text-pale-gold-foreground", dot: "bg-amber-400" },
-  DONE:   { label: "DONE",   bg: "bg-slate-50",  border: "border-slate-100",  text: "text-slate-400",  dot: "bg-slate-500" },
+  ACTIVE: { bg: "bg-pale-green", border: "border-emerald-100", text: "text-pale-green-foreground", dot: "bg-emerald-400" },
+  QUEUED: { bg: "bg-pale-gold", border: "border-amber-100", text: "text-pale-gold-foreground", dot: "bg-amber-400" },
+  DONE:   { bg: "bg-slate-50",  border: "border-slate-100",  text: "text-slate-400",  dot: "bg-slate-500" },
 };
 
 function mmk(v: number | null | undefined) {
@@ -50,17 +163,19 @@ function ForceCloseModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useT();
+  const lang = useLang();
   const [physical, setPhysical] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
   async function handle() {
     const val = parseFloat(physical);
-    if (isNaN(val) || val < 0) { setErr("Enter a valid dip-stick reading (liters)."); return; }
+    if (isNaN(val) || val < 0) { setErr(t("badDip")); return; }
     setLoading(true);
     const res = await forceClosePO(po.id, val, po.remaining_volume);
     setLoading(false);
-    if (!res.success) { setErr(res.error ?? "Unknown error"); return; }
+    if (!res.success) { setErr(res.error ?? t("unknownError")); return; }
     onDone();
   }
 
@@ -70,7 +185,7 @@ function ForceCloseModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
       <div className="relative bg-white border border-red-100 rounded-xl p-6 w-full max-w-md shadow">
-        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-slate-500 hover:text-slate-900">
+        <button onClick={onClose} aria-label={t("close")} className="absolute top-4 right-4 text-slate-500 hover:text-slate-900">
           <X className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-3 mb-5">
@@ -78,24 +193,24 @@ function ForceCloseModal({
             <AlertTriangle className="w-5 h-5 text-pale-red-foreground" />
           </div>
           <div>
-            <p className="text-slate-900 font-bold">Force Close — Dip Mismatch</p>
-            <p className="text-slate-400 text-xs mt-0.5">{PRODUCT_LABELS[po.product_type]} · PO #{po.id.slice(0, 8).toUpperCase()}</p>
+            <p className="text-slate-900 font-bold">{t("forceCloseTitle")}</p>
+            <p className="text-slate-400 text-xs mt-0.5">{productLabel(po.product_type, lang)} · PO #{po.id.slice(0, 8).toUpperCase()}</p>
           </div>
         </div>
 
         <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 mb-4 text-sm">
           <div className="flex justify-between mb-1">
-            <span className="text-slate-400">Expected Remaining</span>
+            <span className="text-slate-400">{t("expectedRemaining")}</span>
             <span className="text-slate-900 font-medium">{liters(po.remaining_volume)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-400">Calibration Factor</span>
+            <span className="text-slate-400">{t("calibration")}</span>
             <span className="text-slate-900 font-medium">{po.calibration_factor.toFixed(2)}</span>
           </div>
         </div>
 
         <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-          Physical Dip-Stick Reading (L)
+          {t("dipReading")}
         </label>
         <input
           type="number"
@@ -103,7 +218,7 @@ function ForceCloseModal({
           step="0.01"
           value={physical}
           onChange={e => { setPhysical(e.target.value); setErr(""); }}
-          placeholder="Enter actual physical volume…"
+          placeholder={t("dipPlaceholder")}
           className="w-full bg-white border border-slate-100 text-slate-900 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 mb-3"
         />
 
@@ -112,7 +227,7 @@ function ForceCloseModal({
             shortage > 0 ? "bg-pale-red border border-red-100" : "bg-pale-green border border-emerald-100"
           }`}>
             <span className={shortage > 0 ? "text-pale-red-foreground" : "text-pale-green-foreground"}>
-              {shortage > 0 ? "Shortage" : "Surplus"}
+              {shortage > 0 ? t("shortage") : t("surplus")}
             </span>
             <span className={`font-bold ${shortage > 0 ? "text-pale-red-foreground" : "text-pale-green-foreground"}`}>
               {liters(Math.abs(shortage))}
@@ -127,14 +242,14 @@ function ForceCloseModal({
             onClick={onClose}
             className="flex-1 bg-white hover:bg-slate-100 border border-slate-100 text-slate-700 font-semibold rounded-xl py-3 text-sm transition-all"
           >
-            Cancel
+            {t("cancel")}
           </button>
           <button
             onClick={handle}
             disabled={loading || !physical}
             className="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl py-3 text-sm transition-all"
           >
-            {loading ? "Closing…" : "Confirm Force Close"}
+            {loading ? t("closing") : t("confirmForceClose")}
           </button>
         </div>
       </div>
@@ -153,6 +268,8 @@ function VerifyModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const tr = useT();
+  const lang = useLang();
   const [form, setForm] = useState({
     wholesale_price: String(po.wholesale_price ?? ""),
     transportation_fees: String(po.transportation_fees ?? ""),
@@ -170,7 +287,7 @@ function VerifyModal({
     const c = num(form.confidential_fees);
     const r = num(form.retail_price_set);
     if (w == null || t == null || c == null || r == null) {
-      setErr("All four fields are required."); return;
+      setErr(tr("allFour")); return;
     }
     setLoading(true);
     const res = await verifyPO(po.id, {
@@ -180,7 +297,7 @@ function VerifyModal({
       retail_price_set: r,
     });
     setLoading(false);
-    if (!res.success) { setErr(res.error ?? "Unknown error"); return; }
+    if (!res.success) { setErr(res.error ?? tr("unknownError")); return; }
     onDone();
   }
 
@@ -203,7 +320,7 @@ function VerifyModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
       <div className="relative bg-white border border-slate-100 rounded-xl p-6 w-full max-w-md shadow">
-        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-slate-500 hover:text-slate-900">
+        <button onClick={onClose} aria-label={tr("close")} className="absolute top-4 right-4 text-slate-500 hover:text-slate-900">
           <X className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-3 mb-5">
@@ -211,16 +328,16 @@ function VerifyModal({
             <Edit3 className="w-5 h-5 text-pale-blue-foreground" />
           </div>
           <div>
-            <p className="text-slate-900 font-bold">Unlock Net Profit</p>
-            <p className="text-slate-400 text-xs mt-0.5">{PRODUCT_LABELS[po.product_type]} · PO #{po.id.slice(0, 8).toUpperCase()}</p>
+            <p className="text-slate-900 font-bold">{tr("unlockProfit")}</p>
+            <p className="text-slate-400 text-xs mt-0.5">{productLabel(po.product_type, lang)} · PO #{po.id.slice(0, 8).toUpperCase()}</p>
           </div>
         </div>
 
         <div className="space-y-3 mb-4">
-          <Field label="Wholesale Price (MMK/L)" field="wholesale_price" />
-          <Field label="Transportation Fees (MMK/L)" field="transportation_fees" />
-          <Field label="Confidential Fees (MMK/L)" field="confidential_fees" />
-          <Field label="Retail Price Set (MMK/L)" field="retail_price_set" />
+          <Field label={tr("wholesale")} field="wholesale_price" />
+          <Field label={tr("transport")} field="transportation_fees" />
+          <Field label={tr("confidential")} field="confidential_fees" />
+          <Field label={tr("retail")} field="retail_price_set" />
         </div>
 
         {err && <p className="text-pale-red-foreground text-xs mb-3">{err}</p>}
@@ -230,14 +347,14 @@ function VerifyModal({
             onClick={onClose}
             className="flex-1 bg-white hover:bg-slate-100 border border-slate-100 text-slate-700 font-semibold rounded-xl py-3 text-sm transition-all"
           >
-            Cancel
+            {tr("cancel")}
           </button>
           <button
             onClick={handle}
             disabled={loading}
             className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl py-3 text-sm transition-all"
           >
-            {loading ? "Saving…" : "Save & Unlock Profit"}
+            {loading ? tr("saving") : tr("saveUnlock")}
           </button>
         </div>
       </div>
@@ -248,6 +365,8 @@ function VerifyModal({
 // ─── Create PO Form ──────────────────────────────────────────────────────────
 
 function CreatePOForm({ onCreated }: { onCreated: () => void }) {
+  const t = useT();
+  const lang = useLang();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [productType, setProductType] = useState<"92" | "95" | "PD" | "D" | "pipa">("92");
@@ -267,12 +386,12 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
     e.preventDefault();
     setErr(""); setOkMsg("");
     const vol = parseFloat(volume);
-    if (!name.trim()) { setErr("PO Name is required."); return; }
-    if (isNaN(vol) || vol <= 0) { setErr("Total Volume must be a positive number."); return; }
+    if (!name.trim()) { setErr(t("nameRequired")); return; }
+    if (isNaN(vol) || vol <= 0) { setErr(t("volPositive")); return; }
     const cal = calibration.trim() === "" ? 1.0 : parseFloat(calibration);
-    if (isNaN(cal) || cal <= 0) { setErr("Calibration Factor must be a positive number."); return; }
+    if (isNaN(cal) || cal <= 0) { setErr(t("calPositive")); return; }
     const ws = wholesale.trim() === "" ? 0 : parseFloat(wholesale);
-    if (isNaN(ws) || ws < 0) { setErr("Wholesale Price must be 0 or greater."); return; }
+    if (isNaN(ws) || ws < 0) { setErr(t("wsMin")); return; }
 
     setSaving(true);
     const { error } = await supabase.from("fuel_purchase_orders").insert({
@@ -288,7 +407,7 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
     });
     setSaving(false);
     if (error) { setErr(error.message); return; }
-    setOkMsg(`Created "${name.trim()}" — queued.`);
+    setOkMsg(t("created", { name: name.trim() }));
     reset();
     onCreated();
     setTimeout(() => setOkMsg(""), 3000);
@@ -303,7 +422,7 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
         <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center">
           <Plus className={`w-4 h-4 text-pale-blue-foreground transition-transform ${open ? "rotate-45" : ""}`} />
         </div>
-        <h2 className="text-slate-900 font-semibold text-sm">Create New Purchase Order</h2>
+        <h2 className="text-slate-900 font-semibold text-sm">{t("createTitle")}</h2>
         {okMsg && (
           <span className="ml-auto flex items-center gap-1.5 text-xs text-pale-green-foreground bg-pale-green border border-emerald-100 rounded-full px-2.5 py-1">
             <CheckCircle className="w-3 h-3" /> {okMsg}
@@ -315,45 +434,42 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
         <form onSubmit={handleSubmit} className="px-5 pb-5 border-t border-slate-100 pt-4 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2">
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">PO Name</label>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{t("poName")}</label>
               <input
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                placeholder="e.g. Mandalay Depot Batch 23"
+                placeholder={t("poNamePh")}
                 className="w-full bg-white border border-slate-100 text-slate-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Product Type</label>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{t("productType")}</label>
               <select
                 value={productType}
                 onChange={e => setProductType(e.target.value as any)}
                 className="w-full bg-white border border-slate-100 text-slate-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
               >
-                <option value="92">92 RON</option>
-                <option value="95">95 RON</option>
-                <option value="PD">PD (Premium Diesel)</option>
-                <option value="D">Diesel</option>
+                {(["92", "95", "PD", "D"] as const).map(c => <option key={c} value={c}>{productLabel(c, lang)}</option>)}
                 {/* No "Pipa" here: a pipa is the drum, not a fuel — pipas are tracked in the Pipa Ledger. */}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Total Volume (L)</label>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{t("totalVolume")}</label>
               <input
                 type="number" min="0" step="0.01"
                 value={volume}
                 onChange={e => setVolume(e.target.value)}
-                placeholder="e.g. 10000"
+                placeholder={t("egVolume")}
                 className="w-full bg-white border border-slate-100 text-slate-900 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                Calibration Factor <span className="text-slate-400 normal-case font-normal">(default 1.00)</span>
+                {t("calibration")} <span className="text-slate-400 normal-case font-normal">{t("default1")}</span>
               </label>
               <input
                 type="number" min="0" step="0.01"
@@ -366,7 +482,7 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
 
             <div>
               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                Wholesale Price (MMK/L) <span className="text-slate-400 normal-case font-normal">(default 0)</span>
+                {t("wholesale")} <span className="text-slate-400 normal-case font-normal">{t("default0")}</span>
               </label>
               <input
                 type="number" min="0" step="0.01"
@@ -392,10 +508,10 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl px-5 py-2.5 text-sm transition-all"
             >
               {saving
-                ? <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Creating…</>
-                : <><Plus className="w-4 h-4" /> Create Purchase Order</>}
+                ? <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {t("creating")}</>
+                : <><Plus className="w-4 h-4" /> {t("createPO")}</>}
             </button>
-            <p className="text-slate-500 text-xs">Defaults to <span className="text-slate-700 font-semibold">QUEUED</span> — promote to ACTIVE from the table.</p>
+            <p className="text-slate-500 text-xs">{t("defaultsA")}<span className="text-slate-700 font-semibold">{t("QUEUED")}</span>{t("defaultsB")}</p>
           </div>
         </form>
       )}
@@ -406,6 +522,11 @@ function CreatePOForm({ onCreated }: { onCreated: () => void }) {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function PORegistry() {
+  const t = useT();
+  const lang = useLang();
+  const P = (code: string) => productLabel(code, lang);
+  // The engine reports progress in English; show it in the app language.
+  const fifoProgress = useCallback((m: string) => setFifoMsg(lang === "my" ? FIFO_PROGRESS[m] ?? m : m), [lang]);
   const [pos, setPos] = useState<FuelPurchaseOrder[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
@@ -450,8 +571,8 @@ export default function PORegistry() {
           if (fifoRunning) return;
           setFifoRunning(true);
           setFifoResult(null);
-          setFifoMsg("New shift detected — recalculating inventory…");
-          const r = await runFIFOEngine(setFifoMsg);
+          setFifoMsg(t("newShift"));
+          const r = await runFIFOEngine(fifoProgress);
           setFifoRunning(false);
           setFifoResult(r);
           fetchPOs(page);
@@ -468,13 +589,13 @@ export default function PORegistry() {
   }, [page]);
 
   async function handleSetActive(po: FuelPurchaseOrder) {
-    const confirmMsg = `Promote "${po.name ?? po.id.slice(0, 8)}" (${PRODUCT_LABELS[po.product_type]}) to ACTIVE?\n\nThis marks it as the current on-hand batch for this product.`;
+    const confirmMsg = t("confirmActive", { name: po.name ?? po.id.slice(0, 8), product: P(po.product_type) });
     if (!window.confirm(confirmMsg)) return;
     const { error } = await supabase
       .from("fuel_purchase_orders")
       .update({ status: "ACTIVE" })
       .eq("id", po.id);
-    if (error) { alert("Failed to set active: " + error.message); return; }
+    if (error) { alert(t("activeFailed") + error.message); return; }
     fetchPOs(page);
   }
 
@@ -501,12 +622,12 @@ export default function PORegistry() {
       .in("id", ids)
       .select("id");
     if (error) return error.message;
-    if (!data || data.length === 0) return "The delete was blocked by a permissions rule. Contact your system administrator.";
+    if (!data || data.length === 0) return t("blocked");
     return null;
   }
 
   async function handleDeletePO(po: FuelPurchaseOrder) {
-    if (!window.confirm(`Delete PO "${po.name ?? po.id.slice(0, 8)}" (${PRODUCT_LABELS[po.product_type]})?\n\nThis cannot be undone.`)) return;
+    if (!window.confirm(t("confirmDelete", { name: po.name ?? po.id.slice(0, 8), product: P(po.product_type) }))) return;
     setDeleting(true);
     setDeleteError("");
     const err = await deletePOIds([po.id]);
@@ -519,7 +640,7 @@ export default function PORegistry() {
   async function handleDeleteSelected() {
     const ids = [...selectedIds];
     if (!ids.length) return;
-    if (!window.confirm(`Delete ${ids.length} selected PO${ids.length > 1 ? "s" : ""}?\n\nThis cannot be undone.`)) return;
+    if (!window.confirm(t("confirmDeleteMany", { n: ids.length }))) return;
     setDeleting(true);
     setDeleteError("");
     const err = await deletePOIds(ids);
@@ -532,8 +653,8 @@ export default function PORegistry() {
   async function handleRunFIFO() {
     setFifoRunning(true);
     setFifoResult(null);
-    setFifoMsg("Initializing…");
-    const result = await runFIFOEngine(setFifoMsg);
+    setFifoMsg(t("init"));
+    const result = await runFIFOEngine(fifoProgress);
     setFifoRunning(false);
     setFifoResult(result);
     fetchPOs(page);
@@ -549,8 +670,8 @@ export default function PORegistry() {
       <div className="px-6 py-5 border-b border-slate-100 bg-white">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">PO Registry</h1>
-            <p className="text-slate-400 text-sm mt-0.5">Fuel purchase orders · FIFO inventory engine</p>
+            <h1 className="text-2xl font-bold text-slate-900">{t("title")}</h1>
+            <p className="text-slate-400 text-sm mt-0.5">{t("subtitle")}</p>
           </div>
           <div className="flex items-center gap-2">
             {selectedIds.size > 0 && (
@@ -560,7 +681,7 @@ export default function PORegistry() {
                 className="flex items-center gap-2 bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white font-semibold rounded-xl px-5 py-2.5 text-sm transition-all"
               >
                 <Trash2 className="w-4 h-4" />
-                {deleting ? "Deleting…" : `Delete Selected (${selectedIds.size})`}
+                {deleting ? t("deleting") : t("deleteSelected", { n: selectedIds.size })}
               </button>
             )}
             <button
@@ -569,8 +690,8 @@ export default function PORegistry() {
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl px-5 py-2.5 text-sm transition-all"
             >
               {fifoRunning
-                ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" /> Running…</>
-                : <><Zap className="w-4 h-4" /> Run FIFO Engine</>
+                ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" /> {t("running")}</>
+                : <><Zap className="w-4 h-4" /> {t("runFifo")}</>
               }
             </button>
           </div>
@@ -596,7 +717,7 @@ export default function PORegistry() {
               <div className="flex items-start gap-2">
                 <XCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-bold">FIFO engine failed</p>
+                  <p className="font-bold">{t("fifoFailed")}</p>
                   <p className="text-xs mt-0.5">{fifoResult.error}</p>
                 </div>
               </div>
@@ -608,25 +729,25 @@ export default function PORegistry() {
                     : <CheckCircle className="w-4 h-4 shrink-0" />}
                   <span className="font-bold">
                     {fifoResult.failedPOs > 0
-                      ? `Completed with ${fifoResult.failedPOs} write failure${fifoResult.failedPOs > 1 ? "s" : ""}`
-                      : "FIFO engine completed successfully"}
+                      ? t("completedFailures", { n: fifoResult.failedPOs })
+                      : t("completedOk")}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                   <div>
-                    <span className="opacity-60">Shifts processed:</span>
+                    <span className="opacity-60">{t("shiftsProcessed")}</span>
                     <span className="font-bold ml-1">{fifoResult.processedShifts}</span>
                   </div>
                   <div>
-                    <span className="opacity-60">POs updated:</span>
+                    <span className="opacity-60">{t("posUpdated")}</span>
                     <span className="font-bold ml-1">{fifoResult.updatedPOs}</span>
                   </div>
                   <div>
-                    <span className="opacity-60">Write failures:</span>
+                    <span className="opacity-60">{t("writeFailures")}</span>
                     <span className={`font-bold ml-1 ${fifoResult.failedPOs > 0 ? "text-pale-red-foreground" : ""}`}>{fifoResult.failedPOs}</span>
                   </div>
                   <div>
-                    <span className="opacity-60">Total liters processed:</span>
+                    <span className="opacity-60">{t("totalLiters")}</span>
                     <span className="font-bold ml-1">
                       {Object.values(fifoResult.productVolumes).reduce((a, b) => a + b, 0).toFixed(1)}
                     </span>
@@ -637,7 +758,7 @@ export default function PORegistry() {
                   <div className="flex flex-wrap gap-2 mt-2">
                     {Object.entries(fifoResult.productVolumes).map(([p, vol]) => (
                       <span key={p} className="text-xs bg-black/20 rounded-full px-2.5 py-0.5">
-                        {PRODUCT_LABELS[p]}: <span className="font-bold">{vol.toFixed(1)} L</span>
+                        {P(p)}: <span className="font-bold">{vol.toFixed(1)} L</span>
                       </span>
                     ))}
                   </div>
@@ -646,7 +767,7 @@ export default function PORegistry() {
                 {fifoResult.failures.length > 0 && (
                   <details className="mt-3 text-xs">
                     <summary className="cursor-pointer font-semibold text-pale-red-foreground hover:text-red-200">
-                      Show {fifoResult.failures.length} failure detail{fifoResult.failures.length > 1 ? "s" : ""}
+                      {t("showFailures", { n: fifoResult.failures.length })}
                     </summary>
                     <ul className="mt-2 space-y-1 bg-black/30 rounded-lg p-3 font-mono">
                       {fifoResult.failures.map((f, i) => (
@@ -658,12 +779,12 @@ export default function PORegistry() {
 
                 {fifoResult.processedShifts === 0 && (
                   <p className="text-xs mt-2 opacity-80">
-                    No shifts were found — nothing to deduct.
+                    {t("noShifts")}
                   </p>
                 )}
                 {fifoResult.processedShifts > 0 && Object.keys(fifoResult.productVolumes).length === 0 && (
                   <p className="text-xs mt-2 opacity-80">
-                    Shifts exist but none report fuel liters sold. Nothing to deduct.
+                    {t("noLiters")}
                   </p>
                 )}
               </div>
@@ -682,7 +803,7 @@ export default function PORegistry() {
         {/* Active PO Cards */}
         {activePOs.length > 0 && (
           <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Active Batches</p>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">{t("activeBatches")}</p>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {activePOs.map(po => {
                 const fill = pct(po.remaining_volume, po.initial_volume);
@@ -697,19 +818,19 @@ export default function PORegistry() {
                     <div className="relative">
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <p className="text-slate-900 font-bold">{PRODUCT_LABELS[po.product_type]}</p>
+                          <p className="text-slate-900 font-bold">{P(po.product_type)}</p>
                           <p className="text-slate-500 text-xs font-mono mt-0.5">#{po.id.slice(0, 8).toUpperCase()}</p>
                         </div>
                         <span className="flex items-center gap-1.5 text-xs font-semibold text-pale-green-foreground bg-pale-green border border-emerald-100 rounded-full px-2.5 py-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          ACTIVE
+                          {t("ACTIVE")}
                         </span>
                       </div>
 
                       {/* Volume bar */}
                       <div className="mb-3">
                         <div className="flex justify-between text-xs text-slate-400 mb-1">
-                          <span>Remaining</span>
+                          <span>{t("remaining")}</span>
                           <span className="font-semibold text-slate-900">{fill.toFixed(1)}%</span>
                         </div>
                         <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -722,13 +843,13 @@ export default function PORegistry() {
                         </div>
                         <div className="flex justify-between text-xs text-slate-500 mt-1">
                           <span>{liters(po.remaining_volume)}</span>
-                          <span>of {liters(po.initial_volume)}</span>
+                          <span>{t("of", { n: liters(po.initial_volume) })}</span>
                         </div>
                       </div>
 
                       {/* Calibration */}
                       <div className="flex justify-between text-xs mb-4">
-                        <span className="text-slate-400">Calibration Factor</span>
+                        <span className="text-slate-400">{t("calibration")}</span>
                         <span className="text-slate-700 font-mono">{po.calibration_factor.toFixed(2)}</span>
                       </div>
 
@@ -737,7 +858,7 @@ export default function PORegistry() {
                         {!po.is_verified ? (
                           <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
                             <Lock className="w-3.5 h-3.5 text-slate-500" />
-                            <span className="text-slate-500 text-xs font-semibold tracking-wider">[ PENDING ] — Costs not verified</span>
+                            <span className="text-slate-500 text-xs font-semibold tracking-wider">{t("pendingCosts")}</span>
                           </div>
                         ) : profit != null ? (
                           <div className={`flex items-center justify-between rounded-lg px-3 py-2 border ${
@@ -746,7 +867,7 @@ export default function PORegistry() {
                               : "bg-pale-red border-red-100"
                           }`}>
                             <span className="text-xs font-semibold text-slate-400 flex items-center gap-1">
-                              <Unlock className="w-3 h-3" /> Net Profit
+                              <Unlock className="w-3 h-3" /> {t("netProfit")}
                             </span>
                             <span className={`font-bold text-sm tabular-nums ${profit >= 0 ? "text-pale-green-foreground" : "text-pale-red-foreground"}`}>
                               {profit >= 0 ? "+" : ""}{mmk(profit)}
@@ -762,14 +883,14 @@ export default function PORegistry() {
                           className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-pale-red-foreground hover:text-pale-red-foreground bg-pale-red hover:bg-pale-red border border-red-100 rounded-lg py-2 transition-all"
                         >
                           <AlertTriangle className="w-3.5 h-3.5" />
-                          Force Close / Dip Mismatch
+                          {t("forceCloseBtn")}
                         </button>
                         <button
                           onClick={() => setVerifyTarget(po)}
                           className="flex items-center justify-center gap-1.5 text-xs font-semibold text-pale-blue-foreground hover:text-pale-blue-foreground bg-pale-blue hover:bg-pale-blue border border-blue-100 rounded-lg px-3 py-2 transition-all"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
-                          {po.is_verified ? "Edit" : "Verify"}
+                          {po.is_verified ? t("edit") : t("verify")}
                         </button>
                       </div>
                     </div>
@@ -784,27 +905,27 @@ export default function PORegistry() {
         <div className="bg-white border border-slate-100 rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
             <PackageSearch className="w-4 h-4 text-pale-blue-foreground" />
-            <h2 className="text-slate-900 font-semibold text-sm">All Purchase Orders</h2>
-            <span className="ml-auto text-slate-500 text-xs">{totalCount} total</span>
+            <h2 className="text-slate-900 font-semibold text-sm">{t("allPOs")}</h2>
+            <span className="ml-auto text-slate-500 text-xs">{t("total", { n: totalCount })}</span>
           </div>
           {deleteError && (
             <div className="mx-5 mt-4 flex items-start gap-2 bg-pale-red border border-red-100 rounded-xl px-4 py-3 text-xs text-pale-red-foreground">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>{deleteError}</span>
-              <button onClick={() => setDeleteError("")} aria-label="Dismiss error" className="ml-auto text-pale-red-foreground hover:text-red-200"><X className="w-3.5 h-3.5" /></button>
+              <button onClick={() => setDeleteError("")} aria-label={t("dismissError")} className="ml-auto text-pale-red-foreground hover:text-red-200"><X className="w-3.5 h-3.5" /></button>
             </div>
           )}
 
           {loading ? (
             <div className="p-16 text-center">
               <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-slate-500 text-sm">Loading purchase orders…</p>
+              <p className="text-slate-500 text-sm">{t("loading")}</p>
             </div>
           ) : pos.length === 0 ? (
             <div className="p-16 text-center">
               <PackageSearch className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-              <p className="text-slate-400 text-sm font-medium">No purchase orders found</p>
-              <p className="text-slate-400 text-xs mt-1">Create a purchase order to get started</p>
+              <p className="text-slate-400 text-sm font-medium">{t("none")}</p>
+              <p className="text-slate-400 text-xs mt-1">{t("getStarted")}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -815,20 +936,20 @@ export default function PORegistry() {
                       <input type="checkbox"
                         checked={pos.length > 0 && selectedIds.size === pos.length}
                         onChange={toggleSelectAll}
-                        aria-label="Select all purchase orders"
+                        aria-label={t("selectAll")}
                         className="w-4 h-4 rounded accent-red-500 cursor-pointer"
                       />
                     </th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">PO Name</th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Product</th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Initial Vol</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Remaining</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Sold</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Shortage</th>
-                    <th className="text-center px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Cal. Factor</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Net Profit</th>
-                    <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("poName")}</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("product")}</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("status")}</th>
+                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("initialVol")}</th>
+                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("remaining")}</th>
+                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("sold")}</th>
+                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("shortage")}</th>
+                    <th className="text-center px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("calShort")}</th>
+                    <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("netProfit")}</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t("actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -842,7 +963,7 @@ export default function PORegistry() {
                           <input type="checkbox"
                             checked={selectedIds.has(po.id)}
                             onChange={() => toggleSelect(po.id)}
-                            aria-label={`Select purchase order ${po.name}`}
+                            aria-label={t("selectPO", { name: po.name ?? "" })}
                             className="w-4 h-4 rounded accent-red-500 cursor-pointer"
                           />
                         </td>
@@ -852,11 +973,11 @@ export default function PORegistry() {
                             <span className="text-slate-500 text-xs font-mono mt-0.5">#{po.id.slice(0, 8).toUpperCase()}</span>
                           </div>
                         </td>
-                        <td className="px-5 py-3.5 text-slate-700 text-sm">{PRODUCT_LABELS[po.product_type]}</td>
+                        <td className="px-5 py-3.5 text-slate-700 text-sm">{P(po.product_type)}</td>
                         <td className="px-5 py-3.5">
                           <span className={`inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-2.5 py-1 border ${cfg.bg} ${cfg.border} ${cfg.text}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} ${po.status === "ACTIVE" ? "animate-pulse" : ""}`} />
-                            {cfg.label}
+                            {t(po.status)}
                           </span>
                         </td>
                         <td className="px-5 py-3.5 text-right text-slate-700 text-sm tabular-nums">{liters(po.initial_volume)}</td>
@@ -891,7 +1012,7 @@ export default function PORegistry() {
                         <td className="px-5 py-3.5 text-right">
                           {!po.is_verified ? (
                             <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-50 border border-slate-100 rounded-full px-2.5 py-1">
-                              <Lock className="w-3 h-3" /> PENDING
+                              <Lock className="w-3 h-3" /> {t("pending")}
                             </span>
                           ) : profit != null ? (
                             <span className={`text-sm font-bold tabular-nums ${profit >= 0 ? "text-pale-green-foreground" : "text-pale-red-foreground"}`}>
@@ -906,17 +1027,17 @@ export default function PORegistry() {
                             {po.status === "QUEUED" && (
                               <button
                                 onClick={() => handleSetActive(po)}
-                                title="Promote to ACTIVE — current on-hand batch"
+                                title={t("promoteTitle")}
                                 className="flex items-center gap-1 text-xs font-semibold text-pale-green-foreground hover:text-pale-green-foreground bg-pale-green hover:bg-pale-green border border-emerald-100 rounded-lg px-2.5 py-1.5 transition-all"
                               >
                                 <Play className="w-3 h-3" />
-                                Set Active
+                                {t("setActive")}
                               </button>
                             )}
                             {po.status === "ACTIVE" && (
                               <button
                                 onClick={() => setForceCloseTarget(po)}
-                                title="Force Close / Dip Mismatch"
+                                title={t("forceCloseBtn")}
                                 className="text-pale-red-foreground hover:text-pale-red-foreground hover:bg-pale-red p-1.5 rounded-lg transition-all"
                               >
                                 <AlertTriangle className="w-4 h-4" />
@@ -924,14 +1045,14 @@ export default function PORegistry() {
                             )}
                             <button
                               onClick={() => setVerifyTarget(po)}
-                              title={po.is_verified ? "Edit costs" : "Verify costs"}
+                              title={po.is_verified ? t("editCosts") : t("verifyCosts")}
                               className="text-pale-blue-foreground hover:text-pale-blue-foreground hover:bg-pale-blue p-1.5 rounded-lg transition-all"
                             >
                               {po.is_verified ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
                             </button>
                             <button
                               onClick={() => handleDeletePO(po)}
-                              title="Delete this PO"
+                              title={t("deletePO")}
                               className="text-slate-500 hover:text-pale-red-foreground hover:bg-pale-red p-1.5 rounded-lg transition-all"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -949,21 +1070,21 @@ export default function PORegistry() {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between">
-              <p className="text-slate-500 text-xs">Page {page + 1} of {totalPages} · {totalCount} POs</p>
+              <p className="text-slate-500 text-xs">{t("page", { p: page + 1, n: totalPages, total: totalCount })}</p>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setPage(p => Math.max(0, p - 1))}
                   disabled={page === 0}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-100 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 transition-all"
                 >
-                  <ChevronLeft className="w-3.5 h-3.5" /> Previous Page
+                  <ChevronLeft className="w-3.5 h-3.5" /> {t("prev")}
                 </button>
                 <button
                   onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-100 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 transition-all"
                 >
-                  Next Page <ChevronRight className="w-3.5 h-3.5" />
+                  {t("next")} <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
