@@ -146,7 +146,7 @@ const STRINGS = {
   pricePerPipa:         { en: "Price / Pipa", my: "ပီပါ တစ်လုံးဈေး" },
   totalMMK:             { en: "Total: {a} MMK", my: "စုစုပေါင်း: {a} MMK" },
   jellyCan:             { en: "Jelly Can", my: "ပုံးဝါ" },
-  jellyManual:          { en: "Enter liters manually", my: "လီတာ ကိုယ်တိုင် ထည့်ပါ" },
+  jellyManual:          { en: "18 L a can — change if needed", my: "တစ်ပုံး 18 L — လိုရင် ပြောင်းနိုင်" },
   pjTitle:              { en: "Pipa & Jelly Can — Total", my: "ပီပါ နှင့် ပုံးဝါ — စုစုပေါင်း" },
   pjSum:                { en: "Total", my: "စုစုပေါင်း" },
   pjPipaCount:          { en: "{c} pipa", my: "{c} လုံး" },
@@ -389,6 +389,8 @@ const FUEL_LINK: LinkKeys = { total: "totalAmount", qty: "liters" };
 const FUEL_FMT: LinkFmt = { total: fuelNumStr, qty: fuelNumStr };
 const PIPA_LINK: LinkKeys = { total: "total", qty: "containers" };
 const JELLY_LINK: LinkKeys = { total: "total", qty: "pieces" };
+/** A new Jelly Can entry starts at 18 L a can; staff can change it per entry. */
+const JELLY_DEFAULT_LITERS = "18";
 const PIECE_FMT: LinkFmt = { total: moneyStr, qty: qtyStr };
 
 /**
@@ -557,7 +559,7 @@ function JellyCanPanel({ items, onChange, lang }: {
   lang: Lang;
 }) {
   function add() {
-    onChange([...items, { product: "92", pieces: "", liters: "", price: "", total: "" }]);
+    onChange([...items, { product: "92", pieces: "", liters: JELLY_DEFAULT_LITERS, price: "", total: "" }]);
   }
   function remove(i: number) { onChange(items.filter((_, idx) => idx !== i)); }
   function update(i: number, field: keyof JellyCanItem, val: string) {
