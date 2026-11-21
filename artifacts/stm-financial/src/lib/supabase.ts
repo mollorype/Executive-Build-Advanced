@@ -82,6 +82,9 @@ export function mapRowToShift(row: Record<string, unknown>): Shift {
 
 export type Role = "ceo" | "accountant";
 
+/** What each role is called on screen. The stored role names (and every check on them) stay the same. */
+export const ROLE_LABELS: Record<Role, string> = { ceo: "Owner", accountant: "Accountant" };
+
 export type Profile = {
   id: string;
   username: string;

@@ -598,7 +598,7 @@ export default function TeamChat({ client, me, theme, lang = "en", onBack, class
                         {head && (
                           <p className={`text-[11px] font-semibold mb-0.5 px-1 flex items-center gap-1.5 ${T.name}`}>
                             <span className="capitalize">{mine ? s("you") : m.sender_name}</span>
-                            {m.sender_role === "ceo" && <span className={`text-[9px] font-bold rounded px-1 py-px ${T.ceo}`}>CEO</span>}
+                            {m.sender_role === "ceo" && <span className={`text-[9px] font-bold rounded px-1 py-px ${T.ceo}`}>{s("ownerBadge")}</span>}
                           </p>
                         )}
                         {m.kind !== "message" ? (

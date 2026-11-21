@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
   const { data: role } = await asCaller.rpc("current_app_role");
-  if (role !== "ceo") return json({ error: "Only a CEO can manage CEO access." }, 403);
+  if (role !== "ceo") return json({ error: "Only an owner can manage owner access." }, 403);
 
   const body = await req.json().catch(() => ({}));
   const action = body?.action;
@@ -120,16 +120,16 @@ Deno.serve(async (req) => {
         if (insErr.code === "23505") return json({ ok: true, already: true, created, ceos: await listCeos() });
         return json({ error: insErr.message }, 500);
       }
-      await announce(admin, `🔐 New CEO added: ${email}\nby ${callerEmail}${created ? "\n(new login created)" : ""}\n\nIf you didn't expect this, remove them in Staff Access → CEO Access.`);
+      await announce(admin, `🔐 New owner added: ${email}\nby ${callerEmail}${created ? "\n(new login created)" : ""}\n\nIf you didn't expect this, remove them in Staff Access → Owner.`);
       return json({ ok: true, created, ceos: await listCeos() });
     }
 
     // remove
-    if (email === callerEmail) return json({ error: "You can't remove yourself. Another CEO can remove you." }, 400);
+    if (email === callerEmail) return json({ error: "You can't remove yourself. Another owner can remove you." }, 400);
     const { data: removed, error: delErr } = await admin.from("ceo_access").delete().eq("email", email).select("email");
     if (delErr) return json({ error: delErr.message }, 500);
-    if (!removed?.length) return json({ error: `${email} isn't a CEO.` }, 404);
-    await announce(admin, `🔐 CEO access removed: ${email}\nby ${callerEmail}`);
+    if (!removed?.length) return json({ error: `${email} isn't an owner.` }, 404);
+    await announce(admin, `🔐 Owner access removed: ${email}\nby ${callerEmail}`);
     return json({ ok: true, ceos: await listCeos() });
   } catch (e) {
     return json({ error: (e as Error).message ?? "Something went wrong." }, 500);

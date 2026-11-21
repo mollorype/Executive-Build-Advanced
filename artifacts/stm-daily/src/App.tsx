@@ -116,7 +116,7 @@ const STRINGS = {
   shiftSubmission:      { en: "Daily Shift Submission", my: "နေ့စဉ် ဆိုင်းစာရင်း တင်ရန်" },
   shiftSubmissionDesc:  { en: "Record end-of-shift meter readings, fuel sales & expenses", my: "ဆိုင်းပြီးချိန် မီတာ၊ ဆီရောင်းအားနှင့် ကုန်ကျစရိတ်များ မှတ်ရန်" },
   openForm:             { en: "Open form", my: "ဖောင် ဖွင့်ရန်" },
-  chatDesc:             { en: "Message the team and the CEO, and share photos", my: "အဖွဲ့နှင့် CEO ထံ စာနှင့် ဓာတ်ပုံ ပို့ရန်" },
+  chatDesc:             { en: "Message the team and the owner, and share photos", my: "အဖွဲ့နှင့် ပိုင်ရှင်ထံ စာနှင့် ဓာတ်ပုံ ပို့ရန်" },
   openChat:             { en: "Open chat", my: "Chat ဖွင့်ရန်" },
   newMessages1:         { en: "{n} new message", my: "စာအသစ် {n} စောင်" },
   newMessagesN:         { en: "{n} new messages", my: "စာအသစ် {n} စောင်" },

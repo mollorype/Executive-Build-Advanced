@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     if (error || !code) {
       // Only 42501 is the database refusing a non-CEO; anything else is a setup
       // or infrastructure problem, and must not be reported as a permission issue.
-      if (error?.code === "42501") return json({ error: "Only the CEO can connect Telegram alerts." }, 403);
+      if (error?.code === "42501") return json({ error: "Only an owner can connect Telegram alerts." }, 403);
       if (error?.code === "PGRST202") {
         return json({ error: "Telegram alerts aren't installed in the database yet (the telegram_shift_alerts migration hasn't been run)." }, 503);
       }
@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
 
   if (action === "test") {
     const { data: role } = await asUser.rpc("current_app_role");
-    if (role !== "ceo") return json({ error: "Only the CEO can send a test alert." }, 403);
+    if (role !== "ceo") return json({ error: "Only an owner can send a test alert." }, 403);
     // RLS returns only the caller's own link.
     const { data: link } = await asUser.from("telegram_links").select("chat_id").maybeSingle();
     if (!link) return json({ error: "Telegram isn't connected for your account." }, 404);

@@ -60,6 +60,6 @@ export async function requireCeo(req: Request, admin: SupabaseClient):
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data: role } = await asCaller.rpc("current_app_role");
-  if (role !== "ceo") return { ok: false, response: json({ error: "Only a CEO can do this." }, 403) };
+  if (role !== "ceo") return { ok: false, response: json({ error: "Only an owner can do this." }, 403) };
   return { ok: true, user };
 }

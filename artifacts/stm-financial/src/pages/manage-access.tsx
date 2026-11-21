@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { UserPlus, Calculator, Check, AlertCircle, Shield, Trash2, Mail, RefreshCw, Copy, Crown, type LucideIcon } from "lucide-react";
+import { UserPlus, Calculator, Check, AlertCircle, Shield, Trash2, Mail, RefreshCw, Copy, Crown, Briefcase, type LucideIcon } from "lucide-react";
 import CeoAccessSection from "@/components/ceo-access-section";
 import StaffLoginsSection from "@/components/staff-logins-section";
 
@@ -54,7 +54,8 @@ function EmailAllowlistCard({
       .order("created_at", { ascending: false });
 
     if (error) {
-      if (error.message.includes("does not exist") || error.code === "42P01" || error.code === "PGRST116") {
+      // PGRST205: PostgREST can't find the table (not created yet)
+      if (error.message.includes("does not exist") || error.code === "42P01" || error.code === "PGRST116" || error.code === "PGRST205") {
         setTableError(true);
       }
     } else {
@@ -288,6 +289,21 @@ ALTER TABLE accountant_access ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "anon_read" ON accountant_access FOR SELECT TO anon USING (true);
 CREATE POLICY "auth_manage" ON accountant_access FOR ALL TO authenticated USING (true);`;
 
+// Owners only: read, add and remove. Nothing reads this list for access yet.
+const MANAGER_SETUP_SQL = `-- Run this once in your Supabase SQL Editor:
+create table if not exists public.manager_access (
+  id uuid primary key default gen_random_uuid(),
+  email text unique not null check (email = lower(email)),
+  created_at timestamptz not null default now()
+);
+alter table public.manager_access enable row level security;
+revoke all on public.manager_access from anon;
+drop policy if exists "owner_manage" on public.manager_access;
+create policy "owner_manage" on public.manager_access
+  for all to authenticated
+  using (public.current_app_role() = 'ceo')
+  with check (public.current_app_role() = 'ceo');`;
+
 export default function ManageAccess() {
   return (
     <div className="flex-1 overflow-auto bg-slate-50">
@@ -299,19 +315,30 @@ export default function ManageAccess() {
       <div className="p-6 max-w-xl space-y-10">
         <section>
           <div className="flex items-center gap-2 mb-1">
-            <Mail className="w-4 h-4 text-pale-blue-foreground" />
-            <h2 className="text-slate-900 font-bold text-sm">STM Daily Access</h2>
+            <Crown className="w-4 h-4 text-pale-gold-foreground" />
+            <h2 className="text-slate-900 font-bold text-sm">Owner</h2>
           </div>
-          <p className="text-slate-500 text-xs mb-4">Employees who can submit daily shift reports.</p>
+          <p className="text-slate-500 text-xs mb-4">
+            Owners can see and change everything. Adding or removing one needs your password and is announced on Telegram.
+          </p>
+          <CeoAccessSection />
+        </section>
+
+        <section>
+          <div className="flex items-center gap-2 mb-1">
+            <Mail className="w-4 h-4 text-pale-blue-foreground" />
+            <h2 className="text-slate-900 font-bold text-sm">Selling Staff</h2>
+          </div>
+          <p className="text-slate-500 text-xs mb-4">Selling staff sign in to STM Daily to submit daily shift reports.</p>
           <EmailAllowlistCard
             table="allowed_employees"
             cardIcon={UserPlus}
             infoTitle="Email Allowlist"
-            infoDescription="Only emails added here can log into the STM Daily app. Add each employee's real email address."
-            addSectionTitle="Add Employee Email"
-            addButtonLabel="Allow This Employee"
+            infoDescription="Only emails added here can log into the STM Daily app. Add each staff member's real email address."
+            addSectionTitle="Add Selling Staff Email"
+            addButtonLabel="Add Selling Staff"
             placeholder="name@company.com"
-            listTitle="Allowed Employees"
+            listTitle="Selling Staff"
             emptyHint="Add an email above to let workers submit shifts."
             successMessage={email => `${email} can now submit shifts.`}
             deleteConfirm={email => `Remove ${email} from the allowlist?\nThey will no longer be able to submit shifts.`}
@@ -325,7 +352,7 @@ export default function ManageAccess() {
         <section>
           <div className="flex items-center gap-2 mb-1">
             <Calculator className="w-4 h-4 text-pale-blue-foreground" />
-            <h2 className="text-slate-900 font-bold text-sm">Accountant Access</h2>
+            <h2 className="text-slate-900 font-bold text-sm">Accountant</h2>
           </div>
           <p className="text-slate-500 text-xs mb-4">
             Accountants can sign in to STM Financial, restricted to the Debt Tracker page only.
@@ -348,13 +375,26 @@ export default function ManageAccess() {
 
         <section>
           <div className="flex items-center gap-2 mb-1">
-            <Crown className="w-4 h-4 text-pale-gold-foreground" />
-            <h2 className="text-slate-900 font-bold text-sm">CEO Access</h2>
+            <Briefcase className="w-4 h-4 text-pale-blue-foreground" />
+            <h2 className="text-slate-900 font-bold text-sm">Manager</h2>
           </div>
           <p className="text-slate-500 text-xs mb-4">
-            CEOs can see and change everything. Adding or removing one needs your password and is announced on Telegram.
+            What managers can do hasn't been set yet. Until it is, people on this list can't sign in or see anything.
           </p>
-          <CeoAccessSection />
+          <EmailAllowlistCard
+            table="manager_access"
+            cardIcon={Briefcase}
+            infoTitle="Manager List"
+            infoDescription="Only an owner can add or remove managers. Being on this list gives no access until manager permissions are set up."
+            addSectionTitle="Add Manager Email"
+            addButtonLabel="Add Manager"
+            placeholder="manager@company.com"
+            listTitle="Managers"
+            emptyHint="Add an email above to put someone on the manager list."
+            successMessage={email => `${email} is now on the manager list.`}
+            deleteConfirm={email => `Remove ${email} from the manager list?`}
+            setupSql={MANAGER_SETUP_SQL}
+          />
         </section>
       </div>
     </div>

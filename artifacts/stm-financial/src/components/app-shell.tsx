@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import ChangePasswordDialog from "@/components/change-password-dialog";
 import { useChatKeyMaintenance, useChatUnread } from "@/components/team-chat";
 import { useAuth } from "@/lib/auth-context";
-import { supabase, type Role } from "@/lib/supabase";
+import { supabase, ROLE_LABELS, type Role } from "@/lib/supabase";
 import {
   Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, PackageSearch, CreditCard, Receipt, Home, Cylinder, KeyRound, MessageCircle,
 } from "lucide-react";
@@ -64,8 +64,8 @@ export default function AppShell({ children }: Props) {
               {profile?.username?.[0]?.toUpperCase() ?? "C"}
             </div>
             <div className="min-w-0">
-              <p className="text-slate-900 text-sm font-semibold truncate">{profile?.username ?? "CEO"}</p>
-              <p className="text-slate-500 text-xs uppercase tracking-wider">{profile?.role ?? "Executive"}</p>
+              <p className="text-slate-900 text-sm font-semibold truncate">{profile?.username ?? ROLE_LABELS.ceo}</p>
+              <p className="text-slate-500 text-xs uppercase tracking-wider">{profile ? ROLE_LABELS[profile.role] : "Executive"}</p>
             </div>
           </div>
         </div>

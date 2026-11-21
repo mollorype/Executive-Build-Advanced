@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
     .filter((id: number) => !skip.has(String(id)));
   if (!chatIds.length) return json({ sent: 0 });
 
-  const who = `${msg.sender_name}${msg.sender_role === "ceo" ? " (CEO)" : ""}`;
+  const who = `${msg.sender_name}${msg.sender_role === "ceo" ? " (Owner)" : ""}`;
   const at = new Date(msg.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Yangon" });
   const portal = (Deno.env.get("PORTAL_URL") || "https://powerstm.netlify.app").replace(/\/$/, "");
   const reply_markup = { inline_keyboard: [[{ text: "Open team chat", url: `${portal}/chat` }]] };
