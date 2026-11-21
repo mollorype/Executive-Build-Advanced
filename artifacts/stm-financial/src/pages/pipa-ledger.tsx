@@ -10,10 +10,11 @@ import MovementDialog from "@/components/pipa/movement-dialog";
 import StationDialog from "@/components/pipa/station-dialog";
 import CountDialog from "@/components/pipa/count-dialog";
 import DeductDialog from "@/components/pipa/deduct-dialog";
+import StockCards from "@/components/pipa/stock-cards";
 import { useAuth } from "@/lib/auth-context";
 import { usePPSettings } from "@/lib/pp-settings";
 import { usePipaT, pipaProduct } from "@/lib/pipa-i18n";
-import { AlertTriangle, ClipboardCheck, Cylinder, Droplets, History, Loader2, Phone, Plus, Receipt, Store } from "lucide-react";
+import { AlertTriangle, ClipboardCheck, History, Phone, Plus, Receipt, Store } from "lucide-react";
 
 type Dialog =
   | { type: "movement"; kind?: MovementKind; stationId?: string }
@@ -113,35 +114,7 @@ export default function PipaLedger() {
         {settings.auto_deduct && !loadError && <p className="text-[11px] text-slate-500 -mt-3" data-testid="pp-auto-note">{t("autoOn")}</p>}
 
         {/* Stock on hand — in litres, and in P-P, as two separate sets of cards */}
-        {([
-          { key: "l", title: t("stockLiters"), Icon: Droplets, value: (p: (typeof PIPA_PRODUCTS)[number]) => fmtLiters(stock[p].liters).replace(/ L$/, ""), unit: "L" },
-          { key: "pp", title: t("stockPP"), Icon: Cylinder, value: (p: (typeof PIPA_PRODUCTS)[number]) => fmtPipas(stock[p].pipas), unit: "P-P" },
-        ] as const).map(group => (
-          <section key={group.key} data-testid={`pp-stock-group-${group.key}`}>
-            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">{group.title}</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {PIPA_PRODUCTS.map(p => {
-                const negative = stock[p].pipas < 0;
-                return (
-                  <div key={p} className={`bg-white border rounded-xl p-4 ${negative ? "border-red-200" : "border-slate-100"}`} data-testid={`pp-stock-${group.key}-${p}`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <group.Icon className="w-4 h-4 text-slate-400" />
-                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{pipaProduct(t, p)}</span>
-                    </div>
-                    {loading ? <Loader2 className="w-5 h-5 text-slate-300 animate-spin" /> : (
-                      <>
-                        <p className={`text-2xl font-bold tabular-nums ${negative ? "text-pale-red-foreground" : "text-slate-900"}`}>
-                          {group.value(p)} <span className="text-sm font-semibold text-slate-400">{group.unit}</span>
-                        </p>
-                        {negative && <p className="text-[11px] text-pale-red-foreground mt-1">{t("belowZero")}</p>}
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        ))}
+        <StockCards stock={stock} loading={loading} />
 
         {/* Stations */}
         <section>
