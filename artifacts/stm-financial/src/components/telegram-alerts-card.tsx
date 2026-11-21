@@ -2,6 +2,31 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { AlertTriangle, BellRing, CheckCircle, ExternalLink, Loader2, Send } from "lucide-react";
+import { makeT } from "@/lib/app-i18n";
+
+const useT = makeT({
+  unreachable: { en: "Couldn't reach the Telegram service. Check your connection and try again.", my: "Telegram ဝန်ဆောင်မှုကို မချိတ်နိုင်ပါ။ အင်တာနက် စစ်ပြီး ထပ်ကြိုးစားပါ။" },
+  connectedNotice: { en: "Connected — you'll get a private Telegram message for every shift.", my: "ချိတ်ပြီး — ဆိုင်းတိုင်းအတွက် Telegram မှ သီးသန့် စာ ရပါမည်။" },
+  expired: { en: "That connect link expired. Tap Connect Telegram to get a new one.", my: "ချိတ်ဆက် link သက်တမ်းကုန်သွားပြီ။ အသစ်ရယူရန် Telegram ချိတ်ရန် ကို နှိပ်ပါ။" },
+  testSent: { en: "Test message sent — check Telegram.", my: "စမ်းသပ်စာ ပို့ပြီး — Telegram ကို ကြည့်ပါ။" },
+  confirmOff: { en: "Turn off Telegram shift alerts for your account?", my: "သင့်အကောင့်အတွက် Telegram ဆိုင်း အသိပေးချက် ပိတ်မလား?" },
+  turnedOff: { en: "Telegram alerts turned off.", my: "Telegram အသိပေးချက် ပိတ်ပြီး။" },
+  yourTelegram: { en: "your Telegram", my: "သင့် Telegram" },
+  alertsOn: { en: "Telegram alerts on · ", my: "Telegram အသိပေးချက် ဖွင့်ထား · " },
+  alerts: { en: "Telegram alerts", my: "Telegram အသိပေးချက်" },
+  checking: { en: "Checking…", my: "စစ်နေသည်…" },
+  connectedOn: { en: "Connected {date} · every shift, 🚨 for red flags", my: "{date} တွင် ချိတ်ခဲ့ · ဆိုင်းတိုင်း၊ သတိပေးချက်များအတွက် 🚨" },
+  pitch: { en: "Get every shift submission — and 🚨 red flags — privately in Telegram.", my: "ဆိုင်း တင်သွင်းမှုတိုင်း နှင့် 🚨 သတိပေးချက်များကို Telegram တွင် သီးသန့် ရယူပါ။" },
+  sendTest: { en: "Send test", my: "စမ်းပို့ရန်" },
+  turnOff: { en: "Turn off", my: "ပိတ်ရန်" },
+  connect: { en: "Connect Telegram", my: "Telegram ချိတ်ရန်" },
+  step1: { en: "Open the bot in Telegram", my: "Telegram တွင် bot ကို ဖွင့်ပါ" },
+  step2a: { en: "Press ", my: "" },
+  step2b: { en: "", my: " ကို နှိပ်ပါ" },
+  open: { en: "Open Telegram", my: "Telegram ဖွင့်ရန်" },
+  waiting: { en: "Waiting for you to press Start…", my: "Start နှိပ်သည်ကို စောင့်နေသည်…" },
+  cancel: { en: "Cancel", my: "မလုပ်တော့ပါ" },
+});
 
 type TelegramLink = { telegram_username: string | null; telegram_first_name: string | null; linked_at: string };
 
@@ -12,7 +37,7 @@ const CODE_TTL_MS = 10 * 60_000; // matches create_telegram_link_code()
 async function callTelegramLink(action: "link" | "test"): Promise<{ url?: string; sent?: boolean }> {
   const { data, error } = await supabase.functions.invoke("telegram-link", { body: { action } });
   if (error) {
-    let message = "Couldn't reach the Telegram service. Check your connection and try again.";
+    let message = "";   // empty → the card shows its own (translated) message
     try {
       const body = await (error as { context?: Response }).context?.json();
       if (body?.error) message = body.error;
@@ -28,6 +53,7 @@ async function callTelegramLink(action: "link" | "test"): Promise<{ url?: string
  * bot chat; this card just waits for it to appear.
  */
 export default function TelegramAlertsCard() {
+  const t = useT();
   const { user } = useAuth();
   const [link, setLink] = useState<TelegramLink | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,14 +83,14 @@ export default function TelegramAlertsCard() {
     const timer = setInterval(async () => {
       if (await loadLink()) {
         setPendingUrl(null);
-        setNotice("Connected — you'll get a private Telegram message for every shift.");
+        setNotice(t("connectedNotice"));
       } else if (Date.now() - startedAt > CODE_TTL_MS) {
         setPendingUrl(null);
-        setError("That connect link expired. Tap Connect Telegram to get a new one.");
+        setError(t("expired"));
       }
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [pendingUrl, loadLink]);
+  }, [pendingUrl, loadLink, t]);
 
   function reset() { setError(""); setNotice(""); }
 
@@ -75,7 +101,7 @@ export default function TelegramAlertsCard() {
       const { url } = await callTelegramLink("link");
       if (url) setPendingUrl(url);
     } catch (e) {
-      setError((e as Error).message);
+      setError((e as Error).message || t("unreachable"));
     } finally {
       setBusy("");
     }
@@ -86,25 +112,25 @@ export default function TelegramAlertsCard() {
     setBusy("test");
     try {
       await callTelegramLink("test");
-      setNotice("Test message sent — check Telegram.");
+      setNotice(t("testSent"));
     } catch (e) {
-      setError((e as Error).message);
+      setError((e as Error).message || t("unreachable"));
     } finally {
       setBusy("");
     }
   }
 
   async function disconnect() {
-    if (!user || !window.confirm("Turn off Telegram shift alerts for your account?")) return;
+    if (!user || !window.confirm(t("confirmOff"))) return;
     reset();
     setBusy("unlink");
     const { error: delErr } = await supabase.from("telegram_links").delete().eq("user_id", user.id);
     setBusy("");
     if (delErr) setError(delErr.message);
-    else { setLink(null); setNotice("Telegram alerts turned off."); }
+    else { setLink(null); setNotice(t("turnedOff")); }
   }
 
-  const who = link?.telegram_username ? `@${link.telegram_username}` : link?.telegram_first_name ?? "your Telegram";
+  const who = link?.telegram_username ? `@${link.telegram_username}` : link?.telegram_first_name ?? t("yourTelegram");
   const btn = "flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors disabled:opacity-50";
 
   return (
@@ -117,14 +143,14 @@ export default function TelegramAlertsCard() {
         </div>
         <div className="flex-1 min-w-[12rem]">
           <p className="text-slate-900 font-semibold text-sm">
-            {link ? <>Telegram alerts on · <span className="font-normal text-slate-600">{who}</span></> : "Telegram alerts"}
+            {link ? <>{t("alertsOn")}<span className="font-normal text-slate-600">{who}</span></> : t("alerts")}
           </p>
           <p className="text-slate-500 text-xs mt-0.5">
             {loading
-              ? "Checking…"
+              ? t("checking")
               : link
-                ? `Connected ${new Date(link.linked_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · every shift, 🚨 for red flags`
-                : "Get every shift submission — and 🚨 red flags — privately in Telegram."}
+                ? t("connectedOn", { date: new Date(link.linked_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) })
+                : t("pitch")}
           </p>
         </div>
 
@@ -133,17 +159,17 @@ export default function TelegramAlertsCard() {
             <div className="flex gap-2">
               <button type="button" onClick={sendTest} disabled={!!busy}
                 className={`${btn} text-slate-700 bg-slate-100 hover:bg-slate-200`}>
-                {busy === "test" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Send test
+                {busy === "test" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} {t("sendTest")}
               </button>
               <button type="button" onClick={disconnect} disabled={!!busy}
                 className={`${btn} text-pale-red-foreground hover:bg-pale-red border border-red-200`}>
-                {busy === "unlink" && <Loader2 className="w-4 h-4 animate-spin" />} Turn off
+                {busy === "unlink" && <Loader2 className="w-4 h-4 animate-spin" />} {t("turnOff")}
               </button>
             </div>
           ) : (
             <button type="button" onClick={connect} disabled={!!busy}
               className={`${btn} text-white bg-blue-600 hover:bg-blue-500`}>
-              {busy === "link" ? <Loader2 className="w-4 h-4 animate-spin" /> : <BellRing className="w-4 h-4" />} Connect Telegram
+              {busy === "link" ? <Loader2 className="w-4 h-4 animate-spin" /> : <BellRing className="w-4 h-4" />} {t("connect")}
             </button>
           )
         )}
@@ -152,21 +178,21 @@ export default function TelegramAlertsCard() {
       {pendingUrl && (
         <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 space-y-2.5">
           <ol className="text-sm text-slate-700 space-y-1 list-decimal list-inside">
-            <li>Open the bot in Telegram</li>
-            <li>Press <span className="font-semibold">Start</span></li>
+            <li>{t("step1")}</li>
+            <li>{t("step2a")}<span className="font-semibold">Start</span>{t("step2b")}</li>
           </ol>
           <div className="flex flex-wrap items-center gap-2">
             {/* A real link, not window.open after an await, so phones don't block it. */}
             <a href={pendingUrl} target="_blank" rel="noopener noreferrer"
               className={`${btn} text-white bg-[#229ED9] hover:opacity-90`}>
-              <ExternalLink className="w-4 h-4" /> Open Telegram
+              <ExternalLink className="w-4 h-4" /> {t("open")}
             </a>
             <span className="flex items-center gap-1.5 text-xs text-slate-500">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Waiting for you to press Start…
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> {t("waiting")}
             </span>
             <button type="button" onClick={() => setPendingUrl(null)}
               className="ml-auto text-xs font-semibold text-slate-500 hover:text-slate-900">
-              Cancel
+              {t("cancel")}
             </button>
           </div>
         </div>
