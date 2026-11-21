@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase, type Role } from "@/lib/supabase";
 import { makeT, roleLabel, useLang } from "@/lib/app-i18n";
 import {
-  Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, TrendingUp, CreditCard, Receipt, Cylinder, KeyRound, MessageCircle, Wallet, Settings,
+  Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, TrendingUp, History, CreditCard, Receipt, Cylinder, KeyRound, MessageCircle, Wallet, Settings,
 } from "lucide-react";
 
 type Props = { children: React.ReactNode };
@@ -16,6 +16,7 @@ const useT = makeT({
   shifts: { en: "Shifts", my: "ဆိုင်းစာရင်းများ" },
   profit: { en: "Profit", my: "အမြတ်" },
   pp: { en: "P-P Ledger", my: "P-P စာရင်း" },
+  ppHistory: { en: "P-P History", my: "P-P မှတ်တမ်း" },
   debt: { en: "Debt Tracker", my: "အကြွေးစာရင်း" },
   salary: { en: "Salary", my: "လစာ" },
   chat: { en: "Team Chat", my: "အဖွဲ့ Chat" },
@@ -30,10 +31,11 @@ const useT = makeT({
   newChat: { en: "{n} new team chat messages", my: "Chat စာအသစ် {n} စောင်" },
 });
 
-const navItems: { path: string; label: "dashboard" | "shifts" | "profit" | "pp" | "debt" | "salary" | "chat" | "access" | "settings"; icon: typeof LayoutDashboard; roles: Role[] }[] = [
+const navItems: { path: string; label: "dashboard" | "shifts" | "profit" | "pp" | "ppHistory" | "debt" | "salary" | "chat" | "access" | "settings"; icon: typeof LayoutDashboard; roles: Role[] }[] = [
   { path: "/dashboard", label: "dashboard", icon: LayoutDashboard, roles: ["ceo"] },
   { path: "/shifts", label: "shifts", icon: Receipt, roles: ["ceo"] },
   { path: "/pipa-ledger", label: "pp", icon: Cylinder, roles: ["ceo", "accountant", "manager"] },
+  { path: "/pipa-ledger/history", label: "ppHistory", icon: History, roles: ["ceo", "accountant", "manager"] },
   { path: "/profit", label: "profit", icon: TrendingUp, roles: ["ceo"] },
   { path: "/debt-tracker", label: "debt", icon: CreditCard, roles: ["ceo", "accountant"] },
   { path: "/salary", label: "salary", icon: Wallet, roles: ["ceo", "accountant"] },

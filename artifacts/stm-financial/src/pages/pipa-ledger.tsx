@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "wouter";
 import { supabase } from "@/lib/supabase";
 import {
   PIPA_PRODUCTS, PIPA_STATIONS_TABLE,
-  fmtLiters, fmtMMK, fmtPipas, normalizeMovement, priceBreakdown, purchasePrices, round3, stationBalances, stockByProduct, stockDelta,
-  type MovementKind, type PipaMovement, type PipaProduct, type PipaStation,
+  fmtLiters, fmtMMK, fmtPipas, normalizeMovement, priceBreakdown, purchasePrices, stationBalances, stockByProduct,
+  type MovementKind, type PipaMovement, type PipaStation,
 } from "@/lib/pipa-ledger";
 import MovementDialog from "@/components/pipa/movement-dialog";
 import StationDialog from "@/components/pipa/station-dialog";
@@ -11,9 +12,8 @@ import CountDialog from "@/components/pipa/count-dialog";
 import DeductDialog from "@/components/pipa/deduct-dialog";
 import { useAuth } from "@/lib/auth-context";
 import { usePPSettings } from "@/lib/pp-settings";
-import { usePipaT, pipaProduct, type PipaT } from "@/lib/pipa-i18n";
-import { reasonDialog } from "@/components/confirm-dialog";
-import { AlertTriangle, ClipboardCheck, Cylinder, Loader2, Phone, Plus, Receipt, Store, Trash2, Undo2, X } from "lucide-react";
+import { usePipaT, pipaProduct } from "@/lib/pipa-i18n";
+import { AlertTriangle, ClipboardCheck, Cylinder, Droplets, History, Loader2, Phone, Plus, Receipt, Store } from "lucide-react";
 
 type Dialog =
   | { type: "movement"; kind?: MovementKind; stationId?: string }
@@ -22,58 +22,17 @@ type Dialog =
   | { type: "deduct" }
   | null;
 
-/** A history row: one P-P line, or one shift's "sold" lines together. */
-type Item =
-  | { type: "line"; m: PipaMovement }
-  | { type: "shift"; key: string; shiftId: string | null; name: string; on: string; lines: PipaMovement[]; by: string | null };
-
-/** History line for one movement. */
-function describe(m: PipaMovement, station: string, t: PipaT): { title: string; detail: string } {
-  const qty = `${fmtPipas(Math.abs(m.pipas))} P-P · ${pipaProduct(t, m.product)}`;
-  const price = m.price_mode && m.unit_price != null
-    ? (() => {
-        const b = priceBreakdown(m.price_mode, m.unit_price, m.pipas, m.liters_per_pipa);
-        return t("h_price", { perPipa: fmtMMK(b.perPipa), perLiter: fmtMMK(b.perLiter), total: fmtMMK(m.total_amount ?? b.total) });
-      })()
-    : "";
-  const withPrice = (d: string) => (price ? `${d} · ${price}` : d);
-  switch (m.kind) {
-    case "buy": {
-      if (m.source === "official") {
-        const fees = (m.transport_fee ?? 0) + (m.other_fee ?? 0);
-        const extra = m.unit_price != null ? ` · ${t("h_fees", { fees: fmtMMK(fees), cost: fmtMMK(m.unit_price + fees) })}` : "";
-        return { title: t("h_official", { qty: m.exact_liters ? `${fmtLiters(m.exact_liters)} · ${pipaProduct(t, m.product)}` : qty }), detail: withPrice(t("h_buy_d", { station })) + extra };
-      }
-      return { title: t("h_buy", { qty }), detail: withPrice(t("h_buy_d", { station })) };
-    }
-    case "borrow":          return { title: t("h_borrow", { qty }), detail: t("h_borrow_d", { station }) };
-    case "borrow_returned": return { title: t("h_borrow_returned", { qty }), detail: t("h_borrow_returned_d", { station }) };
-    case "borrow_paid":     return { title: t("h_borrow_paid", { qty }), detail: withPrice(t("h_borrow_paid_d", { station })) };
-    case "lend":            return { title: t("h_lend", { qty }), detail: t("h_lend_d", { station }) };
-    case "lend_returned":   return { title: t("h_lend_returned", { qty }), detail: t("h_lend_returned_d", { station }) };
-    case "lend_paid":       return { title: t("h_lend_paid", { station, qty }), detail: withPrice(t("h_lend_paid_d")) };
-    case "used":            return { title: t("h_used", { qty }), detail: "" };
-    case "adjust":
-      return m.pipas > 0 && m.unit_price != null
-        ? { title: t("h_opening", { qty: `+${qty}` }), detail: price }
-        : { title: t("h_adjust", { qty: `${m.pipas > 0 ? "+" : "−"}${qty}` }), detail: "" };
-  }
-}
-
-/** Shift "sold" lines carry the employee's name in their note: "Shift sales: 300 L · Ma Hla". */
-const shiftName = (m: PipaMovement) => /·\s*(.+)$/.exec(m.note ?? "")?.[1]?.trim() || "—";
-
 export default function PipaLedger() {
   const t = usePipaT();
   const { profile } = useAuth();
   const owner = profile?.role === "ceo";
+  const [, setLocation] = useLocation();
   const { settings } = usePPSettings();
   const [stations, setStations] = useState<PipaStation[]>([]);
   const [movements, setMovements] = useState<PipaMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [dialog, setDialog] = useState<Dialog>(null);
-  const [historyStation, setHistoryStation] = useState("");
   const [notice, setNoticeText] = useState("");
   const noticeTimer = useRef<number | undefined>(undefined);
   // A success message fades after 3 s; an error stays. A newer message always
@@ -84,7 +43,6 @@ export default function PipaLedger() {
     if (fade && message) noticeTimer.current = window.setTimeout(() => setNoticeText(""), 3000);
   }, []);
   useEffect(() => () => window.clearTimeout(noticeTimer.current), []);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [st, mv] = await Promise.all([
@@ -115,52 +73,13 @@ export default function PipaLedger() {
     return out;
   }, [movements]);
 
-  // One row per P-P line; a shift's "sold" lines (one per fuel) share a row.
-  const history = useMemo(() => {
-    const list = historyStation ? movements.filter(m => m.station_id === historyStation) : movements;
-    const items: Item[] = [];
-    const shifts = new Map<string, Extract<Item, { type: "shift" }>>();
-    for (const m of list) {
-      if (!m.shift_batch_id) { items.push({ type: "line", m }); continue; }
-      let row = shifts.get(m.shift_batch_id);
-      if (!row) {
-        row = { type: "shift", key: m.shift_batch_id, shiftId: m.shift_id ?? null, name: shiftName(m), on: m.occurred_on, lines: [], by: m.created_by ?? null };
-        shifts.set(m.shift_batch_id, row);
-        items.push(row);
-      }
-      row.lines.push(m);
-    }
-    return items;
-  }, [movements, historyStation]);
-
   function done(message: string) {
     setDialog(null);
     setNotice(message, true);
     load();
   }
 
-  async function remove(item: Item) {
-    const isShift = item.type === "shift";
-    const title = isShift
-      ? `${t("h_shift", { name: item.name })} · ${item.on}`
-      : describe(item.m, stationName[item.m.station_id ?? ""] ?? "", t).title;
-    const reason = await reasonDialog(
-      (isShift ? t("reasonUndoShift", { title }) : t("reasonDelete", { title })) + (owner ? "" : t("ownerTold")),
-      { danger: true, confirmLabel: isShift ? t("undoShift") : undefined, placeholder: t("reasonPh") },
-    );
-    if (!reason) return;
-    const id = isShift ? item.key : item.m.id;
-    setDeletingId(id);
-    const { error } = isShift
-      ? await supabase.rpc("undo_shift_deduction", { p_shift_id: item.shiftId, p_reason: reason })
-      : await supabase.rpc("archive_pp_movement", { p_id: item.m.id, p_reason: reason });
-    setDeletingId(null);
-    if (error) { setNotice(t("deleteFailed", { msg: error.message })); load(); return; }
-    done(isShift ? t("shiftUndone") : t("archived"));
-  }
-
   const actionBtn = "flex items-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl px-3 py-2 text-sm transition-colors";
-  const by = (who: string | null | undefined) => (owner && who && who !== "auto" ? t("by", { who }) : "");
 
   return (
     <div className="flex-1 overflow-auto bg-slate-50">
@@ -189,36 +108,40 @@ export default function PipaLedger() {
           <button onClick={() => setDialog({ type: "deduct" })} disabled={!!loadError} className={actionBtn}><Receipt className="w-4 h-4" /> {t("deductBtn")}</button>
           <button onClick={() => setDialog({ type: "count" })} disabled={!!loadError} className={actionBtn}><ClipboardCheck className="w-4 h-4" /> {t("countBtn")}</button>
           <button onClick={() => setDialog({ type: "station", station: null })} disabled={!!loadError} className={actionBtn}><Store className="w-4 h-4" /> {t("addStation")}</button>
+          <button onClick={() => setLocation("/pipa-ledger/history")} className={actionBtn} data-testid="pp-open-history"><History className="w-4 h-4" /> {t("history")}</button>
         </div>
         {settings.auto_deduct && !loadError && <p className="text-[11px] text-slate-500 -mt-3" data-testid="pp-auto-note">{t("autoOn")}</p>}
 
-        {/* Stock on hand */}
-        <section>
-          <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">{t("stockOnHand")}</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {PIPA_PRODUCTS.map(p => {
-              const s = stock[p];
-              const negative = s.pipas < 0;
-              return (
-                <div key={p} className={`bg-white border rounded-xl p-4 ${negative ? "border-red-200" : "border-slate-100"}`} data-testid={`pp-stock-${p}`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Cylinder className="w-4 h-4 text-slate-400" />
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{pipaProduct(t, p)}</span>
+        {/* Stock on hand — in litres, and in P-P, as two separate sets of cards */}
+        {([
+          { key: "l", title: t("stockLiters"), Icon: Droplets, value: (p: (typeof PIPA_PRODUCTS)[number]) => fmtLiters(stock[p].liters).replace(/ L$/, ""), unit: "L" },
+          { key: "pp", title: t("stockPP"), Icon: Cylinder, value: (p: (typeof PIPA_PRODUCTS)[number]) => fmtPipas(stock[p].pipas), unit: "P-P" },
+        ] as const).map(group => (
+          <section key={group.key} data-testid={`pp-stock-group-${group.key}`}>
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">{group.title}</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {PIPA_PRODUCTS.map(p => {
+                const negative = stock[p].pipas < 0;
+                return (
+                  <div key={p} className={`bg-white border rounded-xl p-4 ${negative ? "border-red-200" : "border-slate-100"}`} data-testid={`pp-stock-${group.key}-${p}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <group.Icon className="w-4 h-4 text-slate-400" />
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{pipaProduct(t, p)}</span>
+                    </div>
+                    {loading ? <Loader2 className="w-5 h-5 text-slate-300 animate-spin" /> : (
+                      <>
+                        <p className={`text-2xl font-bold tabular-nums ${negative ? "text-pale-red-foreground" : "text-slate-900"}`}>
+                          {group.value(p)} <span className="text-sm font-semibold text-slate-400">{group.unit}</span>
+                        </p>
+                        {negative && <p className="text-[11px] text-pale-red-foreground mt-1">{t("belowZero")}</p>}
+                      </>
+                    )}
                   </div>
-                  {loading ? <Loader2 className="w-5 h-5 text-slate-300 animate-spin" /> : (
-                    <>
-                      <p className={`text-2xl font-bold tabular-nums ${negative ? "text-pale-red-foreground" : "text-slate-900"}`}>
-                        {fmtPipas(s.pipas)} <span className="text-sm font-semibold text-slate-400">P-P</span>
-                      </p>
-                      <p className="text-xs text-slate-500 tabular-nums">{fmtLiters(s.liters)}</p>
-                      {negative && <p className="text-[11px] text-pale-red-foreground mt-1">{t("belowZero")}</p>}
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
+                );
+              })}
+            </div>
+          </section>
+        ))}
 
         {/* Stations */}
         <section>
@@ -275,7 +198,7 @@ export default function PipaLedger() {
                     <div className="flex gap-2 pt-1">
                       <button onClick={() => setDialog({ type: "movement", kind: "buy", stationId: st.id })}
                         className="text-xs font-semibold text-pale-blue-foreground bg-pale-blue rounded-lg px-2.5 py-1.5">{t("record")}</button>
-                      <button onClick={() => setHistoryStation(st.id)}
+                      <button onClick={() => setLocation(`/pipa-ledger/history?station=${st.id}`)}
                         className="text-xs font-semibold text-slate-600 bg-slate-100 rounded-lg px-2.5 py-1.5">{t("history")}</button>
                     </div>
                   </div>
@@ -313,72 +236,6 @@ export default function PipaLedger() {
           </section>
         )}
 
-        {/* History */}
-        <section>
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t("history")}</h2>
-            {historyStation && (
-              <button onClick={() => setHistoryStation("")}
-                className="flex items-center gap-1 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg px-2 py-1">
-                {stationName[historyStation]} <X className="w-3 h-3" />
-              </button>
-            )}
-          </div>
-          {loading ? (
-            <div className="py-8 text-center"><Loader2 className="w-6 h-6 text-blue-500/50 animate-spin mx-auto" /></div>
-          ) : history.length === 0 ? (
-            <p className="bg-white border border-slate-100 rounded-xl p-6 text-center text-sm text-slate-500">{t("noMovements")}</p>
-          ) : (
-            <ul className="bg-white border border-slate-100 rounded-xl divide-y divide-slate-100" data-testid="pp-history">
-              {history.map(item => {
-                if (item.type === "shift") {
-                  const out = round3(item.lines.reduce((s, m) => s + Math.abs(stockDelta(m)), 0));
-                  return (
-                    <li key={item.key} className="flex items-start gap-3 px-4 py-3" data-testid="pp-shift-row">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-slate-900">{t("h_shift", { name: item.name })}</p>
-                        <p className="text-xs text-slate-600 break-words">
-                          {item.lines.map(m => `${pipaProduct(t, m.product as PipaProduct)} ${fmtPipas(m.pipas)} P-P (${fmtLiters(m.exact_liters ?? m.pipas * m.liters_per_pipa)})`).join(" · ")}
-                        </p>
-                        <p className="text-xs text-slate-400 mt-0.5">{item.on}{by(item.by)}</p>
-                      </div>
-                      <span className="shrink-0 text-sm font-bold tabular-nums text-pale-red-foreground" title={t("stockEffect")}>−{fmtPipas(out)}</span>
-                      <button onClick={() => remove(item)} disabled={deletingId === item.key || !item.shiftId} aria-label={t("undoShift")}
-                        className="shrink-0 p-2 -m-1 text-slate-400 hover:text-pale-red-foreground hover:bg-pale-red rounded-lg transition-colors">
-                        {deletingId === item.key ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />}
-                      </button>
-                    </li>
-                  );
-                }
-                const m = item.m;
-                const d = describe(m, stationName[m.station_id ?? ""] ?? "—", t);
-                const delta = stockDelta(m);
-                return (
-                  <li key={m.id} className="flex items-start gap-3 px-4 py-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-900">{d.title}</p>
-                      {d.detail && <p className="text-xs text-slate-600 break-words">{d.detail}</p>}
-                      <p className="text-xs text-slate-400 mt-0.5 break-words">
-                        {m.occurred_on}{m.note && m.kind !== "adjust" ? ` · ${m.note}` : ""}{by(m.created_by)}
-                      </p>
-                    </div>
-                    <span className={`shrink-0 text-sm font-bold tabular-nums ${delta > 0 ? "text-pale-green-foreground" : delta < 0 ? "text-pale-red-foreground" : "text-slate-400"}`}
-                      title={t("stockEffect")}>
-                      {delta > 0 ? "+" : delta < 0 ? "−" : "±"}{fmtPipas(Math.abs(delta))}
-                    </span>
-                    <button onClick={() => remove(item)} disabled={deletingId === m.id} aria-label={t("deleteRecord")}
-                      className="shrink-0 p-2 -m-1 text-slate-400 hover:text-pale-red-foreground hover:bg-pale-red rounded-lg transition-colors">
-                      {deletingId === m.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <p className="text-[11px] text-slate-400 mt-2">
-            {t("cashNote")}
-          </p>
-        </section>
       </div>
 
       {dialog?.type === "movement" && (

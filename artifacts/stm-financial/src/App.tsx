@@ -11,6 +11,7 @@ import Dashboard from "@/pages/dashboard";
 import Shifts from "@/pages/shifts";
 import ManageAccess from "@/pages/manage-access";
 import ProfitPage from "@/pages/profit";
+import PipaHistory from "@/pages/pipa-history";
 import PipaLedger from "@/pages/pipa-ledger";
 import DebtTracker from "@/pages/debt-tracker";
 import SalaryPage from "@/pages/salary";
@@ -112,6 +113,12 @@ function Router() {
       {/* The PO Registry was replaced by the Profit page. */}
       <Route path="/po-registry">
         <Redirect to="/profit" />
+      </Route>
+
+      <Route path="/pipa-ledger/history">
+        <ProtectedRoute allow={["ceo", "accountant", "manager"]}>
+          <PipaHistory />
+        </ProtectedRoute>
       </Route>
 
       <Route path="/pipa-ledger">
