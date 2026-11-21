@@ -24,7 +24,8 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
   const [product, setProduct] = useState<PipaProduct>("92");
   const [pipas, setPipas] = useState("");
   const [occurredOn, setOccurredOn] = useState(yangonToday());
-  const [priceMode, setPriceMode] = useState<PriceMode>("per_pipa");
+  // Fuel is priced per litre, so that's the default; P-P price is one tap away.
+  const [priceMode, setPriceMode] = useState<PriceMode>("per_liter");
   const [unitPrice, setUnitPrice] = useState("");
   const [litersPerPipa, setLitersPerPipa] = useState(String(DEFAULT_LITERS_PER_PIPA));
   const [note, setNote] = useState("");
@@ -163,8 +164,8 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
         {info.price && (
           <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setPriceMode("per_pipa")} className={chip(priceMode === "per_pipa")}>{t("pricePerPP")}</button>
-              <button type="button" onClick={() => setPriceMode("per_liter")} className={chip(priceMode === "per_liter")}>{t("pricePerL")}</button>
+              <button type="button" onClick={() => setPriceMode("per_liter")} className={chip(priceMode === "per_liter")} aria-pressed={priceMode === "per_liter"}>{t("pricePerL")}</button>
+              <button type="button" onClick={() => setPriceMode("per_pipa")} className={chip(priceMode === "per_pipa")} aria-pressed={priceMode === "per_pipa"}>{t("pricePerPP")}</button>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -180,7 +181,8 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
             </div>
             {price && nPipas > 0 && (
               <p className="text-xs text-slate-600 leading-relaxed">
-                = <span className="font-semibold">{fmtMMK(price.perLiter)}/L</span> · {fmtMMK(price.perPipa)}/P-P
+                = <span className={priceMode === "per_pipa" ? "font-bold text-slate-900" : ""}>{fmtMMK(price.perLiter)}/L</span>
+                {" · "}<span className={priceMode === "per_liter" ? "font-bold text-slate-900" : ""}>{fmtMMK(price.perPipa)}/P-P</span>
                 <br />{t("totalFor")}<span className="font-bold text-slate-900">{fmtMMK(price.total)}</span>{t("forLiters", { liters: fmtLiters(price.liters) })}
               </p>
             )}
