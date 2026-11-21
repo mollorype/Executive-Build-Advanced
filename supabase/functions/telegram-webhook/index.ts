@@ -1,8 +1,8 @@
 // Receives the bot's incoming messages from Telegram. Registered by
 // telegram-link with a secret header; any request without it is rejected.
 //
-//   /start <code>  link this private chat to the CEO account that made the code
-//   /start         explain how to connect from the portal
+//   /start <code>  link this private chat to the account (owner or STM Daily staff) that made the code
+//   /start         explain how to connect
 //   /stop          unlink this chat (alerts stop)
 //
 // Secret: TELEGRAM_BOT_TOKEN (Dashboard → Edge Functions → Secrets).
@@ -40,20 +40,22 @@ Deno.serve(async (req) => {
     });
     if (error) {
       await reply("Something went wrong connecting your account. Please try again from STM Financial.");
+    } else if (result === "linked_staff") {
+      await reply("✅ ချိတ်ဆက်ပြီးပါပြီ။ လစာ၊ ခွင့်၊ အရေးပေါ် အသိပေးချက်များ ဒီမှာ ရပါမည်။\n\nChat စာများအတွက်လည်း လိုချင်ရင် STM Daily တွင် ဖွင့်နိုင်ပါသည်။\nရပ်ရန် /stop ပို့ပါ။");
     } else if (result === "linked") {
       await reply("✅ Connected. You'll get a message here for every shift submission, and 🚨 for red flags.\n\nSend /stop to turn alerts off.");
     } else if (result === "not_allowed") {
-      await reply("This account isn't allowed to receive shift alerts.");
+      await reply("This account isn't allowed to receive alerts. / ဤအကောင့်ဖြင့် အသိပေးချက် မရနိုင်ပါ။");
     } else {
-      await reply("That connect link has expired or was already used. In STM Financial, open Shifts → Connect Telegram for a new one.");
+      await reply("That connect link has expired or was already used — make a new one in STM Financial or STM Daily.\nချိတ်ရန် link သက်တမ်း ကုန်သွားပါပြီ — STM Daily တွင် ထပ်ချိတ်ပါ။");
     }
   } else if (command === "/start") {
-    await reply("To receive shift alerts, sign in to STM Financial and open Shifts → Connect Telegram.");
+    await reply("To get alerts, connect from STM Financial (Shifts → Connect Telegram) or STM Daily.\nအသိပေးချက် ရရန် STM Daily တွင် “Telegram ချိတ်ရန်” ကို နှိပ်ပါ။");
   } else if (command === "/stop") {
     const { count } = await db.from("telegram_links").delete({ count: "exact" }).eq("chat_id", chatId);
-    await reply(count ? "🔕 Shift alerts turned off. You can reconnect any time from STM Financial." : "This chat isn't receiving any alerts.");
+    await reply(count ? "🔕 Alerts turned off. You can reconnect any time. / အသိပေးချက် ပိတ်ပြီး။" : "This chat isn't receiving any alerts.");
   } else {
-    await reply("I only send shift alerts. Send /stop to turn them off.");
+    await reply("I only send alerts. Send /stop to turn them off. / ရပ်ရန် /stop ပို့ပါ။");
   }
   return ok();
 });

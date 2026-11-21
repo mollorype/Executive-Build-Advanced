@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     if (error || !code) {
       // Only 42501 is the database refusing a non-CEO; anything else is a setup
       // or infrastructure problem, and must not be reported as a permission issue.
-      if (error?.code === "42501") return json({ error: "Only an owner can connect Telegram alerts." }, 403);
+      if (error?.code === "42501") return json({ error: "Only owners and STM Daily staff can connect Telegram." }, 403);
       if (error?.code === "PGRST202") {
         return json({ error: "Telegram alerts aren't installed in the database yet (the telegram_shift_alerts migration hasn't been run)." }, 503);
       }
@@ -69,14 +69,15 @@ Deno.serve(async (req) => {
   }
 
   if (action === "test") {
-    const { data: role } = await asUser.rpc("current_app_role");
-    if (role !== "ceo") return json({ error: "Only an owner can send a test alert." }, 403);
+    // Owners and STM Daily staff (chat_member_role: the same check the team chat uses).
+    const { data: role } = await asUser.rpc("chat_member_role");
+    if (role !== "ceo" && role !== "staff") return json({ error: "Only owners and STM Daily staff can send a test." }, 403);
     // RLS returns only the caller's own link.
     const { data: link } = await asUser.from("telegram_links").select("chat_id").maybeSingle();
     if (!link) return json({ error: "Telegram isn't connected for your account." }, 404);
     const sent = await tg(token, "sendMessage", {
       chat_id: link.chat_id,
-      text: "✅ Test from STM Financial — shift alerts will arrive in this chat.",
+      text: role === "staff" ? "✅ STM Daily စမ်းသပ် — အသိပေးချက်များ ဒီမှာ ရပါမည်။" : "✅ Test from STM Financial — shift alerts will arrive in this chat.",
     });
     return sent.ok ? json({ sent: true }) : json({ error: sent.data?.description ?? "Telegram refused the message." }, 502);
   }

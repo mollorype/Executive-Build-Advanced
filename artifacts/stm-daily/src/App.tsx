@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { type ShiftPayload, type StaffLoginState, AUTH_STORAGE_KEY, authClient, staffAuth, storedStaffUser, supabase, submitShift } from "./lib/supabase";
 import TeamChat, { useChatKeyMaintenance, useChatUnread } from "./components/team-chat";
+import TelegramCard from "./components/telegram-card";
 import { CHAT_STRINGS } from "./lib/team-chat-core";
 import { enqueueShift, flushQueue, useOfflineSync, useQueueItemStatus, type LinkedExpensePayload } from "./lib/offlineQueue";
 import "./index.css";
@@ -1873,6 +1874,7 @@ function ModeSelectScreen({ employeeName, onShift, onChat, unread, onSettings, o
           </div>
         </button>
 
+        <TelegramCard lang={lang} />
       </div>
     </div>
   );
