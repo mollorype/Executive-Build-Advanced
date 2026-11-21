@@ -241,7 +241,7 @@ export default function ShiftEditDialog({ shift, onClose, onSaved }: Props) {
           <SectionTitle>P-P</SectionTitle>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Containers" value={pipaAmt} onChange={setPipaAmt} suffix="ctn" />
-            <Field label="Price / Container" value={pipaPrice} onChange={setPipaPrice} prefix="K" hint={tPipa > 0 ? `Total: ${fmt(tPipa)}` : undefined} />
+            <Field label="Per Price" value={pipaPrice} onChange={setPipaPrice} prefix="K" hint={tPipa > 0 ? `Total: ${fmt(tPipa)}` : undefined} />
           </div>
 
           <SectionTitle>Diesel Cash</SectionTitle>
