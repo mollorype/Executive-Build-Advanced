@@ -1,4 +1,5 @@
 import { useToast } from "@/hooks/use-toast"
+import { useLang } from "@/lib/app-i18n"
 import {
   Toast,
   ToastClose,
@@ -10,9 +11,10 @@ import {
 
 export function Toaster() {
   const { toasts } = useToast()
+  const lang = useLang()
 
   return (
-    <ToastProvider>
+    <ToastProvider label={lang === "my" ? "အသိပေးချက်များ" : "Notifications"}>
       {toasts.map(function ({ id, title, description, action, ...props }) {
         return (
           <Toast key={id} {...props}>
@@ -27,7 +29,7 @@ export function Toaster() {
           </Toast>
         )
       })}
-      <ToastViewport />
+      <ToastViewport label={lang === "my" ? "အသိပေးချက်များ ({hotkey})" : "Notifications ({hotkey})"} />
     </ToastProvider>
   )
 }

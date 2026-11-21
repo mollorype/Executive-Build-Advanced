@@ -19,6 +19,8 @@ const useT = makeT({
   refresh: { en: "Refresh", my: "ပြန်ဖွင့်ရန်" },
   salesToday: { en: "Total Sales Today", my: "ယနေ့ ရောင်းအား" },
   salesTodayHint: { en: "Fuel, P-P & J-C sales", my: "ဆီ၊ P-P နှင့် J-C ရောင်းအား" },
+  shiftToday: { en: "{n} shift today", my: "ယနေ့ ဆိုင်း {n} ခု" },
+  shiftsToday: { en: "{n} shifts today", my: "ယနေ့ ဆိုင်း {n} ခု" },
   outstanding: { en: "Total Outstanding Debt", my: "ပြန်ရရန် ကျန်ငွေ စုစုပေါင်း" },
   excludes: { en: "Excludes {list}", my: "{list} မပါ" },
   debtorsOpen: { en: "{n} debtor(s) with open balance", my: "ကျန်ငွေရှိသူ {n} ဦး" },
@@ -199,7 +201,7 @@ export default function Dashboard() {
               <div className="text-right shrink-0">
                 <p className="text-3xl font-black tabular-nums text-pale-green-foreground tracking-tight">{mmkFmt(totalSalesToday)}</p>
                 <p className="text-xs text-slate-400 mt-1">
-                  {todayShifts.length} {todayShifts.length === 1 ? "shift" : "shifts"} today
+                  {t(todayShifts.length === 1 ? "shiftToday" : "shiftsToday", { n: todayShifts.length })}
                 </p>
               </div>
             </div>

@@ -25,6 +25,7 @@ const useT = makeT({
   deleting: { en: "Deleting…", my: "ဖျက်နေသည်…" },
   deleteSelected: { en: "Delete Selected ({n})", my: "ရွေးထားသည်ကို ဖျက်ရန် ({n})" },
   dismiss: { en: "Dismiss", my: "ပိတ်ရန်" },
+  refresh: { en: "Refresh", my: "ပြန်ဖွင့်ရန်" },
   timeWindow: { en: "Time Window:", my: "ကာလ:" },
   fromDate: { en: "From date", my: "မှ" },
   toDate: { en: "To date", my: "အထိ" },
@@ -313,7 +314,7 @@ export default function Shifts() {
               className="flex items-center gap-2 text-slate-400 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg px-4 py-2 text-sm font-medium transition-all"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
-              Refresh
+              {t("refresh")}
             </button>
           </div>
         </div>
