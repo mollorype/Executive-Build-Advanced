@@ -11,10 +11,23 @@ import { confirmDialog } from "./confirm-dialog";
 
 type Lang = "en" | "my";
 type Link = { telegram_username: string | null; telegram_first_name: string | null; notify_chat: boolean };
+type Notice = "salary_paid" | "salary_item" | "emergency" | "chat_message" | "leave_decided";
+// What staff get until an owner changes it (same defaults as staff_notify_settings).
+const DEFAULT_NOTICES: Record<Notice, boolean> = { salary_paid: true, salary_item: true, emergency: true, chat_message: true, leave_decided: false };
+const NOTICE_NAMES: Record<Notice, { en: string; my: string }> = {
+  salary_paid: { en: "salary paid", my: "လစာ ပေးပြီး" },
+  salary_item: { en: "salary changes", my: "လစာ ပြောင်းလဲမှု" },
+  emergency: { en: "emergencies", my: "အရေးပေါ်" },
+  chat_message: { en: "team chat", my: "အဖွဲ့ Chat" },
+  leave_decided: { en: "leave decisions", my: "ခွင့် အဖြေ" },
+};
 
 const S = {
   title:      { en: "Telegram notifications", my: "Telegram အသိပေးချက်" },
-  desc:       { en: "Get salary, leave and emergency notices on Telegram.", my: "လစာ၊ ခွင့်၊ အရေးပေါ် အသိပေးချက်များကို Telegram တွင် ရယူပါ။" },
+  desc:       { en: "Get {list} notices on Telegram.", my: "{list} အသိပေးချက်များကို Telegram တွင် ရယူပါ။" },
+  youGet:     { en: "You'll get: {list}", my: "ရရှိမည်: {list}" },
+  notAllowed: { en: "Telegram can't be connected for this account yet.", my: "ဤအကောင့်ဖြင့် Telegram ချိတ်၍ မရသေးပါ။" },
+  notReady:   { en: "Telegram notices aren't set up yet. Ask the owner.", my: "Telegram အသိပေးချက် စနစ် မပြင်ဆင်ရသေးပါ။ ပိုင်ရှင်ကို မေးပါ။" },
   connect:    { en: "Connect Telegram", my: "Telegram ချိတ်ရန်" },
   open:       { en: "Open Telegram", my: "Telegram ဖွင့်ရန်" },
   waiting:    { en: "In Telegram, tap Start — this page updates by itself.", my: "Telegram တွင် Start ကို နှိပ်ပါ — ဒီစာမျက်နှာ အလိုလို ပြောင်းပါမည်။" },
@@ -27,7 +40,8 @@ const S = {
   confirmOff: { en: "Stop Telegram notifications on this account?", my: "Telegram အသိပေးချက်များ ရပ်မလား?" },
   failed:     { en: "Something went wrong. Check the connection and try again.", my: "မအောင်မြင်ပါ။ အင်တာနက် စစ်ပြီး ထပ်ကြိုးစားပါ။" },
 } as const;
-const t = (lang: Lang, k: keyof typeof S) => S[k][lang];
+const t = (lang: Lang, k: keyof typeof S, vars?: Record<string, string>) =>
+  Object.entries(vars ?? {}).reduce((s, [key, v]) => s.split(`{${key}}`).join(v), S[k][lang] as string);
 
 async function linkFn(body: Record<string, unknown>): Promise<{ url?: string; sent?: boolean; error?: string }> {
   const { data, error } = await authClient.functions.invoke("telegram-link", { body });
@@ -46,6 +60,7 @@ export default function TelegramCard({ lang }: { lang: Lang }) {
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const poll = useRef<number | null>(null);
+  const [notices, setNotices] = useState<Record<Notice, boolean>>(DEFAULT_NOTICES);
 
   const load = useCallback(async () => {
     let res = await authClient.from("telegram_links").select("telegram_username, telegram_first_name, notify_chat").maybeSingle();
@@ -60,14 +75,28 @@ export default function TelegramCard({ lang }: { lang: Lang }) {
   }, []);
 
   useEffect(() => { if (me) load(); return () => { if (poll.current) window.clearInterval(poll.current); }; }, [me?.id, load]);   // eslint-disable-line react-hooks/exhaustive-deps
+  // Which notices the owner has switched on (STM Financial → Settings).
+  useEffect(() => {
+    if (!me) return;
+    authClient.from("staff_notify_settings").select("*").maybeSingle().then(({ data }) => {
+      if (data) setNotices(Object.fromEntries((Object.keys(DEFAULT_NOTICES) as Notice[]).map(k => [k, data[k] === true])) as Record<Notice, boolean>);
+    });
+  }, [me?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!me) return null;
+  const on = (Object.keys(DEFAULT_NOTICES) as Notice[]).filter(k => notices[k]);
+  const list = on.map(k => NOTICE_NAMES[k][lang]).join(lang === "my" ? "၊ " : ", ");
+  // The server's own message is English; say it in the app language.
+  const explain = (e?: string) => !e || e === "failed" ? t(lang, "failed")
+    : /^Only /.test(e) ? t(lang, "notAllowed")
+    : /isn't set up|aren't installed/.test(e) ? t(lang, "notReady")
+    : lang === "my" ? t(lang, "failed") : e;
 
   async function connect() {
     setBusy("connect"); setError(""); setNote("");
     const r = await linkFn({ action: "link" });
     setBusy("");
-    if (!r.url) { setError(r.error && r.error !== "failed" ? r.error : t(lang, "failed")); return; }
+    if (!r.url) { setError(explain(r.error)); return; }
     setUrl(r.url);
     // Notice the link as soon as they press Start (up to ~3 minutes).
     if (poll.current) window.clearInterval(poll.current);
@@ -83,7 +112,7 @@ export default function TelegramCard({ lang }: { lang: Lang }) {
     setBusy("test"); setError(""); setNote("");
     const r = await linkFn({ action: "test" });
     setBusy("");
-    if (r.sent) setNote(t(lang, "testSent")); else setError(r.error && r.error !== "failed" ? r.error : t(lang, "failed"));
+    if (r.sent) setNote(t(lang, "testSent")); else setError(explain(r.error));
   }
 
   async function setChat(on: boolean) {
@@ -112,23 +141,26 @@ export default function TelegramCard({ lang }: { lang: Lang }) {
         <div className="min-w-0">
           <p className="text-base font-bold text-white">{t(lang, "title")}</p>
           {link ? (
-            <p className="text-sm text-emerald-400 mt-0.5">✓ {t(lang, "connected")}{link.telegram_username ? ` · @${link.telegram_username}` : link.telegram_first_name ? ` · ${link.telegram_first_name}` : ""}</p>
+            <>
+              <p className="text-sm text-emerald-400 mt-0.5">✓ {t(lang, "connected")}{link.telegram_username ? ` · @${link.telegram_username}` : link.telegram_first_name ? ` · ${link.telegram_first_name}` : ""}</p>
+              {on.length > 0 && <p className="text-[11px] text-gray-500 mt-0.5" data-testid="tg-notices">{t(lang, "youGet", { list })}</p>}
+            </>
           ) : (
-            <p className="text-sm text-gray-500 mt-0.5">{t(lang, "desc")}</p>
+            <p className="text-sm text-gray-500 mt-0.5" data-testid="tg-notices">{t(lang, "desc", { list })}</p>
           )}
         </div>
       </div>
 
       {link === undefined ? null : link ? (
         <>
-          <label className="flex items-start gap-3 rounded-xl border border-[#30363d] px-3 py-2.5 cursor-pointer">
+          {notices.chat_message && <label className="flex items-start gap-3 rounded-xl border border-[#30363d] px-3 py-2.5 cursor-pointer">
             <input type="checkbox" className="mt-0.5 w-4 h-4 accent-sky-500" checked={link.notify_chat} disabled={busy === "chat"}
               onChange={e => setChat(e.target.checked)} />
             <span className="min-w-0">
               <span className="block text-sm text-gray-200">{t(lang, "chatToggle")}</span>
               <span className="block text-[11px] text-gray-500">{t(lang, "chatHelp")}</span>
             </span>
-          </label>
+          </label>}
           <div className="flex gap-2">
             <button type="button" onClick={test} disabled={!!busy}
               className="flex-1 rounded-xl border border-[#30363d] hover:border-sky-500/60 text-sm font-semibold text-sky-300 py-2.5 disabled:opacity-50">

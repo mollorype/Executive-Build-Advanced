@@ -5,7 +5,10 @@
 //   salary_item    a deduction / bonus / overtime / paid-back applied → that employee
 //   leave_decided  their leave request approved or declined → the requester
 //   emergency      an emergency alert in the team chat → every linked staff member
-//   chat_message   a new team-chat message → staff who switched chat notices on
+//   chat_message   a new team-chat message → staff who left chat notices on
+//
+// An owner chooses which of these staff get (STM Financial → Settings, table
+// staff_notify_settings); a type that is switched off is skipped here.
 //
 // Each (event, id) is claimed in staff_telegram_sent first, so a notice goes out
 // once however often this is called. Chat notices never include the message:
@@ -19,6 +22,8 @@ import { tg } from "../_shared/telegram.ts";
 
 const DAILY_URL = "https://shwethazinmoe.netlify.app";
 const EVENTS = new Set(["salary_paid", "salary_item", "leave_decided", "emergency", "chat_message"]);
+// Used until staff_notify_settings exists (same defaults as the table).
+const DEFAULT_ON: Record<string, boolean> = { salary_paid: true, salary_item: true, emergency: true, chat_message: true, leave_decided: false };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MONTHS = ["ဇန်နဝါရီ", "ဖေဖော်ဝါရီ", "မတ်", "ဧပြီ", "မေ", "ဇွန်", "ဇူလိုင်", "ဩဂုတ်", "စက်တင်ဘာ", "အောက်တိုဘာ", "နိုဝင်ဘာ", "ဒီဇင်ဘာ"];
 // Same labels as the chat's EMERGENCY_TYPES (team-chat-core.ts).
@@ -41,6 +46,10 @@ Deno.serve(async (req) => {
   if (!EVENTS.has(event) || typeof id !== "string" || !UUID.test(id)) return json({ error: "bad request" }, 400);
 
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+
+  // Switched off by an owner? Then nothing to send (and nothing to claim).
+  const { data: cfg } = await db.from("staff_notify_settings").select("*").maybeSingle();
+  if (!(cfg ? cfg[event] === true : DEFAULT_ON[event])) return json({ skipped: "turned off" });
 
   // Claim it: only the first call for this (event, id) sends anything.
   const claim = await db.from("staff_telegram_sent").insert({ event, ref_id: id });
@@ -110,7 +119,7 @@ Deno.serve(async (req) => {
     await send(recipients.map(r => Number(r.chat_id)), `🚨 အရေးပေါ် (${kind}) — ${m.sender_name}\nTeam chat ကို ချက်ချင်း ဖွင့်ကြည့်ပါ။`);
     return json({ sent: event });
   }
-  // chat_message: opt-in, and never the content (end-to-end encrypted)
+  // chat_message: staff can switch it off on their card; never the content (end-to-end encrypted)
   await send(recipients.filter(r => r.notify_chat).map(r => Number(r.chat_id)), `💬 ${m.sender_name} က Team chat တွင် စာ ပို့ထားသည်။`);
   return json({ sent: event });
 });

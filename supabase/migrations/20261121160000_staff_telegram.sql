@@ -77,7 +77,7 @@ revoke all on function public.redeem_telegram_link_code(text, bigint, text, text
 grant execute on function public.redeem_telegram_link_code(text, bigint, text, text) to service_role;
 
 -- ── 2. Chat-message notices are opt-in; each person sets their own ───────────
-alter table public.telegram_links add column if not exists notify_chat boolean not null default false;
+alter table public.telegram_links add column if not exists notify_chat boolean not null default true;   -- staff can switch it off on their card
 grant update (notify_chat) on public.telegram_links to authenticated;
 drop policy if exists "own_link_update" on public.telegram_links;
 create policy "own_link_update" on public.telegram_links
