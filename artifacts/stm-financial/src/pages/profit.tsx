@@ -45,6 +45,8 @@ const useT = makeT({
   byWhen: { en: "{who} · {when}", my: "{who} · {when}" },
   needsUpdate: { en: "This needs the latest database update. Run the pp_profit_engine SQL in the Supabase SQL Editor.", my: "နောက်ဆုံး database update လိုပါသည်။ Supabase SQL Editor တွင် pp_profit_engine SQL ကို run ပါ။" },
   shiftUndo: { en: "Shift deduction undone", my: "ဆိုင်း နုတ်ချက် ပြန်ဖျက်" },
+  resetEntry: { en: "All P-P data deleted — started over · {lines} lines · {shifts} shift deductions", my: "P-P ဒေတာ အားလုံး ဖျက်ပြီး အစမှ ပြန်စ · စာကြောင်း {lines} · ဆိုင်း နုတ်ချက် {shifts}" },
+  resetReason: { en: "Owner started over", my: "ပိုင်ရှင်က အစမှ ပြန်စခဲ့သည်" },
   tab_profit: { en: "Profit", my: "အမြတ်" },
   tab_stock: { en: "P-P stock", my: "P-P လက်ကျန်" },
   tab_history: { en: "P-P history", my: "P-P မှတ်တမ်း" },
@@ -58,7 +60,7 @@ type Totals = { liters: number; revenue: number; cost: number; settle: number; l
 type ProductRow = { product: PipaProduct; liters: number; revenue: number; cost: number; profit: number; loss: number; unpriced: number };
 type DayRow = { day: string; liters: number; revenue: number; cost: number; profit: number };
 type Result = { from: string; to: string; totals: Totals; products: ProductRow[]; days: DayRow[] };
-type ArchiveRow = { id: string; kind: "movement" | "shift"; summary: string; snapshot: Record<string, unknown>; reason: string; archived_by: string | null; archived_at: string };
+type ArchiveRow = { id: string; kind: "movement" | "shift" | "reset"; summary: string; snapshot: Record<string, unknown>; reason: string; archived_by: string | null; archived_at: string };
 type Period = "today" | "week" | "month" | "lastMonth" | "custom";
 
 const n = (v: unknown) => Number(v) || 0;
@@ -143,6 +145,10 @@ export default function ProfitPage() {
   const fmtWhen = (s: string) => new Date(s).toLocaleString("en-GB", { timeZone: "Asia/Yangon", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
   const archiveText = (a: ArchiveRow) => {
     if (a.kind === "shift") return `${t("shiftUndo")} · ${a.summary.replace(/^Shift sales deduction · /, "")}`;
+    if (a.kind === "reset") {
+      const c = (a.snapshot.counts ?? {}) as Record<string, unknown>;
+      return t("resetEntry", { lines: String(n(c.lines)), shifts: String(n(c.shift_deductions)) });
+    }
     const s = a.snapshot;
     const kind = String(s.kind) as MovementKind;
     return `${pipaKind(tp, kind) || kind} · ${n(s.pipas)} P-P · ${product(String(s.product))}${s.station_name ? ` · ${String(s.station_name)}` : ""} · ${String(s.occurred_on)}`;
@@ -282,7 +288,7 @@ export default function ProfitPage() {
               {archive.map(a => (
                 <li key={a.id} className="py-2 text-sm">
                   <p className="text-slate-900 break-words">{archiveText(a)}</p>
-                  <p className="text-xs text-slate-600 break-words">{t("reason", { r: a.reason })}</p>
+                  <p className="text-xs text-slate-600 break-words">{t("reason", { r: a.kind === "reset" ? t("resetReason") : a.reason })}</p>
                   <p className="text-[11px] text-slate-400">{t("byWhen", { who: a.archived_by ?? "—", when: fmtWhen(a.archived_at) })}</p>
                 </li>
               ))}

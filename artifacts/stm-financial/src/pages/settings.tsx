@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { BellRing, Check, Cylinder, Languages, Loader2 } from "lucide-react";
+import { BellRing, Check, Cylinder, Languages, Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { makeT, setLang, useLang, type Lang } from "@/lib/app-i18n";
+import { messageDialog, typeToConfirm } from "@/components/confirm-dialog";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { usePPSettings, type PPSettings } from "@/lib/pp-settings";
@@ -48,6 +49,21 @@ const useT = makeT({
   rp_monthly: { en: "Monthly", my: "လစဉ်" },
   ppMissing: { en: "Not set up in the database yet — run the pp_profit_engine SQL in the Supabase SQL Editor.", my: "Database တွင် မထည့်ရသေးပါ — Supabase SQL Editor တွင် pp_profit_engine SQL ကို run ပါ။" },
   ppSaved: { en: "Saved for everyone.", my: "အားလုံးအတွက် သိမ်းပြီး။" },
+  resetTitle: { en: "Start over", my: "အစမှ ပြန်စရန်" },
+  resetHelp: { en: "Deletes all P-P data: every purchase and official PO, stock count, lending and borrowing, shift deduction, and the Deleted list. Shift reports, stations and these settings stay.", my: "P-P ဒေတာ အားလုံး ဖျက်ပါမည်: အဝယ်နှင့် တရားဝင် PO အားလုံး၊ လက်ကျန်စစ်ချက်၊ ချေး/ငှား၊ ဆိုင်း နုတ်ချက်၊ ဖျက်ထားသည်များ စာရင်း။ ဆိုင်း စာရင်းများ၊ ဆိုင်/ဂိုဒေါင်များ နှင့် ဤဆက်တင်များ ကျန်ပါမည်။" },
+  resetBtn: { en: "Delete all P-P data", my: "P-P ဒေတာ အားလုံး ဖျက်ရန်" },
+  resetConfirm: {
+    en: "Delete ALL P-P data and start over?\n\nEvery P-P line, purchase, official PO, stock count, lending / borrowing and shift deduction is removed, and the Deleted list is emptied. Profit for past days can't be worked out afterwards.\n\nShifts from before now won't be deducted. Count the stock right after this.\n\nType DELETE to confirm.",
+    my: "P-P ဒေတာ အားလုံး ဖျက်ပြီး အစမှ ပြန်စမလား?\n\nP-P စာကြောင်း၊ အဝယ်၊ တရားဝင် PO၊ လက်ကျန်စစ်ချက်၊ ချေး/ငှား နှင့် ဆိုင်း နုတ်ချက် အားလုံး ပျက်ပြီး ဖျက်ထားသည်များ စာရင်းလည်း ရှင်းပါမည်။ ယခင်ရက်များ၏ အမြတ်ကို နောက်ပိုင်း တွက်၍ မရတော့ပါ။\n\nယခုမတိုင်မီ ဆိုင်းများကို မနုတ်တော့ပါ။ ဖျက်ပြီးတာနဲ့ လက်ကျန် ချက်ချင်း စစ်ပါ။\n\nအတည်ပြုရန် DELETE (သို့) ဖျက်မည် ဟု ရိုက်ပါ။",
+  },
+  resetGo: { en: "Delete everything", my: "အားလုံး ဖျက်မည်" },
+  resetDone: {
+    en: "All P-P data deleted ({lines} lines, {shifts} shift deductions).\n\nNext: P-P Ledger → Count stock. Enter what you have now and tick “Opening stock — enter the price paid” so profit is right from today.",
+    my: "P-P ဒေတာ အားလုံး ဖျက်ပြီး (စာကြောင်း {lines}၊ ဆိုင်း နုတ်ချက် {shifts})။\n\nနောက်တစ်ဆင့်: P-P စာရင်း → လက်ကျန် စစ်ရန်။ ယခုရှိသည်ကို ထည့်ပြီး “စတင်လက်ကျန် — ဝယ်စျေး ထည့်ရန်” ကို ရွေးပါ — ယနေ့ကစ အမြတ် မှန်ပါမည်။",
+  },
+  resetLast: { en: "Last started over: {when}", my: "နောက်ဆုံး အစမှ ပြန်စခဲ့ချိန်: {when}" },
+  resetMissing: { en: "This needs the latest database update — run the pp_reset SQL in the Supabase SQL Editor.", my: "နောက်ဆုံး database update လိုပါသည် — Supabase SQL Editor တွင် pp_reset SQL ကို run ပါ။" },
+  resetFailed: { en: "Nothing was deleted: {e}", my: "ဘာမှ မဖျက်ရသေးပါ: {e}" },
 });
 
 type PPKey = "default_pp_liters" | "auto_deduct" | "managers_see_prices" | "profit_auto" | "profit_report";
@@ -55,9 +71,9 @@ type PPKey = "default_pp_liters" | "auto_deduct" | "managers_see_prices" | "prof
 /** Owner-only: P-P size, automatic deduction, price visibility, profit options (pp_settings). */
 function PPSettingsSection() {
   const t = useT();
-  const { settings, state, setSettings } = usePPSettings();
+  const { settings, state, setSettings, reload } = usePPSettings();
   const [size, setSize] = useState("");
-  const [saving, setSaving] = useState<PPKey | null>(null);
+  const [saving, setSaving] = useState<PPKey | "reset" | null>(null);
   const [note, setNote] = useState("");
   useEffect(() => { if (state === "ready") setSize(String(settings.default_pp_liters)); }, [state, settings.default_pp_liters]);
 
@@ -73,6 +89,22 @@ function PPSettingsSection() {
     const v = parseFloat(size);
     if (!(v >= 1 && v <= 10000)) { setNote(t("ppSizeErr")); return; }
     save("default_pp_liters", v);
+  }
+
+  // Owners only — the database checks that again, and wants the exact phrase.
+  async function resetAll() {
+    setNote("");
+    if (!(await typeToConfirm(t("resetConfirm"), ["DELETE", "ဖျက်မည်"], { confirmLabel: t("resetGo") }))) return;
+    setSaving("reset");
+    const { data, error } = await supabase.rpc("pp_reset_all", { p_confirm: "DELETE ALL P-P" });
+    setSaving(null);
+    if (error) {
+      await messageDialog(error.code === "PGRST202" || error.code === "42883" ? t("resetMissing") : t("resetFailed", { e: error.message }));
+      return;
+    }
+    const r = (data ?? {}) as { lines?: number; shift_deductions?: number };
+    await reload();
+    await messageDialog(t("resetDone", { lines: String(r.lines ?? 0), shifts: String(r.shift_deductions ?? 0) }));
   }
 
   const seg = (on: boolean) => `px-3 py-2 rounded-xl text-xs font-semibold border text-left transition-colors ${on ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-700 border-slate-200"}`;
@@ -137,6 +169,17 @@ function PPSettingsSection() {
                     onClick={() => save("profit_report", v)} className={`${seg(settings.profit_report === v)} text-center`}>{t(`rp_${v}`)}</button>
                 ))}
               </div>
+            </div>
+            <div className="border border-red-200 bg-red-50/60 rounded-xl p-4" data-testid="pp-reset">
+              <p className="flex items-center gap-2 text-sm font-semibold text-red-700"><RotateCcw className="w-4 h-4" /> {t("resetTitle")}</p>
+              <p className="text-xs text-slate-600 mt-1">{t("resetHelp")}</p>
+              {settings.reset_at && (
+                <p className="text-[11px] text-slate-500 mt-1" data-testid="pp-reset-last">{t("resetLast", { when: new Date(settings.reset_at).toLocaleString("en-GB", { timeZone: "Asia/Yangon", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }) })}</p>
+              )}
+              <button type="button" onClick={resetAll} disabled={!!saving} data-testid="pp-reset-btn"
+                className="mt-3 w-full flex items-center justify-center gap-2 bg-white border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50 text-sm font-semibold rounded-xl px-4 py-2.5">
+                {saving === "reset" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} {t("resetBtn")}
+              </button>
             </div>
           </>
         )}

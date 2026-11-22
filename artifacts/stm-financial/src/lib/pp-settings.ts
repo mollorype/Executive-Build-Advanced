@@ -10,6 +10,7 @@ export type PPSettings = {
   managers_see_prices: boolean;
   profit_auto: "off" | "week" | "month";
   profit_report: "off" | "weekly" | "monthly";
+  reset_at?: string | null;   // when an owner last deleted all P-P data (shifts before it aren't deducted)
   updated_at: string | null;
   updated_by: string | null;
 };

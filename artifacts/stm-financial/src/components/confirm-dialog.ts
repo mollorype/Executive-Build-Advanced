@@ -30,7 +30,10 @@ const COLORS = {
   dark: { panel: "#161b22", text: "#f0f6fc", border: "#30363d", cancelBg: "#0d1117", cancelText: "#c9d1d9", primary: "#2563eb" },
 };
 
-type Input = { placeholder?: string; label?: string };
+type Input = { placeholder?: string; label?: string; mustType?: string[] };
+
+// Typed confirmations: case, spaces and invisible characters don't matter.
+const norm = (s: string) => s.normalize("NFC").replace(/[\s​-‍﻿]/g, "").toUpperCase();
 
 function show(message: string, opts: DialogOptions, withCancel: boolean, input?: Input): Promise<{ ok: boolean; value: string }> {
   if (typeof document === "undefined") return Promise.resolve({ ok: false, value: "" });
@@ -63,12 +66,23 @@ function show(message: string, opts: DialogOptions, withCancel: boolean, input?:
     box.setAttribute("aria-describedby", text.id);
     box.appendChild(text);
 
-    // A required note (e.g. why something is being deleted).
-    let field: HTMLTextAreaElement | null = null;
+    // A required note (e.g. why something is being deleted), or a word to type.
+    let field: HTMLTextAreaElement | HTMLInputElement | null = null;
     if (input) {
-      field = document.createElement("textarea");
-      field.rows = 3;
-      field.maxLength = 500;
+      if (input.mustType) {
+        const f = document.createElement("input");
+        f.type = "text";
+        f.autocomplete = "off";
+        f.autocapitalize = "characters";
+        f.spellcheck = false;
+        f.maxLength = 40;
+        field = f;
+      } else {
+        const f = document.createElement("textarea");
+        f.rows = 3;
+        f.maxLength = 500;
+        field = f;
+      }
       field.placeholder = input.placeholder ?? "";
       field.setAttribute("aria-label", input.label ?? input.placeholder ?? "");
       field.dataset.testid = "app-dialog-input";
@@ -112,8 +126,10 @@ function show(message: string, opts: DialogOptions, withCancel: boolean, input?:
     const ok = button(opts.confirmLabel ?? (withCancel ? (opts.danger ? L.del : L.confirm) : L.ok), okColor, "#ffffff", okColor);
     ok.addEventListener("click", () => finish(true));
     if (field) {
-      // Can't confirm with an empty note.
-      const sync = () => { ok.disabled = !field!.value.trim(); ok.style.opacity = ok.disabled ? "0.5" : "1"; };
+      // Can't confirm with an empty note, or until the word is typed.
+      const words = input?.mustType?.map(norm);
+      const ready = () => (words ? words.includes(norm(field!.value)) : !!field!.value.trim());
+      const sync = () => { ok.disabled = !ready(); ok.style.opacity = ok.disabled ? "0.5" : "1"; };
       field.addEventListener("input", sync);
       sync();
     }
@@ -137,6 +153,12 @@ export function confirmDialog(message: string, opts: DialogOptions = {}): Promis
 /** Ask for a reason before doing something. Resolves the reason, or null if cancelled. */
 export function reasonDialog(message: string, opts: DialogOptions & Input = {}): Promise<string | null> {
   return show(message, opts, true, { placeholder: opts.placeholder, label: opts.label }).then(r => (r.ok && r.value ? r.value : null));
+}
+
+/** Ask the user to type a word (any of `words`) before something that can't be undone. */
+export function typeToConfirm(message: string, words: string[], opts: DialogOptions & { placeholder?: string } = {}): Promise<boolean> {
+  return show(message, { danger: true, ...opts }, true, { placeholder: opts.placeholder ?? words[0], label: words[0], mustType: words })
+    .then(r => r.ok && words.map(norm).includes(norm(r.value)));
 }
 
 /** Tell the user something (e.g. why a delete didn't happen). */
