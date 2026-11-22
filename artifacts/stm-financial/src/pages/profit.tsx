@@ -35,7 +35,7 @@ const useT = makeT({
   settle: { en: "Borrow settlements", my: "ချေးယူမှု ရှင်းခြင်း" },
   sold: { en: "Sold", my: "ရောင်း" },
   margin: { en: "{p}/L profit · sold at {s}/L · cost {c}/L", my: "လီတာ အမြတ် {p} · ရောင်း {s}/L · ကုန်ကျ {c}/L" },
-  unpriced: { en: "{v} were sold with no purchase price on record (no P-P bought for them), so their cost isn't counted. Record the purchase or opening stock.", my: "{v} ကို ဝယ်စျေး မှတ်တမ်း မရှိဘဲ ရောင်းခဲ့သဖြင့် ကုန်ကျ မပါပါ။ အဝယ် သို့မဟုတ် စတင်လက်ကျန် ထည့်ပါ။" },
+  unpriced: { en: "{v} were sold with no purchase price yet, so their cost isn't counted. Enter the Big PO price (P-P stock → tap the fuel), or record the missing purchase.", my: "{v} ကို ဝယ်ဈေး မရှိသေးဘဲ ရောင်းထားသဖြင့် ကုန်ကျ မပါပါ။ PO ကြီး ဈေးကို ထည့်ပါ (P-P လက်ကျန် → ဆီကို နှိပ်ပါ) သို့မဟုတ် မထည့်ရသေးသော အဝယ်ကို ထည့်ပါ။" },
   byFuel: { en: "By fuel", my: "ဆီအလိုက်" },
   byDay: { en: "By day", my: "နေ့အလိုက်" },
   ch_pump: { en: "Pumps", my: "ဆီပန့်" },

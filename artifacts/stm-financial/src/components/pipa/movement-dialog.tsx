@@ -15,14 +15,14 @@ import { usePipaT, pipaKind, pipaProduct } from "@/lib/pipa-i18n";
  * (its own button on the P-P Ledger): litres or P-P, priced per litre only,
  * with transport and other fees. Otherwise "Buy" is a purchase from a shop.
  */
-export default function MovementDialog({ stations, balances, initialKind = "buy", initialStationId = "", official: officialMode = false, suggestPo = "", onAddStation, onClose, onSaved }: {
+export default function MovementDialog({ stations, balances, initialKind = "buy", initialStationId = "", official: officialMode = false, canPrice = false, onAddStation, onClose, onSaved }: {
   stations: PipaStation[];
   balances: StationBalances;
   initialKind?: MovementKind;
   initialStationId?: string;
   official?: boolean;
-  /** Big PO number to start with (official purchases). */
-  suggestPo?: string;
+  /** Owners enter the Big PO price (it can also come later); others record date and quantity only. */
+  canPrice?: boolean;
   onAddStation: () => void;
   onClose: () => void;
   /** After saving: what was saved (a new Big PO may leave an older pool to close). */
@@ -43,7 +43,6 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
   const [transport, setTransport] = useState("");
   const [otherFee, setOtherFee] = useState("");
   const [note, setNote] = useState("");
-  const [poNumber, setPoNumber] = useState(suggestPo);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -74,7 +73,9 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
         ? t("nothingOwed", { product: pipaProduct(t, product), station: stationName })
         : t("onlyOwed", { n: fmtPipas(cap), product: pipaProduct(t, product), station: stationName }));
     }
-    if (info.price && (isNaN(nPrice) || nPrice < 0)) return setError(t("priceErr"));
+    if (official) {
+      if (canPrice && unitPrice.trim() !== "" && (isNaN(nPrice) || nPrice < 0)) return setError(t("priceErr"));
+    } else if (info.price && (isNaN(nPrice) || nPrice < 0)) return setError(t("priceErr"));
 
     setBusy(true);
     // The database records the line and what it does to stock and costs, together.
@@ -84,8 +85,9 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
         station_id: info.station ? stationId : null,
         liters_per_pipa: nLiters,
         ...(official
-          ? { source: "official", po_number: poNumber.trim() || null, liters: Math.round(nQtyL * 1000) / 1000, price_mode: "per_liter", unit_price: nPrice,
-              transport_fee: parseFloat(transport) || 0, other_fee: parseFloat(otherFee) || 0 }
+          ? { source: "official", liters: Math.round(nQtyL * 1000) / 1000,
+              ...(canPrice && unitPrice.trim() !== "" ? { price_mode: "per_liter", unit_price: nPrice,
+                  transport_fee: parseFloat(transport) || 0, other_fee: parseFloat(otherFee) || 0 } : {}) }
           : { source: kind === "buy" ? "shop" : null, pipas: nPipas,
               ...(info.price ? { price_mode: priceMode, unit_price: nPrice } : {}) }),
       },
@@ -114,14 +116,6 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
                 {pipaKind(t, k)}
               </button>
             ))}
-          </div>
-        )}
-
-        {official && (
-          <div>
-            <label htmlFor="mv-po" className={labelCls}>{t("poNumber")}</label>
-            <input id="mv-po" value={poNumber} onChange={e => setPoNumber(e.target.value)} maxLength={40} inputMode="numeric"
-              className={`${fieldCls} text-lg font-bold`} placeholder="12" />
           </div>
         )}
 
@@ -192,11 +186,22 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
           </p>
         )}
 
-        {official && (
+        {official && !canPrice && (
+          <p className="text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2" data-testid="mv-owner-prices">{t("ownerPrices")}</p>
+        )}
+        {official && !canPrice && (
+          <div className="w-1/2 pr-1.5">
+            <label htmlFor="mv-size3" className={labelCls}>{t("ppSize")}</label>
+            <input id="mv-size3" type="number" inputMode="decimal" min="0" step="any" value={litersPerPipa}
+              onChange={e => setLitersPerPipa(e.target.value)} className={fieldCls} />
+          </div>
+        )}
+        {official && canPrice && (
           <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-3">
+            <p className="text-[11px] text-slate-500">{t("priceLater")}</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor="mv-price" className={labelCls}>{t("mmkPerL")} *</label>
+                <label htmlFor="mv-price" className={labelCls}>{t("mmkPerL")}</label>
                 <input id="mv-price" type="number" inputMode="decimal" min="0" step="any" value={unitPrice}
                   onChange={e => setUnitPrice(e.target.value)} className={fieldCls} placeholder="0" />
               </div>

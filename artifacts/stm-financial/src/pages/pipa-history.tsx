@@ -9,6 +9,8 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { usePipaT, pipaProduct, type PipaT } from "@/lib/pipa-i18n";
 import { reasonDialog } from "@/components/confirm-dialog";
+import { PoPriceDialog } from "@/components/pipa/fuel-stock-sheet";
+import { poDate } from "@/lib/pools";
 import { AlertTriangle, ArrowLeft, ChevronDown, Loader2, Trash2, Undo2, X } from "lucide-react";
 
 /** A history row: one P-P line, or one shift's "sold" lines together. */
@@ -74,7 +76,7 @@ function purchaseCost(m: PipaMovement): { spent: number; liters: number; perL: n
 function badge(m: PipaMovement, t: PipaT): { label: string; cls: string } {
   switch (m.kind) {
     case "buy": return m.source === "official"
-      ? { label: m.po_number ? `${t("b_official")} · ${t("poNo", { n: m.po_number })}` : t("b_official"), cls: "bg-emerald-100 text-emerald-800" }
+      ? { label: t("poOf", { d: poDate(m.occurred_on) }), cls: "bg-emerald-100 text-emerald-800" }
       : { label: t("b_shop"), cls: "bg-yellow-100 text-yellow-800" };
     case "borrow": case "borrow_returned": case "borrow_paid":
       return { label: t(`b_${m.kind}`), cls: "bg-orange-100 text-orange-800" };
@@ -137,6 +139,7 @@ export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pricing, setPricing] = useState<PipaMovement | null>(null);
   const [open, setOpen] = useState<Partial<Record<PipaProduct, boolean>>>({});
   const [cat, setCat] = useState<Partial<Record<PipaProduct, Cat>>>({});
   const [shown, setShown] = useState<Partial<Record<PipaProduct, number>>>({});
@@ -205,9 +208,10 @@ export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
       const d = stockDelta(m), l = movementLiters(m);
       if (d > 0) { g.inPP += d; g.inL += l; } else if (d < 0) { g.outPP -= d; g.outL += l; }
       const c = purchaseCost(m);
+      if (m.kind === "buy") g.src[m.source === "official" ? "official" : "shop"].buys++;   // a Big PO still waiting for its price counts too
       if (c) {
         const s = g.src[m.source === "official" ? "official" : "shop"];
-        g.spent += c.spent; s.buys++; s.spent += c.spent;
+        g.spent += c.spent; s.spent += c.spent;
         const at = `${m.occurred_on}|${m.created_at}`;
         if (!s.last || at > s.last.at) s.last = { perL: c.perL, on: m.occurred_on, at };
       }
@@ -302,6 +306,13 @@ export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
             </div>
           )}
           {sub && <p className="text-xs text-slate-500 mt-0.5 break-words tabular-nums">{sub}</p>}
+          {/* A Big PO waiting for the owner's price */}
+          {m.kind === "buy" && m.source === "official" && m.unit_price == null && (owner ? (
+            <button type="button" onClick={() => setPricing(m)} data-testid="pp-row-enter-price"
+              className="mt-1 text-xs font-bold text-white bg-red-600 rounded-lg px-2.5 py-1">{t("priceNeeded")} · {t("enterPrice")}</button>
+          ) : (
+            <p className="mt-0.5 text-[11px] text-slate-500">{t("ownerPrices")}</p>
+          ))}
           <p className="text-[11px] text-slate-400 mt-0.5 break-words">
             {m.occurred_on}{note && (m.kind !== "adjust" || short) ? ` · ${note}` : ""}{by(m.created_by)}
           </p>
@@ -434,6 +445,11 @@ export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
           </div>
         )}
         <p className="text-[11px] text-slate-400">{t("cashNote")}</p>
+        {pricing && (
+          <PoPriceDialog movementId={pricing.id} label={t("poOf", { d: poDate(pricing.occurred_on) })} product={pricing.product}
+            liters={movementLiters(pricing)} onClose={() => setPricing(null)}
+            onDone={() => { setPricing(null); setNotice(t("priceSaved"), true); load(); }} />
+        )}
       </div>
   );
 }

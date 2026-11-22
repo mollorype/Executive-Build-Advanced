@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { supabase } from "@/lib/supabase";
 import {
   PIPA_PRODUCTS, PIPA_STATIONS_TABLE,
-  fmtLiters, fmtMMK, fmtPipas, normalizeMovement, priceBreakdown, purchasePrices, stationBalances, stockByProduct, yangonToday,
+  fmtLiters, fmtMMK, fmtPipas, normalizeMovement, priceBreakdown, purchasePrices, stationBalances, stockByProduct,
   type MovementKind, type PipaMovement, type PipaProduct, type PipaStation,
 } from "@/lib/pipa-ledger";
 import MovementDialog from "@/components/pipa/movement-dialog";
@@ -75,15 +75,6 @@ export default function PipaLedger() {
   const balances = useMemo(() => stationBalances(movements), [movements]);
   const prices = useMemo(() => purchasePrices(movements), [movements]);
   const stationName = useMemo(() => Object.fromEntries(stations.map(s => [s.id, s.name])), [stations]);
-  // Next Big PO number: today's if another fuel of today's PO is already in, else the highest + 1.
-  const nextPo = useMemo(() => {
-    const today = yangonToday();
-    const official = movements.filter(m => m.kind === "buy" && m.source === "official" && m.po_number);
-    const same = official.find(m => m.occurred_on === today)?.po_number;
-    if (same) return same;
-    const top = Math.max(0, ...official.map(m => parseInt(m.po_number ?? "", 10)).filter(n => Number.isFinite(n)));
-    return String(top + 1);
-  }, [movements]);
   const lastBuy = useMemo(() => {
     const out: Record<string, PipaMovement> = {};
     for (const m of movements) if (m.kind === "buy" && m.station_id && !out[m.station_id]) out[m.station_id] = m; // newest first
@@ -252,7 +243,7 @@ export default function PipaLedger() {
           initialKind={dialog.kind}
           initialStationId={dialog.stationId}
           official={dialog.official}
-          suggestPo={nextPo}
+          canPrice={owner}
           onAddStation={() => setDialog({ type: "station", station: null, reopenMovement: true, reopenOfficial: !!dialog.official })}
           onClose={() => setDialog(null)}
           onSaved={s => { done(t("saved")); if (s.official) askOldPool(s.product); }}
