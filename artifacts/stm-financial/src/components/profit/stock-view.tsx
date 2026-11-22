@@ -9,7 +9,7 @@ import {
 } from "@/lib/pipa-ledger";
 import { vol, type VolUnit } from "@/lib/units";
 import StockCards, { useCountUp } from "@/components/pipa/stock-cards";
-import { buildFuelBars, carriedLots, fuelStarts, type BarKind, type BarLine, type BarLot, type FuelBar } from "@/lib/stock-bars";
+import PoolView from "@/components/pipa/pool-view";
 
 const useT = makeT({
   p_92: { en: "Fuel 92", my: "ဓာတ်ဆီ 92" },
@@ -28,32 +28,7 @@ const useT = makeT({
   lastOn: { en: "Last borrowed {d}", my: "နောက်ဆုံး ချေးယူ {d}" },
   settledPct: { en: "{p}% settled", my: "{p}% ရှင်းပြီး" },
   noneOwed: { en: "Nothing borrowed is outstanding — all settled.", my: "ပြန်ပေးရန် ကျန်သော ချေးယူမှု မရှိပါ — အားလုံး ရှင်းပြီး။" },
-  barsTitle: { en: "Stock since the big PO", my: "PO ကြီး နောက်ပိုင်း လက်ကျန်" },
-  barsHelp: { en: "Each bar is the weekly big PO plus everything that came in after it. Sales come off the left (faded); the solid part is what's left.", my: "ဘားတစ်ခုစီသည် တစ်ပတ်တစ်ခါ ဝင်သော PO ကြီး နှင့် ၎င်းနောက် ဝင်လာသမျှ ပေါင်းထားခြင်း ဖြစ်သည်။ အရောင်းကို ဘယ်ဘက်မှ နုတ်သည် (မှိန်)။ အရောင်ရင့်သည့် အပိုင်းသည် ကျန်ငွေ ဖြစ်သည်။" },
-  k_official: { en: "Big PO", my: "PO ကြီး" },
-  k_shop: { en: "Shop purchase", my: "ဆိုင်မှ ဝယ်" },
-  k_borrow: { en: "Borrowed", my: "ချေးယူ" },
-  k_carry: { en: "Left from before", my: "ယခင်ကျန်" },
-  k_count: { en: "Stock count", my: "လက်ကျန်စစ်" },
-  k_other: { en: "Other", my: "အခြား" },
-  faded: { en: "faded = sold / gone", my: "မှိန် = ရောင်း/ထွက်ပြီး" },
-  leftPct: { en: "Left {v} · {p}%", my: "ကျန် {v} · {p}%" },
-  total: { en: "Total {v}", my: "စုစုပေါင်း {v}" },
-  out: { en: "Sold / gone {v}", my: "ရောင်း/ထွက်ပြီး {v}" },
-  since: { en: "From the PO of {d}", my: "{d} PO ကြီးမှ စ" },
-  noPO: { en: "No big PO yet — stock on hand", my: "PO ကြီး မရှိသေး — လက်ကျန်သာ" },
 });
-
-const KINDS: BarKind[] = ["carry", "official", "count", "shop", "borrow", "other"];
-const COLOR: Record<BarKind, { solid: string; faded: string; dot: string }> = {
-  carry:    { solid: "bg-slate-400",   faded: "bg-slate-400/25",   dot: "bg-slate-400" },
-  official: { solid: "bg-emerald-500", faded: "bg-emerald-500/25", dot: "bg-emerald-500" },
-  count:    { solid: "bg-green-300",   faded: "bg-green-300/35",   dot: "bg-green-300" },
-  shop:     { solid: "bg-yellow-400",  faded: "bg-yellow-400/30",  dot: "bg-yellow-400" },
-  borrow:   { solid: "bg-orange-500",  faded: "bg-orange-500/25",  dot: "bg-orange-500" },
-  other:    { solid: "bg-sky-400",     faded: "bg-sky-400/25",     dot: "bg-sky-400" },
-};
-const daysAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toLocaleDateString("en-CA", { timeZone: "Asia/Yangon" }); };
 
 type Owed = { stationId: string; product: PipaProduct; took: number; back: number; paid: number; owe: number; oweL: number; lastOn: string };
 
@@ -81,7 +56,7 @@ export default function StockView({ unit }: { unit: VolUnit }) {
   const [, setLocation] = useLocation();
   const [movements, setMovements] = useState<PipaMovement[] | null>(null);
   const [stations, setStations] = useState<PipaStation[]>([]);
-  const [bars, setBars] = useState<FuelBar[] | null>(null);
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -89,26 +64,6 @@ export default function StockView({ unit }: { unit: VolUnit }) {
       setMovements(((mv.data ?? []) as Record<string, unknown>[]).map(r => normalizeMovement(r)));
       setStations((st.data ?? []) as PipaStation[]);
 
-      // Bars: every purchase still holding fuel, plus recent ones (this week's PO and what came after it).
-      const [open, recent] = await Promise.all([
-        supabase.from("pp_lots").select("id, product, source, occurred_on, created_at, liters, remaining").gt("remaining", 0.0005),
-        supabase.from("pp_lots").select("id, product, source, occurred_on, created_at, liters, remaining").gte("occurred_on", daysAgo(120)),
-      ]);
-      const byId = new Map<string, BarLot>();
-      for (const r of [...(open.data ?? []), ...(recent.data ?? [])] as Record<string, unknown>[]) {
-        byId.set(String(r.id), { id: String(r.id), product: String(r.product), source: String(r.source), occurred_on: String(r.occurred_on),
-          created_at: String(r.created_at), liters: Number(r.liters) || 0, remaining: Number(r.remaining) || 0 });
-      }
-      const lots = [...byId.values()];
-      const carried = carriedLots(lots);
-      let lines: BarLine[] = [];
-      if (carried.length) {
-        const starts = fuelStarts(lots);
-        const from = carried.map(l => starts[l.product]?.occurred_on ?? "").sort()[0];
-        const { data } = await supabase.from("pp_cost_lines").select("lot_id, liters, occurred_on").in("lot_id", carried.map(l => l.id)).gte("occurred_on", from);
-        lines = ((data ?? []) as Record<string, unknown>[]).map(r => ({ lot_id: String(r.lot_id), liters: Number(r.liters) || 0, occurred_on: String(r.occurred_on) }));
-      }
-      setBars(buildFuelBars(lots, lines, PIPA_PRODUCTS));
     })();
   }, []);
 
@@ -123,7 +78,7 @@ export default function StockView({ unit }: { unit: VolUnit }) {
     }
     return out;
   }, [owed, stations]);
-  const borrowBase = 620 + (bars?.length ?? 0) * 110;
+  const borrowBase = 620;
   const totals = PIPA_PRODUCTS.map(p => ({ p, owe: round3(owed.filter(o => o.product === p).reduce((s, o) => s + o.owe, 0)) })).filter(x => x.owe > 0);
 
   return (
@@ -135,22 +90,9 @@ export default function StockView({ unit }: { unit: VolUnit }) {
       </div>
       <StockCards stock={stock} loading={movements === null} animate />
 
-      {/* This week's capacity per fuel: big PO + what came in after it, used part faded */}
-      {bars && bars.length > 0 && (
-        <section className="space-y-3" data-testid="profit-bars">
-          <div>
-            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t("barsTitle")}</h2>
-            <p className="text-[11px] text-slate-500 mt-0.5">{t("barsHelp")}</p>
-            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[11px] text-slate-600">
-              {KINDS.filter(k => bars.some(b => b.parts[k] > 0)).map(k => (
-                <span key={k} className="flex items-center gap-1"><i className={`w-2.5 h-2.5 rounded-sm ${COLOR[k].dot}`} />{t(`k_${k}`)}</span>
-              ))}
-              <span className="text-slate-400">· {t("faded")}</span>
-            </div>
-          </div>
-          {bars.map((b, i) => <StockBar key={b.product} bar={b} unit={unit} label={t(`p_${b.product as PipaProduct}`)} delay={620 + i * 110} />)}
-        </section>
-      )}
+      {notice && <p className="text-sm font-medium text-pale-green-foreground" role="status">{notice}</p>}
+      {/* Fuel pools: Big PO + what came in after it; owners can close one */}
+      <PoolView unit={unit} canClose onChanged={m => { setNotice(m); setTimeout(() => setNotice(""), 3000); }} />
 
       {/* Borrowed P-P still owed — the only part drawn as a picture */}
       <section className="space-y-3" data-testid="profit-borrowed">
@@ -233,36 +175,3 @@ function OwedRow({ o, unit, label, delay }: { o: Owed; unit: VolUnit; label: str
   );
 }
 
-/** One fuel's bar: segments in the order the stock is used, each faded for what's gone. */
-function StockBar({ bar, unit, label, delay }: { bar: FuelBar; unit: VolUnit; label: string; delay: number }) {
-  const t = useT();
-  const pct = bar.capacity > 0 ? Math.round((bar.remaining / bar.capacity) * 100) : 0;
-  const shownPct = useCountUp(pct, true, 1000);
-  const parts = KINDS.filter(k => bar.parts[k] > 0.0005);
-  return (
-    <div className="pp-rise bg-white border border-slate-100 rounded-xl p-4 space-y-2" style={{ animationDelay: `${delay}ms` }} data-testid={`profit-bar-${bar.product}`}>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-sm font-bold text-slate-900">{label}</span>
-        <span className="text-xs font-semibold text-slate-700 tabular-nums">{t("leftPct", { v: vol(bar.remaining, unit), p: shownPct })}</span>
-      </div>
-      <div className="h-4 rounded-full bg-slate-100 overflow-hidden">
-        <div className="pp-fill flex h-full" style={{ animationDelay: `${delay + 150}ms` }}>
-          {bar.segments.map((s, i) => (
-            <div key={s.lotId} className={`flex h-full ${i ? "border-l-2 border-white" : ""}`} style={{ width: `${(s.capacity / bar.capacity) * 100}%` }} data-kind={s.kind}>
-              <div className={COLOR[s.kind].faded} style={{ width: `${s.capacity > 0 ? ((s.capacity - s.remaining) / s.capacity) * 100 : 0}%` }} />
-              <div className={`flex-1 ${COLOR[s.kind].solid}`} />
-            </div>
-          ))}
-        </div>
-      </div>
-      <p className="text-[11px] text-slate-600 tabular-nums">
-        {t("total", { v: vol(bar.capacity, unit) })}
-        {parts.length > 1 && <> = {parts.map((k, i) => <span key={k}>{i ? " + " : ""}<i className={`inline-block w-2 h-2 rounded-sm mr-0.5 ${COLOR[k].dot}`} />{t(`k_${k}`)} {vol(bar.parts[k], unit)}</span>)}</>}
-      </p>
-      <div className="flex justify-between gap-2 text-[11px] text-slate-400 tabular-nums">
-        <span>{t("out", { v: vol(bar.out, unit) })}</span>
-        <span>{bar.since ? t("since", { d: bar.since }) : t("noPO")}</span>
-      </div>
-    </div>
-  );
-}

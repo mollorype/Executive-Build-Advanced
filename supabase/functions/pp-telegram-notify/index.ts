@@ -3,6 +3,9 @@
 //   { "event": "archived", "id": <pp_archive id> }
 //       Sent by the pp_archive_notify trigger when an accountant or manager
 //       deletes a P-P line or undoes a shift deduction (with their reason).
+//   { "event": "pool_closed", "id": <pp_pools id> }
+//       Sent by pp_close_pool when a manager closes a fuel pool (what was
+//       left is written off as a loss).
 //   { "event": "profit_report" }
 //       Sent every morning by pg_cron. Sends last week's / last month's profit
 //       when that is switched on in STM Financial → Settings and one is due.
@@ -16,7 +19,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { tg } from "../_shared/telegram.ts";
-import { buildArchiveMessage, buildReportMessage, reportPeriod, type ArchiveRow, type Profit } from "./message.ts";
+import { buildArchiveMessage, buildPoolMessage, buildReportMessage, reportPeriod, type ArchiveRow, type PoolRow, type Profit } from "./message.ts";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const json = (body: unknown, status = 200) =>
@@ -26,7 +29,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
   const body = await req.json().catch(() => null) as { event?: unknown; id?: unknown } | null;
   const event = body?.event;
-  if (event !== "archived" && event !== "profit_report") return json({ error: "bad event" }, 400);
+  if (event !== "archived" && event !== "pool_closed" && event !== "profit_report") return json({ error: "bad event" }, 400);
 
   const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
   if (!token) return json({ error: "TELEGRAM_BOT_TOKEN not set" }, 500);
@@ -64,6 +67,28 @@ Deno.serve(async (req) => {
     if (!rows?.length) return json({ skipped: "not found or already sent" });
     return send(buildArchiveMessage(rows[0] as ArchiveRow),
       () => db.from("pp_archive").update({ notified_at: null }).eq("id", id));
+  }
+
+  if (event === "pool_closed") {
+    const id = body?.id;
+    if (typeof id !== "string" || !UUID_RE.test(id)) return json({ error: "bad id" }, 400);
+    if (chatIds.length === 0) return json({ skipped: "no owner has connected Telegram" });
+    // Claim: a closed pool not announced yet.
+    const { data: rows, error } = await db.from("pp_pools")
+      .update({ notified_at: new Date().toISOString() })
+      .eq("id", id).not("closed_at", "is", null).is("notified_at", null)
+      .select("product, started_on, closed_at, closed_by, close_reason, close_note, close_movement_id");
+    if (error) return json({ error: error.message }, 500);
+    if (!rows?.length) return json({ skipped: "not found or already sent" });
+    const pool = rows[0] as PoolRow & { close_movement_id: string | null };
+    let liters = 0, cost: number | null = null;
+    if (pool.close_movement_id) {
+      const { data: lines } = await db.from("pp_cost_lines").select("liters, cost").eq("movement_id", pool.close_movement_id);
+      for (const l of lines ?? []) { liters += Number(l.liters) || 0; cost = (cost ?? 0) + (Number(l.cost) || 0); }
+    }
+    const { data: cfg } = await db.from("pp_settings").select("default_pp_liters").maybeSingle();
+    return send(buildPoolMessage(pool, liters, cost, Number(cfg?.default_pp_liters) || 215),
+      () => db.from("pp_pools").update({ notified_at: null }).eq("id", id));
   }
 
   // profit_report

@@ -184,7 +184,7 @@ export type Shift = {
   pipa_amount: number | null;
   pipa_price: number | null;
   pipa_total: number | null;
-  pipa_items: { product: string; containers: number; price: number; total: number }[] | null;
+  pipa_items: { product: string; containers: number; liters_per_pipa?: number; price: number; total: number }[] | null;
   jelly_can_items: { product: string; pieces: number; liters_per_can: number; total_liters: number; price: number; total: number }[] | null;
   /** How STM Daily recorded the Pipa + Jelly Can total being paid (newer shifts only). */
   pipa_jelly_payment: PipaJellyPayment | null;

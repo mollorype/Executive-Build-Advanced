@@ -19,6 +19,7 @@ const useT = makeT({
   p_D: { en: "Diesel", my: "ဒီဇယ်" },
   today: { en: "Today", my: "ယနေ့" },
   week: { en: "This week", my: "ဤအပတ်" },
+  lastWeek: { en: "Last week", my: "ပြီးခဲ့သည့်အပတ်" },
   month: { en: "This month", my: "ဤလ" },
   lastMonth: { en: "Last month", my: "ပြီးခဲ့သည့်လ" },
   custom: { en: "Dates", my: "ရက်ရွေး" },
@@ -29,7 +30,7 @@ const useT = makeT({
   profit: { en: "Profit", my: "အမြတ်" },
   sales: { en: "Sales", my: "ရောင်းရငွေ" },
   fuelCost: { en: "Fuel cost", my: "ဆီ ကုန်ကျ" },
-  losses: { en: "Count shortages", my: "စစ်ဆေးချက် လို" },
+  losses: { en: "Shortages & closed pools", my: "လို / ပိတ်ပြီး pool ဆုံးရှုံး" },
   used: { en: "Used (not sold)", my: "သုံးစွဲ (မရောင်း)" },
   settle: { en: "Borrow settlements", my: "ချေးယူမှု ရှင်းခြင်း" },
   sold: { en: "Sold", my: "ရောင်း" },
@@ -37,6 +38,12 @@ const useT = makeT({
   unpriced: { en: "{v} were sold with no purchase price on record (no P-P bought for them), so their cost isn't counted. Record the purchase or opening stock.", my: "{v} ကို ဝယ်စျေး မှတ်တမ်း မရှိဘဲ ရောင်းခဲ့သဖြင့် ကုန်ကျ မပါပါ။ အဝယ် သို့မဟုတ် စတင်လက်ကျန် ထည့်ပါ။" },
   byFuel: { en: "By fuel", my: "ဆီအလိုက်" },
   byDay: { en: "By day", my: "နေ့အလိုက်" },
+  ch_pump: { en: "Pumps", my: "ဆီပန့်" },
+  ch_pipa: { en: "P-P sold", my: "P-P ရောင်း" },
+  ch_jc: { en: "J-C", my: "J-C" },
+  ch_station: { en: "Sold to stations", my: "ဆိုင်သို့ ရောင်း" },
+  ch_mixed: { en: "Before the split", my: "ယခင် (မခွဲရသေး)" },
+  chLine: { en: "{v} · sold at {s}/L", my: "{v} · ရောင်း {s}/L" },
   nothing: { en: "No sales or stock changes in this period.", my: "ဤကာလတွင် အရောင်း သို့မဟုတ် လက်ကျန် ပြောင်းလဲမှု မရှိပါ။" },
   archive: { en: "Deleted (archive)", my: "ဖျက်ထားသည်များ (မှတ်တမ်းဟောင်း)" },
   archiveHelp: { en: "Every deleted P-P line and undone shift deduction, with the reason. Only owners see this.", my: "ဖျက်ထားသော P-P စာကြောင်း နှင့် ပြန်ဖျက်ထားသော ဆိုင်း နုတ်ချက်အားလုံး၊ အကြောင်းပြချက်နှင့်တကွ။ ပိုင်ရှင်သာ မြင်ရသည်။" },
@@ -59,9 +66,11 @@ type Tab = (typeof TABS)[number];
 type Totals = { liters: number; revenue: number; cost: number; settle: number; loss: number; used: number; unpriced: number; profit: number };
 type ProductRow = { product: PipaProduct; liters: number; revenue: number; cost: number; profit: number; loss: number; unpriced: number };
 type DayRow = { day: string; liters: number; revenue: number; cost: number; profit: number };
-type Result = { from: string; to: string; totals: Totals; products: ProductRow[]; days: DayRow[] };
+type ChannelRow = { product: PipaProduct; channel: "pump" | "pipa" | "jc" | "station" | "mixed"; liters: number; revenue: number; cost: number; profit: number };
+type Result = { from: string; to: string; totals: Totals; products: ProductRow[]; days: DayRow[]; channels?: ChannelRow[] };
 type ArchiveRow = { id: string; kind: "movement" | "shift" | "reset"; summary: string; snapshot: Record<string, unknown>; reason: string; archived_by: string | null; archived_at: string };
-type Period = "today" | "week" | "month" | "lastMonth" | "custom";
+type Period = "today" | "week" | "lastWeek" | "month" | "lastMonth" | "custom";
+const CH_ORDER = ["pump", "pipa", "jc", "station", "mixed"] as const;
 
 const n = (v: unknown) => Number(v) || 0;
 const pad = (x: number) => String(x).padStart(2, "0");
@@ -71,10 +80,12 @@ const isoOf = (d: Date) => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${
 export function periodRange(p: Exclude<Period, "custom">, today = yangonToday()): { from: string; to: string } {
   const d = new Date(`${today}T00:00:00Z`);
   if (p === "today") return { from: today, to: today };
-  if (p === "week") {
-    const back = (d.getUTCDay() + 6) % 7;   // Monday first
-    const from = new Date(d); from.setUTCDate(d.getUTCDate() - back);
-    return { from: isoOf(from), to: today };
+  if (p === "week" || p === "lastWeek") {
+    const back = (d.getUTCDay() + 6) % 7;   // weeks run Monday – Sunday
+    const from = new Date(d); from.setUTCDate(d.getUTCDate() - back - (p === "lastWeek" ? 7 : 0));
+    if (p === "week") return { from: isoOf(from), to: today };
+    const to = new Date(from); to.setUTCDate(from.getUTCDate() + 6);
+    return { from: isoOf(from), to: isoOf(to) };
   }
   if (p === "month") return { from: `${today.slice(0, 8)}01`, to: today };
   const from = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1));
@@ -89,9 +100,10 @@ export default function ProfitPage() {
   const tp = usePipaT();
   const { settings, state: settingsState } = usePPSettings();
   const [unit, setUnit] = useState<VolUnit>(readUnit);
-  const [period, setPeriod] = useState<Period>("month");
-  const [from, setFrom] = useState(periodRange("month").from);
-  const [to, setTo] = useState(periodRange("month").to);
+  // Profit is looked at a week (Monday – Sunday) at a time.
+  const [period, setPeriod] = useState<Period>("week");
+  const [from, setFrom] = useState(periodRange("week").from);
+  const [to, setTo] = useState(periodRange("week").to);
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -193,7 +205,7 @@ export default function ProfitPage() {
         {/* Period + calculate */}
         <section className={`${card} space-y-3`}>
           <div className="flex flex-wrap gap-2">
-            {(["today", "week", "month", "lastMonth", "custom"] as const).map(p => (
+            {(["week", "lastWeek", "today", "month", "lastMonth", "custom"] as const).map(p => (
               <button key={p} type="button" onClick={() => pick(p)} className={chip(period === p)} aria-pressed={period === p}>{t(p)}</button>
             ))}
           </div>
@@ -252,6 +264,23 @@ export default function ProfitPage() {
                           <div className="flex justify-between gap-2"><span className="font-semibold text-slate-900">{product(r.product)}</span>
                             <span className={`font-bold tabular-nums ${n(r.profit) >= 0 ? "text-pale-green-foreground" : "text-pale-red-foreground"}`}>{signed(n(r.profit))}</span></div>
                           {l > 0 && <p className="text-xs text-slate-500 tabular-nums">{vol(l, unit)} · {t("margin", { p: mmk(n(r.profit) / l), s: mmk(n(r.revenue) / l), c: mmk(n(r.cost) / l) })}</p>}
+                          {/* Each way it was sold, with its own price per litre */}
+                          {(() => {
+                            const chs = (result.channels ?? []).filter(c => c.product === r.product && n(c.liters) > 0)
+                              .sort((a, b) => CH_ORDER.indexOf(a.channel) - CH_ORDER.indexOf(b.channel));
+                            if (chs.length < 2 && chs[0]?.channel !== "station" && chs[0]?.channel !== "pipa" && chs[0]?.channel !== "jc") return null;
+                            return (
+                              <ul className="mt-1.5 ml-2 pl-2 border-l-2 border-slate-100 space-y-1" data-testid={`profit-channels-${r.product}`}>
+                                {chs.map(c => (
+                                  <li key={c.channel} className="flex items-baseline justify-between gap-2 text-xs">
+                                    <span className="text-slate-600 min-w-0"><span className="font-semibold text-slate-700">{t(`ch_${c.channel}`)}</span>{" "}
+                                      <span className="tabular-nums text-slate-500">{t("chLine", { v: vol(n(c.liters), unit), s: mmk(n(c.revenue) / n(c.liters)) })}</span></span>
+                                    <span className={`shrink-0 font-semibold tabular-nums ${n(c.profit) >= 0 ? "text-pale-green-foreground" : "text-pale-red-foreground"}`}>{signed(n(c.profit))}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            );
+                          })()}
                         </li>
                       );
                     })}

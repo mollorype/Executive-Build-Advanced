@@ -20,6 +20,8 @@ const KIND: Record<string, string> = {
   lend_paid: "ချေးပေးတာ ငွေရ / They paid cash",
   used: "သုံးစွဲ (မရောင်း) / Used (not sold)",
   adjust: "လက်ကျန် စစ် / Stock count",
+  sell: "ဆိုင်သို့ ရောင်း / Sold to a station",
+  write_off: "Pool ပိတ် / Pool closed",
 };
 const ROLE: Record<string, string> = { ceo: "Owner", accountant: "Accountant", manager: "Manager" };
 
@@ -94,5 +96,28 @@ export function buildReportMessage(p: Profit, from: string, to: string, portal: 
   }
   if (num(t.unpriced) > 0) lines.push("", `⚠️ ${fmt(num(t.unpriced), 2)} L ဝယ်စျေး မရှိ / sold without a purchase price`);
   lines.push("", `${portal}/profit`);
+  return lines.join("\n");
+}
+
+export type PoolRow = {
+  product: string;
+  started_on: string;
+  closed_at: string | null;
+  closed_by: string | null;
+  close_reason: string | null;
+  close_note: string | null;
+};
+const WHY: Record<string, string> = { shortage: "ဆီလို / Shortage", spill: "ဖိတ်စင် / Spill", other: "အခြား / Other" };
+
+/** A manager closed a fuel pool: what was left is written off. */
+export function buildPoolMessage(p: PoolRow, liters: number, cost: number | null, ppLiters: number): string {
+  const lines = [
+    "🔒 Pool ပိတ်သည် / Fuel pool closed",
+    "",
+    `${FUEL[p.product] ?? p.product} · ${day(p.started_on)} pool`,
+    `ဆုံးရှုံး / Written off: ${fmt(liters / (ppLiters || 215), 3)} P-P (${fmt(liters, 2)} L)${cost != null && cost > 0 ? ` · ${mmk(cost)}` : ""}`,
+    `အကြောင်းရင်း / Why: ${WHY[p.close_reason ?? ""] ?? p.close_reason ?? "—"}${p.close_note ? ` — ${p.close_note}` : ""}`,
+    `ပိတ်သူ / By: ${p.closed_by ?? "—"} (Manager)`,
+  ];
   return lines.join("\n");
 }

@@ -31,7 +31,7 @@ interface FuelRow { totalAmount: string; price: string; liters: string; auto?: "
 interface DieselRow { cash: string; price: string; }
 interface ExpenseItem { name: string; amount: string; profileId?: string; txnType?: "payment" | "debt"; note?: string; }
 type PipaProduct = "92" | "95" | "PD" | "D";
-interface PipaItem { product: PipaProduct; containers: string; price: string; total: string; auto?: "containers" | "total" | null; }
+interface PipaItem { product: PipaProduct; containers: string; liters?: string; price: string; total: string; auto?: "containers" | "total" | null; }
 interface JellyCanItem { product: PipaProduct; pieces: string; liters: string; price: string; total: string; auto?: "pieces" | "total" | null; }
 /** How the Pipa + Jelly Can total was paid. `amount`: cash received (partial) or the extra paid ahead (advance). */
 type PipaJellyPayMode = "full" | "partial" | "advance";
@@ -170,6 +170,8 @@ const STRINGS = {
   removeJellyN:         { en: "Remove J-C entry {n}", my: "J-C {n} ဖယ်ရန်" },
   pieces:               { en: "Pieces", my: "အရေအတွက်" },
   litersPerCan:         { en: "Liters / Can", my: "တစ်ပုံး လီတာ" },
+  litersPerPipa:        { en: "Liters / P-P", my: "P-P တစ်ခု လီတာ" },
+  pipaDefaultL:         { en: "Default 1 P-P = 215 L", my: "ပုံမှန် 1 P-P = 215 L" },
   litersTotal:          { en: "{l} L total", my: "စုစုပေါင်း {l} L" },
   pricePerCan:          { en: "Per Price", my: "တစ်ခု စျေး" },
   addJelly:             { en: "Add J-C", my: "J-C ထည့်ရန်" },
@@ -393,6 +395,9 @@ const PIPA_LINK: LinkKeys = { total: "total", qty: "containers" };
 const JELLY_LINK: LinkKeys = { total: "total", qty: "pieces" };
 /** A new Jelly Can entry starts at 18 L a can; staff can change it per entry. */
 const JELLY_DEFAULT_LITERS = "18";
+const PIPA_DEFAULT_LITERS = "215";
+/** Litres in one P-P sold — what the staff typed, 215 if left empty. */
+const pipaLiters = (i: PipaItem) => (n(i.liters ?? "") > 0 ? n(i.liters ?? "") : 215);
 const PIECE_FMT: LinkFmt = { total: moneyStr, qty: qtyStr };
 
 /**
@@ -444,7 +449,7 @@ function PipaPanel({ items, onChange, lang }: {
   lang: Lang;
 }) {
   function add() {
-    onChange([...items, { product: "92", containers: "", price: "", total: "" }]);
+    onChange([...items, { product: "92", containers: "", liters: PIPA_DEFAULT_LITERS, price: "", total: "" }]);
   }
   function remove(i: number) {
     onChange(items.filter((_, idx) => idx !== i));
@@ -457,7 +462,7 @@ function PipaPanel({ items, onChange, lang }: {
     <div className="bg-[#161b22] rounded-2xl border border-[#30363d] overflow-hidden">
       <div className="px-4 py-2.5 flex items-center gap-2 bg-[#1c2433] border-b border-[#30363d]">
         <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">{t(lang, "pipa")}</span>
-        <span className="ml-auto text-[10px] text-gray-600">1 {t(lang, "pipa")} = 215 L</span>
+        <span className="ml-auto text-[10px] text-gray-600">{t(lang, "pipaDefaultL")}</span>
       </div>
 
       {items.length === 0 && (
@@ -509,8 +514,20 @@ function PipaPanel({ items, onChange, lang }: {
                   placeholder="0"
                   className={`w-full rounded-xl border px-3 py-3 text-base font-semibold outline-none transition-all tabular-nums bg-[#0d1117] border-[#30363d] ${autoText(item.auto === "containers")} focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-gray-700`}
                 />
+              </div>
+              {/* Litres in each P-P (215 unless the staff change it) */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{t(lang, "litersPerPipa")}</label>
+                <input
+                  type="number"
+                  value={item.liters ?? PIPA_DEFAULT_LITERS}
+                  onChange={e => update(i, "liters", e.target.value)}
+                  placeholder="215"
+                  data-testid="pipa-liters"
+                  className="w-full rounded-xl border px-3 py-3 text-base font-semibold outline-none transition-all tabular-nums bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 placeholder:text-gray-700"
+                />
                 {containers > 0 && (
-                  <p className="text-[10px] text-amber-400 font-semibold">{(containers * 215).toLocaleString()} L</p>
+                  <p className="text-[10px] text-amber-400 font-semibold">{t(lang, "litersTotal", { l: (containers * pipaLiters(item)).toLocaleString("en-US", { maximumFractionDigits: 2 }) })}</p>
                 )}
               </div>
               {/* Price per pipa */}
@@ -520,7 +537,9 @@ function PipaPanel({ items, onChange, lang }: {
                 onChange={v => update(i, "price", v)}
                 prefix="K"
               />
-              {/* ရောင်းရငွေ — type the money directly, or let quantity × price fill it */}
+            </div>
+            {/* ရောင်းရငွေ — type the money directly, or let quantity × price fill it */}
+            <div className="mt-3">
               <GoldInput
                 label={t(lang, "totalAmount")}
                 value={item.total ?? ""}
@@ -1636,7 +1655,7 @@ function ConfirmScreen({ employeeName, email, form, grandTotal, difference, onCo
                     </p>
                     {containers > 0 && (
                       <p className="text-xs text-gray-400">
-                        {t(lang, "containersLine", { c: containers, l: (containers * 215).toLocaleString(), p: fmt(price) })}
+                        {t(lang, "containersLine", { c: containers, l: (containers * pipaLiters(item)).toLocaleString("en-US", { maximumFractionDigits: 2 }), p: fmt(price) })}
                       </p>
                     )}
                   </div>
@@ -2135,6 +2154,7 @@ export default function App() {
     const pipaItems = formData.pipa.map(item => ({
       product: item.product,
       containers: n(item.containers),
+      liters_per_pipa: pipaLiters(item),
       price: n(item.price),
       total: pipaItemTotal(item),
     })).filter(item => item.containers > 0 || item.price > 0 || item.total > 0);

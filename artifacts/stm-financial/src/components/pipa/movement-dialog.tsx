@@ -23,7 +23,8 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
   official?: boolean;
   onAddStation: () => void;
   onClose: () => void;
-  onSaved: () => void;
+  /** After saving: what was saved (a new Big PO may leave an older pool to close). */
+  onSaved: (saved: { kind: MovementKind; product: PipaProduct; official: boolean }) => void;
 }) {
   const t = usePipaT();
   const [kind, setKind] = useState<MovementKind>(officialMode ? "buy" : initialKind);
@@ -88,7 +89,7 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
     });
     setBusy(false);
     if (err) return setError(err.code === "PGRST202" || err.code === "42883" ? t("needsUpdate") : err.message);
-    onSaved();
+    onSaved({ kind, product, official });
   }
 
   const chip = (active: boolean) =>

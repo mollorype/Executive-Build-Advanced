@@ -51,6 +51,8 @@ function describe(m: PipaMovement, station: string, t: PipaT): { title: string; 
     case "lend_returned":   return { title: t("h_lend_returned", { qty }), detail: t("h_lend_returned_d", { station }) };
     case "lend_paid":       return { title: t("h_lend_paid", { station, qty }), detail: withPrice(t("h_lend_paid_d")) };
     case "used":            return { title: t("h_used", { qty }), detail: "" };
+    case "sell":            return { title: t("h_sell", { qty }), detail: withPrice(t("h_sell_d", { station })) };
+    case "write_off":       return { title: t("h_write_off", { qty }), detail: m.write_off_reason ? t(`r_${m.write_off_reason}`) : "" };
     case "adjust":
       return m.pipas > 0 && m.unit_price != null
         ? { title: t("h_opening", { qty: `+${qty}` }), detail: price }
@@ -79,6 +81,8 @@ function badge(m: PipaMovement, t: PipaT): { label: string; cls: string } {
     case "lend": case "lend_returned": case "lend_paid":
       return { label: t(`b_${m.kind}`), cls: "bg-sky-100 text-sky-800" };
     case "used": return { label: t("b_used"), cls: "bg-slate-100 text-slate-700" };
+    case "sell": return { label: t("b_sell"), cls: "bg-indigo-100 text-indigo-800" };
+    case "write_off": return { label: `${t("b_write_off")}${m.write_off_reason ? ` · ${t(`r_${m.write_off_reason}`)}` : ""}`, cls: "bg-red-600 text-white" };
     case "adjust":
       if (m.pipas > 0 && m.unit_price != null) return { label: t("b_opening"), cls: "bg-green-100 text-green-800" };
       return m.pipas > 0 ? { label: t("b_gain"), cls: "bg-green-100 text-green-800" } : { label: t("b_loss"), cls: "bg-red-600 text-white" };
@@ -108,8 +112,9 @@ type Group = {
   items: Item[];
   counts: Record<Cat, number>;
   inPP: number; outPP: number; inL: number; outL: number;
-  buys: number; buyL: number; spent: number;
-  last: { perL: number; on: string; at: string } | null;
+  spent: number;
+  /** Big PO and shop purchases are never mixed into one price. */
+  src: Record<"official" | "shop", { buys: number; spent: number; last: { perL: number; on: string; at: string } | null }>;
 };
 
 /**
@@ -188,7 +193,8 @@ export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
     const group = (p: PipaProduct) => {
       let g = by.get(p);
       if (!g) {
-        g = { product: p, items: [], counts: { all: 0, buy: 0, shift: 0, other: 0 }, inPP: 0, outPP: 0, inL: 0, outL: 0, buys: 0, buyL: 0, spent: 0, last: null };
+        g = { product: p, items: [], counts: { all: 0, buy: 0, shift: 0, other: 0 }, inPP: 0, outPP: 0, inL: 0, outL: 0, spent: 0,
+              src: { official: { buys: 0, spent: 0, last: null }, shop: { buys: 0, spent: 0, last: null } } };
         by.set(p, g);
       }
       return g;
@@ -200,9 +206,10 @@ export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
       if (d > 0) { g.inPP += d; g.inL += l; } else if (d < 0) { g.outPP -= d; g.outL += l; }
       const c = purchaseCost(m);
       if (c) {
-        g.buys++; g.buyL += c.liters; g.spent += c.spent;
+        const s = g.src[m.source === "official" ? "official" : "shop"];
+        g.spent += c.spent; s.buys++; s.spent += c.spent;
         const at = `${m.occurred_on}|${m.created_at}`;
-        if (!g.last || at > g.last.at) g.last = { perL: c.perL, on: m.occurred_on, at };
+        if (!s.last || at > s.last.at) s.last = { perL: c.perL, on: m.occurred_on, at };
       }
     };
     for (const item of history) {
@@ -213,7 +220,7 @@ export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
   }, [history]);
 
   const total = useMemo(() => groups.reduce((s, g) => ({
-    inPP: s.inPP + g.inPP, outPP: s.outPP + g.outPP, spent: s.spent + g.spent, buys: s.buys + g.buys,
+    inPP: s.inPP + g.inPP, outPP: s.outPP + g.outPP, spent: s.spent + g.spent, buys: s.buys + g.src.official.buys + g.src.shop.buys,
   }), { inPP: 0, outPP: 0, spent: 0, buys: 0 }), [groups]);
 
   async function remove(item: Item) {
@@ -274,6 +281,8 @@ export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
                        : t("pricePP", { perPipa: fmtMMK(cost.perPipa), perLiter: fmtMMK(cost.price) }))
       : pb && m.kind !== "adjust" ? t("pricePP", { perPipa: fmtMMK(pb.perPipa), perLiter: fmtMMK(pb.perLiter) }) : "";
     const short = m.kind === "adjust" && m.pipas < 0;
+    // "Pool closed — spill · drum leaked": the badge already says why, keep just the note.
+    const note = m.kind === "write_off" ? (m.note ?? "").replace(/^Pool closed — \w+(?: · )?/, "") : m.note;
     return (
       <li key={m.id} className={`flex items-start gap-3 px-4 py-3 ${short ? "bg-red-50" : m.kind === "buy" ? "bg-emerald-50/40" : ""}`}
         data-testid={m.kind === "buy" ? "pp-buy-row" : "pp-line-row"}>
@@ -294,7 +303,7 @@ export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
           )}
           {sub && <p className="text-xs text-slate-500 mt-0.5 break-words tabular-nums">{sub}</p>}
           <p className="text-[11px] text-slate-400 mt-0.5 break-words">
-            {m.occurred_on}{m.note && (m.kind !== "adjust" || short) ? ` · ${m.note}` : ""}{by(m.created_by)}
+            {m.occurred_on}{note && (m.kind !== "adjust" || short) ? ` · ${note}` : ""}{by(m.created_by)}
           </p>
         </div>
         <span className={`shrink-0 text-base font-bold tabular-nums ${delta > 0 ? "text-pale-green-foreground" : delta < 0 ? "text-pale-red-foreground" : "text-slate-400"}`}
@@ -314,7 +323,7 @@ export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
     const c = cat[g.product] ?? "all";
     const rows = c === "all" ? g.items : g.items.filter(i => catOf(i) === c);
     const limit = shown[g.product] ?? PAGE;
-    const priced = g.buys > 0 && g.spent > 0;
+    const priced = g.spent > 0;
     return (
       <section key={g.product} className={`bg-white border rounded-xl overflow-hidden ${isOpen ? "border-blue-200 shadow-sm" : "border-slate-100"}`} data-testid={`pp-fuel-${g.product}`}>
         <button type="button" onClick={() => setOpen(o => ({ ...o, [g.product]: !isOpen }))} aria-expanded={isOpen}
@@ -331,19 +340,21 @@ export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
           </div>
           {priced && (
             <div className="border-t border-slate-100 pt-3">
-              <div className="flex items-end justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[11px] text-slate-500">{t("spent")}</p>
-                  <p className="text-lg font-bold text-slate-900 tabular-nums leading-tight" data-testid="pp-fuel-spent">{fmtMMK(g.spent)}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-[11px] text-slate-500">{t("avgCost")}</p>
-                  <p className="text-sm font-bold text-blue-700 tabular-nums">{perL(g.spent / g.buyL)}</p>
-                </div>
+              <p className="text-[11px] text-slate-500">{t("spent")}</p>
+              <p className="text-lg font-bold text-slate-900 tabular-nums leading-tight" data-testid="pp-fuel-spent">{fmtMMK(g.spent)}</p>
+              {/* Big PO and shop purchases each on their own line — never averaged together */}
+              <div className="mt-2 space-y-1.5">
+                {(["official", "shop"] as const).filter(k => g.src[k].buys > 0).map(k => (
+                  <div key={k} className="flex items-start justify-between gap-2 text-xs" data-testid={`pp-fuel-src-${k}`}>
+                    <span className="min-w-0">
+                      <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${k === "official" ? "bg-emerald-500" : "bg-yellow-400"}`} />
+                      <span className="font-semibold text-slate-700">{t("srcSpent", { label: t(k === "official" ? "b_official" : "b_shop"), n: g.src[k].buys })}</span>
+                      <span className="block text-[11px] text-slate-400 pl-3.5">{g.src[k].last && t("lastCost", { v: fmtMMK(g.src[k].last!.perL), d: g.src[k].last!.on })}</span>
+                    </span>
+                    <span className="shrink-0 font-bold text-slate-900 tabular-nums">{fmtMMK(g.src[k].spent)}</span>
+                  </div>
+                ))}
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">
-                {t("nBuys", { n: g.buys })}{g.last ? ` · ${t("lastCost", { v: fmtMMK(g.last.perL), d: g.last.on })}` : ""}
-              </p>
             </div>
           )}
         </button>

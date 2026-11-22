@@ -4,13 +4,16 @@ import { supabase } from "@/lib/supabase";
 import {
   PIPA_PRODUCTS, PIPA_STATIONS_TABLE,
   fmtLiters, fmtMMK, fmtPipas, normalizeMovement, priceBreakdown, purchasePrices, stationBalances, stockByProduct,
-  type MovementKind, type PipaMovement, type PipaStation,
+  type MovementKind, type PipaMovement, type PipaProduct, type PipaStation,
 } from "@/lib/pipa-ledger";
 import MovementDialog from "@/components/pipa/movement-dialog";
 import StationDialog from "@/components/pipa/station-dialog";
 import CountDialog from "@/components/pipa/count-dialog";
 import DeductDialog from "@/components/pipa/deduct-dialog";
 import StockCards from "@/components/pipa/stock-cards";
+import PoolView, { ClosePoolDialog, loadPools, type PoolSummary } from "@/components/pipa/pool-view";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { vol } from "@/lib/units";
 import { useAuth } from "@/lib/auth-context";
 import { usePPSettings } from "@/lib/pp-settings";
 import { usePipaT, pipaProduct } from "@/lib/pipa-i18n";
@@ -21,12 +24,15 @@ type Dialog =
   | { type: "station"; station: PipaStation | null; reopenMovement?: boolean; reopenOfficial?: boolean }
   | { type: "count" }
   | { type: "deduct" }
+  | { type: "closePool"; pool: PoolSummary }
   | null;
 
 export default function PipaLedger() {
   const t = usePipaT();
   const { profile } = useAuth();
   const owner = profile?.role === "ceo";
+  const canClose = owner || profile?.role === "manager";
+  const [poolsKey, setPoolsKey] = useState(0);
   const [, setLocation] = useLocation();
   const { settings } = usePPSettings();
   const [stations, setStations] = useState<PipaStation[]>([]);
@@ -78,6 +84,21 @@ export default function PipaLedger() {
     setDialog(null);
     setNotice(message, true);
     load();
+    setPoolsKey(k => k + 1);
+  }
+
+  // A new Big PO: if an older pool of that fuel still shows fuel, offer to close it.
+  async function askOldPool(product: PipaProduct) {
+    if (!canClose) return;
+    const { data } = await loadPools();
+    const open = (data?.pools ?? []).filter(p => p.product === product && !p.closed_at);
+    const old = open.slice(1).reverse().find(p => p.left > 0.0005);   // oldest still holding fuel (not the new one)
+    if (!old) return;
+    const yes = await confirmDialog(
+      t("oldPoolAsk", { fuel: pipaProduct(t, product), d: old.started_on, v: vol(old.left, "pp") }),
+      { confirmLabel: t("oldPoolYes"), cancelLabel: t("oldPoolNo") },
+    );
+    if (yes) setDialog({ type: "closePool", pool: old });
   }
 
   const actionBtn = "flex items-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl px-3 py-2 text-sm transition-colors";
@@ -119,6 +140,9 @@ export default function PipaLedger() {
 
         {/* Stock on hand — in litres, and in P-P, as two separate sets of cards */}
         <StockCards stock={stock} loading={loading} />
+
+        {/* Fuel pools — owners and managers can close one */}
+        {!loadError && <PoolView unit="pp" canClose={canClose} reloadKey={poolsKey} onChanged={m => { setNotice(m, true); load(); }} />}
 
         {/* Stations */}
         <section>
@@ -224,7 +248,7 @@ export default function PipaLedger() {
           official={dialog.official}
           onAddStation={() => setDialog({ type: "station", station: null, reopenMovement: true, reopenOfficial: !!dialog.official })}
           onClose={() => setDialog(null)}
-          onSaved={() => done(t("saved"))}
+          onSaved={s => { done(t("saved")); if (s.official) askOldPool(s.product); }}
         />
       )}
       {dialog?.type === "station" && (
@@ -239,6 +263,9 @@ export default function PipaLedger() {
       )}
       {dialog?.type === "count" && <CountDialog stock={stock} onClose={() => setDialog(null)} onSaved={() => done(t("countSaved"))} />}
       {dialog?.type === "deduct" && <DeductDialog owner={owner} autoOn={settings.auto_deduct} unit="pp" onClose={() => setDialog(null)} onSaved={done} />}
+      {dialog?.type === "closePool" && (
+        <ClosePoolDialog pool={dialog.pool} unit="pp" onClose={() => setDialog(null)} onDone={() => done(t("closeDone"))} />
+      )}
     </div>
   );
 }
