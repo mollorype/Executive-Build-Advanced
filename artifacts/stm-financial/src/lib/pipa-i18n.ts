@@ -12,7 +12,7 @@ export const usePipaT = makeT({
   p_D: { en: "Diesel", my: "ဒီဇယ်" },
 
   // Movement kinds — form buttons
-  k_buy: { en: "Buy", my: "ဝယ်" },
+  k_buy: { en: "Buy from a shop", my: "ဆိုင်မှ ဝယ်" },
   k_borrow: { en: "Borrow", my: "ချေး (ယူ)" },
   k_borrow_returned: { en: "Return borrowed", my: "ချေးထားသည်ကို ပြန်ပေး" },
   k_borrow_paid: { en: "Pay cash for borrowed", my: "ချေးထားသည်အတွက် ငွေပေး" },
@@ -23,7 +23,7 @@ export const usePipaT = makeT({
   k_adjust: { en: "Stock count", my: "လက်ကျန် စစ်ဆေး" },
 
   // Movement kinds — help under the form title
-  help_buy: { en: "P-P you bought from a station.", my: "ဆိုင်တစ်ခုမှ ဝယ်သော P-P။" },
+  help_buy: { en: "P-P you bought from another shop. The big official PO has its own button.", my: "အခြားဆိုင်မှ ဝယ်သော P-P။ တရားဝင် PO ကြီးအတွက် သီးသန့် ခလုတ် ရှိပါသည်။" },
   help_borrow: { en: "P-P a station gave you, to return later.", my: "ဆိုင်တစ်ခုမှ ချေးယူထားသော P-P (နောက်မှ ပြန်ပေးရန်)။" },
   help_lend: { en: "P-P you gave a station, to get back later.", my: "ဆိုင်တစ်ခုကို ချေးပေးထားသော P-P (နောက်မှ ပြန်ရရန်)။" },
   help_borrow_returned: { en: "P-P you gave back to a station you borrowed from.", my: "ချေးယူခဲ့သော ဆိုင်သို့ ပြန်ပေးသော P-P။" },
@@ -129,8 +129,9 @@ export const usePipaT = makeT({
   mmkPerPP: { en: "MMK / P-P", my: "MMK / P-P" },
   mmkPerL: { en: "MMK / litre", my: "MMK / လီတာ" },
   ppSize: { en: "P-P size (L)", my: "P-P အရွယ် (L)" },
-  buyShop: { en: "From a shop", my: "ဆိုင်မှ ဝယ်" },
-  buyOfficial: { en: "Official (large) purchase", my: "တရားဝင် အဝယ်ကြီး" },
+  officialBtn: { en: "Official PO", my: "တရားဝင် PO ဝယ်ရန်" },
+  officialTitle: { en: "Buy an official PO", my: "တရားဝင် PO ဝယ်ရန်" },
+  officialHelp: { en: "The big official purchase (usually weekly). Priced per litre only, with transport and other fees per litre.", my: "တရားဝင် အဝယ်ကြီး (ပုံမှန် တစ်ပတ်တစ်ခါ)။ လီတာ စျေးဖြင့်သာ ဝယ်ပြီး သယ်ယူခ နှင့် အခြားအခ ကိုလည်း လီတာအလိုက် ထည့်ပါ။" },
   from: { en: "From *", my: "ဝယ်သည့်နေရာ *" },
   quantity: { en: "Quantity *", my: "ပမာဏ *" },
   transportFee: { en: "Transport (MMK / L)", my: "သယ်ယူခ (MMK / L)" },

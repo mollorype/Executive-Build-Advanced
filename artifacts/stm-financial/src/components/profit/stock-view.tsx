@@ -34,6 +34,7 @@ const useT = makeT({
   k_shop: { en: "Shop purchase", my: "ဆိုင်မှ ဝယ်" },
   k_borrow: { en: "Borrowed", my: "ချေးယူ" },
   k_carry: { en: "Left from before", my: "ယခင်ကျန်" },
+  k_count: { en: "Stock count", my: "လက်ကျန်စစ်" },
   k_other: { en: "Other", my: "အခြား" },
   faded: { en: "faded = sold / gone", my: "မှိန် = ရောင်း/ထွက်ပြီး" },
   leftPct: { en: "Left {v} · {p}%", my: "ကျန် {v} · {p}%" },
@@ -43,10 +44,11 @@ const useT = makeT({
   noPO: { en: "No big PO yet — stock on hand", my: "PO ကြီး မရှိသေး — လက်ကျန်သာ" },
 });
 
-const KINDS: BarKind[] = ["carry", "official", "shop", "borrow", "other"];
+const KINDS: BarKind[] = ["carry", "official", "count", "shop", "borrow", "other"];
 const COLOR: Record<BarKind, { solid: string; faded: string; dot: string }> = {
   carry:    { solid: "bg-slate-400",   faded: "bg-slate-400/25",   dot: "bg-slate-400" },
   official: { solid: "bg-emerald-500", faded: "bg-emerald-500/25", dot: "bg-emerald-500" },
+  count:    { solid: "bg-green-300",   faded: "bg-green-300/35",   dot: "bg-green-300" },
   shop:     { solid: "bg-yellow-400",  faded: "bg-yellow-400/30",  dot: "bg-yellow-400" },
   borrow:   { solid: "bg-orange-500",  faded: "bg-orange-500/25",  dot: "bg-orange-500" },
   other:    { solid: "bg-sky-400",     faded: "bg-sky-400/25",     dot: "bg-sky-400" },

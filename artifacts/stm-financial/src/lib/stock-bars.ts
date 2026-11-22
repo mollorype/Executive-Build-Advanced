@@ -7,7 +7,7 @@
 // is on the right. No official purchase yet → the bar is just the stock still
 // on hand, by purchase.
 
-export type BarKind = "carry" | "official" | "shop" | "borrow" | "other";
+export type BarKind = "carry" | "official" | "count" | "shop" | "borrow" | "other";
 
 export type BarLot = {
   id: string;
@@ -37,7 +37,9 @@ const OPEN = 0.0005;
 const order = (a: BarLot, b: BarLot) =>
   a.occurred_on.localeCompare(b.occurred_on) || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id);
 const kindOf = (source: string): BarKind =>
-  source === "official" ? "official" : source === "shop" ? "shop" : source === "borrow" ? "borrow" : "other";
+  source === "official" ? "official"
+    : source === "count_gain" || source === "opening" ? "count"   // from a stock count (extra / opening stock)
+      : source === "shop" ? "shop" : source === "borrow" ? "borrow" : "other";
 
 /** Per fuel: the official purchase the bar starts from (null if none yet). */
 export function fuelStarts(lots: BarLot[]): Record<string, BarLot | null> {
@@ -86,7 +88,7 @@ export function buildFuelBars(lots: BarLot[], linesSince: BarLine[], products: s
       for (const l of mine) if (l.remaining > OPEN) segments.push({ lotId: l.id, kind: kindOf(l.source), capacity: l.liters, remaining: l.remaining });
     }
     if (!segments.length) continue;
-    const parts: Record<BarKind, number> = { carry: 0, official: 0, shop: 0, borrow: 0, other: 0 };
+    const parts: Record<BarKind, number> = { carry: 0, official: 0, count: 0, shop: 0, borrow: 0, other: 0 };
     for (const s of segments) parts[s.kind] += s.capacity;
     const capacity = segments.reduce((s, x) => s + x.capacity, 0);
     const remaining = segments.reduce((s, x) => s + x.remaining, 0);

@@ -14,11 +14,11 @@ import StockCards from "@/components/pipa/stock-cards";
 import { useAuth } from "@/lib/auth-context";
 import { usePPSettings } from "@/lib/pp-settings";
 import { usePipaT, pipaProduct } from "@/lib/pipa-i18n";
-import { AlertTriangle, ClipboardCheck, History, Phone, Plus, Receipt, Store } from "lucide-react";
+import { AlertTriangle, ClipboardCheck, History, Phone, Plus, Receipt, Store, Truck } from "lucide-react";
 
 type Dialog =
-  | { type: "movement"; kind?: MovementKind; stationId?: string }
-  | { type: "station"; station: PipaStation | null; reopenMovement?: boolean }
+  | { type: "movement"; kind?: MovementKind; stationId?: string; official?: boolean }
+  | { type: "station"; station: PipaStation | null; reopenMovement?: boolean; reopenOfficial?: boolean }
   | { type: "count" }
   | { type: "deduct" }
   | null;
@@ -106,6 +106,10 @@ export default function PipaLedger() {
         {notice && <p className="text-sm font-medium text-pale-green-foreground" role="status">{notice}</p>}
 
         <div className="flex flex-wrap gap-2">
+          <button onClick={() => setDialog({ type: "movement", official: true })} disabled={!!loadError} data-testid="pp-official-btn"
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold rounded-xl px-3 py-2 text-sm transition-colors">
+            <Truck className="w-4 h-4" /> {t("officialBtn")}
+          </button>
           <button onClick={() => setDialog({ type: "deduct" })} disabled={!!loadError} className={actionBtn}><Receipt className="w-4 h-4" /> {t("deductBtn")}</button>
           <button onClick={() => setDialog({ type: "count" })} disabled={!!loadError} className={actionBtn}><ClipboardCheck className="w-4 h-4" /> {t("countBtn")}</button>
           <button onClick={() => setDialog({ type: "station", station: null })} disabled={!!loadError} className={actionBtn}><Store className="w-4 h-4" /> {t("addStation")}</button>
@@ -217,7 +221,8 @@ export default function PipaLedger() {
           balances={balances}
           initialKind={dialog.kind}
           initialStationId={dialog.stationId}
-          onAddStation={() => setDialog({ type: "station", station: null, reopenMovement: true })}
+          official={dialog.official}
+          onAddStation={() => setDialog({ type: "station", station: null, reopenMovement: true, reopenOfficial: !!dialog.official })}
           onClose={() => setDialog(null)}
           onSaved={() => done(t("saved"))}
         />
@@ -225,9 +230,9 @@ export default function PipaLedger() {
       {dialog?.type === "station" && (
         <StationDialog
           station={dialog.station}
-          onClose={() => setDialog(dialog.reopenMovement ? { type: "movement" } : null)}
+          onClose={() => setDialog(dialog.reopenMovement ? { type: "movement", official: dialog.reopenOfficial } : null)}
           onSaved={() => {
-            if (dialog.reopenMovement) { load(); setDialog({ type: "movement" }); }
+            if (dialog.reopenMovement) { load(); setDialog({ type: "movement", official: dialog.reopenOfficial }); }
             else done(dialog.station ? t("stationSaved") : t("stationAdded"));
           }}
         />

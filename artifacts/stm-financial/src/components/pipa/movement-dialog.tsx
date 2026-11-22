@@ -10,20 +10,23 @@ import PipaModal, { ErrorNote, fieldCls, labelCls, primaryBtn } from "./modal";
 import { Loader2 } from "lucide-react";
 import { usePipaT, pipaKind, pipaProduct } from "@/lib/pipa-i18n";
 
-type Source = "shop" | "official";
-
-export default function MovementDialog({ stations, balances, initialKind = "buy", initialStationId = "", onAddStation, onClose, onSaved }: {
+/**
+ * Record a P-P line. `official` opens it as the big official PO purchase
+ * (its own button on the P-P Ledger): litres or P-P, priced per litre only,
+ * with transport and other fees. Otherwise "Buy" is a purchase from a shop.
+ */
+export default function MovementDialog({ stations, balances, initialKind = "buy", initialStationId = "", official: officialMode = false, onAddStation, onClose, onSaved }: {
   stations: PipaStation[];
   balances: StationBalances;
   initialKind?: MovementKind;
   initialStationId?: string;
+  official?: boolean;
   onAddStation: () => void;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const t = usePipaT();
-  const [kind, setKind] = useState<MovementKind>(initialKind);
-  const [source, setSource] = useState<Source>("shop");
+  const [kind, setKind] = useState<MovementKind>(officialMode ? "buy" : initialKind);
   const [stationId, setStationId] = useState(initialStationId);
   const [product, setProduct] = useState<PipaProduct>("92");
   const [pipas, setPipas] = useState("");
@@ -41,7 +44,7 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
   const [error, setError] = useState("");
 
   const info = KIND_INFO[kind];
-  const official = kind === "buy" && source === "official";
+  const official = officialMode;
   const nPipas = parseFloat(pipas) || 0;
   const nPrice = parseFloat(unitPrice);
   const nLiters = parseFloat(litersPerPipa) || 0;
@@ -98,22 +101,13 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
   };
 
   return (
-    <PipaModal title={t("mvTitle")} subtitle={t(`help_${kind}`) || undefined} onClose={onClose}>
+    <PipaModal title={official ? t("officialTitle") : t("mvTitle")} subtitle={(official ? t("officialHelp") : t(`help_${kind}`)) || undefined} onClose={onClose}>
       <form id="pipa-movement" onSubmit={save} className="space-y-4">
-        <div className="grid grid-cols-2 gap-2">
-          {FORM_KINDS.map(k => (
-            <button key={k} type="button" onClick={() => { setKind(k); setError(""); }} className={chip(kind === k)}>
-              {pipaKind(t, k)}
-            </button>
-          ))}
-        </div>
-
-        {kind === "buy" && (
-          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl" role="radiogroup">
-            {(["shop", "official"] as const).map(s => (
-              <button key={s} type="button" role="radio" aria-checked={source === s} onClick={() => setSource(s)}
-                className={`rounded-lg px-2 py-2 text-xs font-semibold transition-colors ${source === s ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>
-                {s === "shop" ? t("buyShop") : t("buyOfficial")}
+        {!official && (
+          <div className="grid grid-cols-2 gap-2">
+            {FORM_KINDS.map(k => (
+              <button key={k} type="button" onClick={() => { setKind(k); setError(""); }} className={chip(kind === k)}>
+                {pipaKind(t, k)}
               </button>
             ))}
           </div>
