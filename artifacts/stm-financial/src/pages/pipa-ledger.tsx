@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { supabase } from "@/lib/supabase";
 import {
   PIPA_PRODUCTS, PIPA_STATIONS_TABLE,
-  fmtLiters, fmtMMK, fmtPipas, normalizeMovement, priceBreakdown, purchasePrices, stationBalances, stockByProduct,
+  fmtLiters, fmtMMK, fmtPipas, normalizeMovement, priceBreakdown, purchasePrices, stationBalances, stockByProduct, yangonToday,
   type MovementKind, type PipaMovement, type PipaProduct, type PipaStation,
 } from "@/lib/pipa-ledger";
 import MovementDialog from "@/components/pipa/movement-dialog";
@@ -11,7 +11,8 @@ import StationDialog from "@/components/pipa/station-dialog";
 import CountDialog from "@/components/pipa/count-dialog";
 import DeductDialog from "@/components/pipa/deduct-dialog";
 import StockCards from "@/components/pipa/stock-cards";
-import PoolView, { ClosePoolDialog, loadPools, type PoolSummary } from "@/components/pipa/pool-view";
+import FuelStockSheet, { ClosePoolDialog } from "@/components/pipa/fuel-stock-sheet";
+import { loadPools, type PoolSummary } from "@/lib/pools";
 import { confirmDialog } from "@/components/confirm-dialog";
 import { vol } from "@/lib/units";
 import { useAuth } from "@/lib/auth-context";
@@ -25,6 +26,7 @@ type Dialog =
   | { type: "count" }
   | { type: "deduct" }
   | { type: "closePool"; pool: PoolSummary }
+  | { type: "fuel"; product: PipaProduct }
   | null;
 
 export default function PipaLedger() {
@@ -32,7 +34,6 @@ export default function PipaLedger() {
   const { profile } = useAuth();
   const owner = profile?.role === "ceo";
   const canClose = owner || profile?.role === "manager";
-  const [poolsKey, setPoolsKey] = useState(0);
   const [, setLocation] = useLocation();
   const { settings } = usePPSettings();
   const [stations, setStations] = useState<PipaStation[]>([]);
@@ -74,6 +75,15 @@ export default function PipaLedger() {
   const balances = useMemo(() => stationBalances(movements), [movements]);
   const prices = useMemo(() => purchasePrices(movements), [movements]);
   const stationName = useMemo(() => Object.fromEntries(stations.map(s => [s.id, s.name])), [stations]);
+  // Next Big PO number: today's if another fuel of today's PO is already in, else the highest + 1.
+  const nextPo = useMemo(() => {
+    const today = yangonToday();
+    const official = movements.filter(m => m.kind === "buy" && m.source === "official" && m.po_number);
+    const same = official.find(m => m.occurred_on === today)?.po_number;
+    if (same) return same;
+    const top = Math.max(0, ...official.map(m => parseInt(m.po_number ?? "", 10)).filter(n => Number.isFinite(n)));
+    return String(top + 1);
+  }, [movements]);
   const lastBuy = useMemo(() => {
     const out: Record<string, PipaMovement> = {};
     for (const m of movements) if (m.kind === "buy" && m.station_id && !out[m.station_id]) out[m.station_id] = m; // newest first
@@ -84,7 +94,6 @@ export default function PipaLedger() {
     setDialog(null);
     setNotice(message, true);
     load();
-    setPoolsKey(k => k + 1);
   }
 
   // A new Big PO: if an older pool of that fuel still shows fuel, offer to close it.
@@ -138,11 +147,8 @@ export default function PipaLedger() {
         </div>
         {settings.auto_deduct && !loadError && <p className="text-[11px] text-slate-500 -mt-3" data-testid="pp-auto-note">{t("autoOn")}</p>}
 
-        {/* Stock on hand — in litres, and in P-P, as two separate sets of cards */}
-        <StockCards stock={stock} loading={loading} />
-
-        {/* Fuel pools — owners and managers can close one */}
-        {!loadError && <PoolView unit="pp" canClose={canClose} reloadKey={poolsKey} onChanged={m => { setNotice(m, true); load(); }} />}
+        {/* Stock on hand; tap a card for what it's made of (and to force close a pool) */}
+        <StockCards stock={stock} loading={loading} onOpen={loadError ? undefined : p => setDialog({ type: "fuel", product: p })} />
 
         {/* Stations */}
         <section>
@@ -246,6 +252,7 @@ export default function PipaLedger() {
           initialKind={dialog.kind}
           initialStationId={dialog.stationId}
           official={dialog.official}
+          suggestPo={nextPo}
           onAddStation={() => setDialog({ type: "station", station: null, reopenMovement: true, reopenOfficial: !!dialog.official })}
           onClose={() => setDialog(null)}
           onSaved={s => { done(t("saved")); if (s.official) askOldPool(s.product); }}
@@ -264,7 +271,11 @@ export default function PipaLedger() {
       {dialog?.type === "count" && <CountDialog stock={stock} onClose={() => setDialog(null)} onSaved={() => done(t("countSaved"))} />}
       {dialog?.type === "deduct" && <DeductDialog owner={owner} autoOn={settings.auto_deduct} unit="pp" onClose={() => setDialog(null)} onSaved={done} />}
       {dialog?.type === "closePool" && (
-        <ClosePoolDialog pool={dialog.pool} unit="pp" onClose={() => setDialog(null)} onDone={() => done(t("closeDone"))} />
+        <ClosePoolDialog pool={dialog.pool} onClose={() => setDialog(null)} onDone={() => done(t("closeDone"))} />
+      )}
+      {dialog?.type === "fuel" && (
+        <FuelStockSheet product={dialog.product} stock={stock[dialog.product]} owner={owner} canClose={canClose}
+          onClose={() => setDialog(null)} onChanged={done} />
       )}
     </div>
   );

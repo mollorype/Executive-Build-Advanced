@@ -15,12 +15,14 @@ import { usePipaT, pipaKind, pipaProduct } from "@/lib/pipa-i18n";
  * (its own button on the P-P Ledger): litres or P-P, priced per litre only,
  * with transport and other fees. Otherwise "Buy" is a purchase from a shop.
  */
-export default function MovementDialog({ stations, balances, initialKind = "buy", initialStationId = "", official: officialMode = false, onAddStation, onClose, onSaved }: {
+export default function MovementDialog({ stations, balances, initialKind = "buy", initialStationId = "", official: officialMode = false, suggestPo = "", onAddStation, onClose, onSaved }: {
   stations: PipaStation[];
   balances: StationBalances;
   initialKind?: MovementKind;
   initialStationId?: string;
   official?: boolean;
+  /** Big PO number to start with (official purchases). */
+  suggestPo?: string;
   onAddStation: () => void;
   onClose: () => void;
   /** After saving: what was saved (a new Big PO may leave an older pool to close). */
@@ -41,6 +43,7 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
   const [transport, setTransport] = useState("");
   const [otherFee, setOtherFee] = useState("");
   const [note, setNote] = useState("");
+  const [poNumber, setPoNumber] = useState(suggestPo);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -81,7 +84,7 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
         station_id: info.station ? stationId : null,
         liters_per_pipa: nLiters,
         ...(official
-          ? { source: "official", liters: Math.round(nQtyL * 1000) / 1000, price_mode: "per_liter", unit_price: nPrice,
+          ? { source: "official", po_number: poNumber.trim() || null, liters: Math.round(nQtyL * 1000) / 1000, price_mode: "per_liter", unit_price: nPrice,
               transport_fee: parseFloat(transport) || 0, other_fee: parseFloat(otherFee) || 0 }
           : { source: kind === "buy" ? "shop" : null, pipas: nPipas,
               ...(info.price ? { price_mode: priceMode, unit_price: nPrice } : {}) }),
@@ -111,6 +114,14 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
                 {pipaKind(t, k)}
               </button>
             ))}
+          </div>
+        )}
+
+        {official && (
+          <div>
+            <label htmlFor="mv-po" className={labelCls}>{t("poNumber")}</label>
+            <input id="mv-po" value={poNumber} onChange={e => setPoNumber(e.target.value)} maxLength={40} inputMode="numeric"
+              className={`${fieldCls} text-lg font-bold`} placeholder="12" />
           </div>
         )}
 

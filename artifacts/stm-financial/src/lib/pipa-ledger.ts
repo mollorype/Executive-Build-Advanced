@@ -77,6 +77,8 @@ export type PipaMovement = {
   created_by?: string | null;
   /** "Pool closed" lines: why (shortage / spill / other). */
   write_off_reason?: "shortage" | "spill" | "other" | null;
+  /** Big PO number (official purchases). */
+  po_number?: string | null;
 };
 
 /** PostgREST returns numeric columns as numbers or strings depending on size — normalise. */

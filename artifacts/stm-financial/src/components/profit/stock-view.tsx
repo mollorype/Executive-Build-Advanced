@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { CheckCircle2, ChevronRight, HandCoins, Phone } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -9,7 +9,7 @@ import {
 } from "@/lib/pipa-ledger";
 import { vol, type VolUnit } from "@/lib/units";
 import StockCards, { useCountUp } from "@/components/pipa/stock-cards";
-import PoolView from "@/components/pipa/pool-view";
+import FuelStockSheet from "@/components/pipa/fuel-stock-sheet";
 
 const useT = makeT({
   p_92: { en: "Fuel 92", my: "ဓာတ်ဆီ 92" },
@@ -57,15 +57,14 @@ export default function StockView({ unit }: { unit: VolUnit }) {
   const [movements, setMovements] = useState<PipaMovement[] | null>(null);
   const [stations, setStations] = useState<PipaStation[]>([]);
   const [notice, setNotice] = useState("");
+  const [sheet, setSheet] = useState<PipaProduct | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      const [mv, st] = await Promise.all([supabase.rpc("pp_movements"), supabase.from("pipa_stations").select("*").order("name")]);
-      setMovements(((mv.data ?? []) as Record<string, unknown>[]).map(r => normalizeMovement(r)));
-      setStations((st.data ?? []) as PipaStation[]);
-
-    })();
+  const reload = useCallback(async () => {
+    const [mv, st] = await Promise.all([supabase.rpc("pp_movements"), supabase.from("pipa_stations").select("*").order("name")]);
+    setMovements(((mv.data ?? []) as Record<string, unknown>[]).map(r => normalizeMovement(r)));
+    setStations((st.data ?? []) as PipaStation[]);
   }, []);
+  useEffect(() => { reload(); }, [reload]);
 
   const stock = useMemo(() => stockByProduct(movements ?? []), [movements]);
   const owed = useMemo(() => borrowedByStation(movements ?? []), [movements]);
@@ -88,13 +87,15 @@ export default function StockView({ unit }: { unit: VolUnit }) {
           {t("openLedger")} <ChevronRight className="w-3.5 h-3.5" />
         </button>
       </div>
-      <StockCards stock={stock} loading={movements === null} animate />
+      <StockCards stock={stock} loading={movements === null} animate onOpen={setSheet} />
 
       {notice && <p className="text-sm font-medium text-pale-green-foreground" role="status">{notice}</p>}
-      {/* Fuel pools: Big PO + what came in after it; owners can close one */}
-      <PoolView unit={unit} canClose onChanged={m => { setNotice(m); setTimeout(() => setNotice(""), 3000); }} />
+      {sheet && (
+        <FuelStockSheet product={sheet} stock={stock[sheet]} owner canClose onClose={() => setSheet(null)}
+          onChanged={m => { setSheet(null); setNotice(m); reload(); setTimeout(() => setNotice(""), 3000); }} />
+      )}
 
-      {/* Borrowed P-P still owed — the only part drawn as a picture */}
+      {/* Borrowed P-P still owed (numbers only) */}
       <section className="space-y-3" data-testid="profit-borrowed">
         <div>
           <h2 className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-widest"><HandCoins className="w-4 h-4" /> {t("borrowed")}</h2>
@@ -152,14 +153,6 @@ function OwedRow({ o, unit, label, delay }: { o: Owed; unit: VolUnit; label: str
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-sm font-semibold text-slate-900">{label}</span>
         <span className="text-sm font-bold text-pale-red-foreground tabular-nums">{t("owe", { v: `${fmtPipas(o.owe)} P-P` })}</span>
-      </div>
-      <div className="h-3 rounded-full bg-slate-100 overflow-hidden" role="img"
-        aria-label={`${t("took", { n: fmtPipas(o.took) })} · ${t("gaveBack", { n: fmtPipas(o.back) })} · ${t("paidCash", { n: fmtPipas(o.paid) })} · ${t("left", { n: fmtPipas(o.owe) })}`}>
-        <div className="pp-fill flex h-full" style={{ animationDelay: `${delay}ms` }}>
-          {o.back > 0 && <div className="bg-emerald-500" style={{ width: `${pct(o.back)}%` }} />}
-          {o.paid > 0 && <div className="bg-sky-500" style={{ width: `${pct(o.paid)}%` }} />}
-          <div className="bg-red-400 pp-glow" style={{ width: `${pct(o.owe)}%` }} />
-        </div>
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-500 tabular-nums">
         <span>{t("took", { n: `${fmtPipas(o.took)} P-P` })}</span>

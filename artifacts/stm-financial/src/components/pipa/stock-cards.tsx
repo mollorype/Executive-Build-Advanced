@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Cylinder, Droplets, Loader2 } from "lucide-react";
+import { ChevronRight, Cylinder, Droplets, Loader2 } from "lucide-react";
 import { PIPA_PRODUCTS, fmtLiters, fmtPipas, type PipaProduct, type ProductStock } from "@/lib/pipa-ledger";
 import { usePipaT, pipaProduct } from "@/lib/pipa-i18n";
 
@@ -24,18 +24,21 @@ export function useCountUp(target: number, run: boolean, ms = 900): number {
   return v;
 }
 
-function Card({ product, value, unit, negative, loading, animate, index, group }: {
+function Card({ product, value, unit, negative, loading, animate, index, group, onOpen }: {
   product: PipaProduct; value: number; unit: "L" | "P-P"; negative: boolean; loading: boolean; animate: boolean; index: number; group: "l" | "pp";
+  onOpen?: (p: PipaProduct) => void;
 }) {
   const t = usePipaT();
   const shown = useCountUp(value, animate && !loading);
   const Icon = group === "l" ? Droplets : Cylinder;
   return (
-    <div className={`bg-white border rounded-xl p-4 transition-transform ${negative ? "border-red-200" : "border-slate-100"} ${animate ? "pp-rise hover:-translate-y-0.5 hover:shadow-sm" : ""}`}
+    <button type="button" onClick={() => onOpen?.(product)} disabled={!onOpen}
+      className={`w-full text-left bg-white border rounded-xl p-4 transition-transform ${negative ? "border-red-200" : "border-slate-100"} ${animate ? "pp-rise hover:-translate-y-0.5 hover:shadow-sm" : ""} ${onOpen ? "active:scale-[0.98] cursor-pointer" : "cursor-default"}`}
       style={animate ? { animationDelay: `${index * 70}ms` } : undefined} data-testid={`pp-stock-${group}-${product}`}>
       <div className="flex items-center gap-2 mb-1">
         <Icon className="w-4 h-4 text-slate-400" />
         <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{pipaProduct(t, product)}</span>
+        {onOpen && <ChevronRight className="ml-auto w-4 h-4 text-slate-300" />}
       </div>
       {loading ? <Loader2 className="w-5 h-5 text-slate-300 animate-spin" /> : (
         <>
@@ -45,15 +48,17 @@ function Card({ product, value, unit, negative, loading, animate, index, group }
           {negative && <p className="text-[11px] text-pale-red-foreground mt-1">{t("belowZero")}</p>}
         </>
       )}
-    </div>
+    </button>
   );
 }
 
 /** Stock in litres and stock in P-P, as two separate sets of fuel cards. */
-export default function StockCards({ stock, loading, animate = false }: {
+export default function StockCards({ stock, loading, animate = false, onOpen }: {
   stock: Record<PipaProduct, ProductStock>;
   loading: boolean;
   animate?: boolean;
+  /** Tap a card: that fuel's stock detail. */
+  onOpen?: (p: PipaProduct) => void;
 }) {
   const t = usePipaT();
   const groups = [
@@ -64,11 +69,12 @@ export default function StockCards({ stock, loading, animate = false }: {
     <>
       {groups.map((g, gi) => (
         <section key={g.key} data-testid={`pp-stock-group-${g.key}`}>
-          <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">{g.title}</h2>
+          <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">{g.title}
+            {onOpen && gi === 0 && <span className="ml-2 normal-case tracking-normal font-medium text-slate-400">· {t("tapDetails")}</span>}</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {PIPA_PRODUCTS.map((p, i) => (
               <Card key={p} product={p} value={g.value(p)} unit={g.unit} negative={stock[p].pipas < 0} loading={loading}
-                animate={animate} index={gi * PIPA_PRODUCTS.length + i} group={g.key} />
+                animate={animate} index={gi * PIPA_PRODUCTS.length + i} group={g.key} onOpen={onOpen} />
             ))}
           </div>
         </section>

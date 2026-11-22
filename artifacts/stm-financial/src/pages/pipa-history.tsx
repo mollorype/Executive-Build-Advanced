@@ -74,7 +74,7 @@ function purchaseCost(m: PipaMovement): { spent: number; liters: number; perL: n
 function badge(m: PipaMovement, t: PipaT): { label: string; cls: string } {
   switch (m.kind) {
     case "buy": return m.source === "official"
-      ? { label: t("b_official"), cls: "bg-emerald-100 text-emerald-800" }
+      ? { label: m.po_number ? `${t("b_official")} · ${t("poNo", { n: m.po_number })}` : t("b_official"), cls: "bg-emerald-100 text-emerald-800" }
       : { label: t("b_shop"), cls: "bg-yellow-100 text-yellow-800" };
     case "borrow": case "borrow_returned": case "borrow_paid":
       return { label: t(`b_${m.kind}`), cls: "bg-orange-100 text-orange-800" };
