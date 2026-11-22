@@ -2,21 +2,30 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { supabase } from "@/lib/supabase";
 import {
-  PIPA_STATIONS_TABLE,
-  fmtLiters, fmtMMK, fmtPipas, normalizeMovement, priceBreakdown, round3, stockDelta,
+  PIPA_PRODUCTS, PIPA_STATIONS_TABLE,
+  fmtLiters, fmtMMK, fmtPipas, movementLiters, normalizeMovement, priceBreakdown, round3, stockDelta,
   type PipaMovement, type PipaProduct, type PipaStation,
 } from "@/lib/pipa-ledger";
 import { useAuth } from "@/lib/auth-context";
 import { usePipaT, pipaProduct, type PipaT } from "@/lib/pipa-i18n";
 import { reasonDialog } from "@/components/confirm-dialog";
-import { AlertTriangle, ArrowLeft, Loader2, Trash2, Undo2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ChevronDown, Loader2, Trash2, Undo2, X } from "lucide-react";
 
 /** A history row: one P-P line, or one shift's "sold" lines together. */
 type Item =
   | { type: "line"; m: PipaMovement }
   | { type: "shift"; key: string; shiftId: string | null; name: string; on: string; lines: PipaMovement[]; by: string | null };
 
-/** History line for one movement. */
+/** What the lines inside a fuel's card can be narrowed to. */
+type Cat = "all" | "buy" | "shift" | "other";
+const CATS: Cat[] = ["all", "buy", "shift", "other"];
+const catOf = (item: Item): Exclude<Cat, "all"> => (item.type === "shift" ? "shift" : item.m.kind === "buy" ? "buy" : "other");
+
+/** One colour per fuel, so a card and its lines are easy to tell apart. */
+const FUEL_DOT: Record<PipaProduct, string> = { "92": "bg-blue-500", "95": "bg-violet-500", PD: "bg-amber-500", D: "bg-teal-500" };
+const PAGE = 15;
+
+/** History title for one movement (used in the delete dialog). */
 function describe(m: PipaMovement, station: string, t: PipaT): { title: string; detail: string } {
   const qty = `${fmtPipas(Math.abs(m.pipas))} P-P · ${pipaProduct(t, m.product)}`;
   const price = m.price_mode && m.unit_price != null
@@ -49,11 +58,63 @@ function describe(m: PipaMovement, station: string, t: PipaT): { title: string; 
   }
 }
 
+/** Money of a purchase: what was paid including fees, and that per litre. Null when prices are hidden. */
+function purchaseCost(m: PipaMovement): { spent: number; liters: number; perL: number; price: number; fees: number; perPipa: number } | null {
+  if (m.kind !== "buy" || m.unit_price == null || !m.price_mode) return null;
+  const b = priceBreakdown(m.price_mode, m.unit_price, m.pipas, m.liters_per_pipa);
+  const liters = movementLiters(m);
+  const fees = m.source === "official" ? (m.transport_fee ?? 0) + (m.other_fee ?? 0) : 0;
+  const spent = (m.total_amount ?? b.total) + fees * liters;
+  return { spent, liters, perL: liters > 0 ? spent / liters : 0, price: b.perLiter, fees, perPipa: b.perPipa };
+}
+
+/** Short coloured label for a line; shortages are red because they need a look. */
+function badge(m: PipaMovement, t: PipaT): { label: string; cls: string } {
+  switch (m.kind) {
+    case "buy": return m.source === "official"
+      ? { label: t("b_official"), cls: "bg-emerald-100 text-emerald-800" }
+      : { label: t("b_shop"), cls: "bg-yellow-100 text-yellow-800" };
+    case "borrow": case "borrow_returned": case "borrow_paid":
+      return { label: t(`b_${m.kind}`), cls: "bg-orange-100 text-orange-800" };
+    case "lend": case "lend_returned": case "lend_paid":
+      return { label: t(`b_${m.kind}`), cls: "bg-sky-100 text-sky-800" };
+    case "used": return { label: t("b_used"), cls: "bg-slate-100 text-slate-700" };
+    case "adjust":
+      if (m.pipas > 0 && m.unit_price != null) return { label: t("b_opening"), cls: "bg-green-100 text-green-800" };
+      return m.pipas > 0 ? { label: t("b_gain"), cls: "bg-green-100 text-green-800" } : { label: t("b_loss"), cls: "bg-red-600 text-white" };
+  }
+}
+
 /** Shift "sold" lines carry the employee's name in their note: "Shift sales: 300 L · Ma Hla". */
 const shiftName = (m: PipaMovement) => /·\s*(.+)$/.exec(m.note ?? "")?.[1]?.trim() || "—";
+const perL = (n: number) => `${fmtMMK(n)}/L`;
+/** "+12", "−3.5", or just "0" when nothing moved. */
+const signed = (n: number, sign: "+" | "−") => (n > 0.0005 ? `${sign}${fmtPipas(round3(n))}` : "0");
+
+/** In / out box on a fuel card; grey when nothing moved that way. */
+function Stat({ label, pp, liters, sign }: { label: string; pp: number; liters: number; sign: "+" | "−" }) {
+  const tone = pp <= 0.0005 ? "bg-slate-50 text-slate-400" : sign === "+" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-pale-red-foreground";
+  return (
+    <div className={`rounded-lg px-3 py-2 ${tone}`}>
+      <p className="text-[11px] font-semibold">{label}</p>
+      <p className="text-lg font-bold tabular-nums leading-tight">{signed(pp, sign)} <span className="text-xs">P-P</span></p>
+      <p className="text-[11px] opacity-70 tabular-nums">{fmtLiters(liters)}</p>
+    </div>
+  );
+}
+
+type Group = {
+  product: PipaProduct;
+  items: Item[];
+  counts: Record<Cat, number>;
+  inPP: number; outPP: number; inL: number; outL: number;
+  buys: number; buyL: number; spent: number;
+  last: { perL: number; on: string; at: string } | null;
+};
 
 /**
  * Every P-P line, newest first, with delete / undo (a reason is always asked).
+ * Grouped by fuel: a total card per fuel, tap it to see that fuel's lines.
  * Used on its own page (accountants, managers) and inside the owner's Profit page.
  */
 export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
@@ -71,6 +132,9 @@ export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [open, setOpen] = useState<Partial<Record<PipaProduct, boolean>>>({});
+  const [cat, setCat] = useState<Partial<Record<PipaProduct, Cat>>>({});
+  const [shown, setShown] = useState<Partial<Record<PipaProduct, number>>>({});
   const [notice, setNoticeText] = useState("");
   const noticeTimer = useRef<number | undefined>(undefined);
   // A success message fades after 3 s; an error stays. A newer one replaces an older one.
@@ -118,6 +182,40 @@ export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
     return items;
   }, [movements, stationFilter]);
 
+  // Per fuel: its rows (a shift shows in each fuel it sold) and the totals for its card.
+  const groups = useMemo(() => {
+    const by = new Map<PipaProduct, Group>();
+    const group = (p: PipaProduct) => {
+      let g = by.get(p);
+      if (!g) {
+        g = { product: p, items: [], counts: { all: 0, buy: 0, shift: 0, other: 0 }, inPP: 0, outPP: 0, inL: 0, outL: 0, buys: 0, buyL: 0, spent: 0, last: null };
+        by.set(p, g);
+      }
+      return g;
+    };
+    const add = (g: Group, item: Item, m: PipaMovement) => {
+      g.items.push(item);
+      g.counts.all++; g.counts[catOf(item)]++;
+      const d = stockDelta(m), l = movementLiters(m);
+      if (d > 0) { g.inPP += d; g.inL += l; } else if (d < 0) { g.outPP -= d; g.outL += l; }
+      const c = purchaseCost(m);
+      if (c) {
+        g.buys++; g.buyL += c.liters; g.spent += c.spent;
+        const at = `${m.occurred_on}|${m.created_at}`;
+        if (!g.last || at > g.last.at) g.last = { perL: c.perL, on: m.occurred_on, at };
+      }
+    };
+    for (const item of history) {
+      if (item.type === "line") add(group(item.m.product), item, item.m);
+      else for (const m of item.lines) add(group(m.product), { ...item, lines: [m] }, m);
+    }
+    return PIPA_PRODUCTS.filter(p => by.has(p)).map(p => by.get(p)!);
+  }, [history]);
+
+  const total = useMemo(() => groups.reduce((s, g) => ({
+    inPP: s.inPP + g.inPP, outPP: s.outPP + g.outPP, spent: s.spent + g.spent, buys: s.buys + g.buys,
+  }), { inPP: 0, outPP: 0, spent: 0, buys: 0 }), [groups]);
+
   async function remove(item: Item) {
     const isShift = item.type === "shift";
     const title = isShift
@@ -140,6 +238,140 @@ export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
   }
 
   const by = (who: string | null | undefined) => (owner && who && who !== "auto" ? t("by", { who }) : "");
+
+  const shiftRow = (item: Extract<Item, { type: "shift" }>, product: PipaProduct) => {
+    const m = item.lines[0];
+    return (
+      <li key={`${item.key}-${product}`} className="flex items-start gap-3 px-4 py-2.5" data-testid="pp-shift-row">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] font-bold rounded px-1.5 py-0.5 bg-slate-100 text-slate-600">{t("b_shift")}</span>
+            <span className="text-sm font-semibold text-slate-700">{item.name}</span>
+          </div>
+          <p className="text-xs text-slate-500 tabular-nums mt-0.5">{fmtPipas(m.pipas)} P-P · {fmtLiters(movementLiters(m))}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">{item.on}{by(item.by)}</p>
+        </div>
+        <span className="shrink-0 text-sm font-bold tabular-nums text-pale-red-foreground" title={t("stockEffect")}>−{fmtPipas(Math.abs(stockDelta(m)))}</span>
+        <button onClick={() => remove(item)} disabled={deletingId === item.key || !item.shiftId} aria-label={t("undoShift")}
+          className="shrink-0 p-2 -m-1 text-slate-400 hover:text-pale-red-foreground hover:bg-pale-red rounded-lg transition-colors">
+          {deletingId === item.key ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />}
+        </button>
+      </li>
+    );
+  };
+
+  const lineRow = (m: PipaMovement) => {
+    const b = badge(m, t);
+    const delta = stockDelta(m);
+    const station = m.station_id ? stationName[m.station_id] ?? "—" : "";
+    const toward = m.kind === "borrow_returned" || m.kind === "lend" ? "toSt" as const : "fromSt" as const;
+    const cost = purchaseCost(m);
+    const pb = m.price_mode && m.unit_price != null ? priceBreakdown(m.price_mode, m.unit_price, m.pipas, m.liters_per_pipa) : null;
+    const money = cost ? cost.spent : pb ? (m.total_amount ?? pb.total) : null;
+    const pill = cost ? t("costL", { v: fmtMMK(cost.perL) }) : pb && m.kind === "adjust" ? perL(pb.perLiter) : "";
+    const sub = cost
+      ? (cost.fees > 0 ? t("priceFees", { perPipa: fmtMMK(cost.perPipa), price: fmtMMK(cost.price), fees: fmtMMK(cost.fees) })
+                       : t("pricePP", { perPipa: fmtMMK(cost.perPipa), perLiter: fmtMMK(cost.price) }))
+      : pb && m.kind !== "adjust" ? t("pricePP", { perPipa: fmtMMK(pb.perPipa), perLiter: fmtMMK(pb.perLiter) }) : "";
+    const short = m.kind === "adjust" && m.pipas < 0;
+    return (
+      <li key={m.id} className={`flex items-start gap-3 px-4 py-3 ${short ? "bg-red-50" : m.kind === "buy" ? "bg-emerald-50/40" : ""}`}
+        data-testid={m.kind === "buy" ? "pp-buy-row" : "pp-line-row"}>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            <span className={`text-[10px] font-bold rounded px-1.5 py-0.5 ${b.cls}`}>{b.label}</span>
+            <span className="text-sm font-bold text-slate-900 tabular-nums">
+              {m.kind === "adjust" ? (m.pipas > 0 ? "+" : "−") : ""}{fmtPipas(Math.abs(m.pipas))} P-P
+              <span className="font-medium text-slate-500"> · {fmtLiters(movementLiters(m))}</span>
+            </span>
+            {station && <span className="text-xs text-slate-500">{t(toward, { station })}</span>}
+          </div>
+          {money != null && (
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="text-[15px] font-bold text-slate-900 tabular-nums" data-testid="pp-row-money">{fmtMMK(money)}</span>
+              {pill && <span className="text-xs font-semibold text-blue-700 bg-blue-50 rounded-md px-1.5 py-0.5 tabular-nums">{pill}</span>}
+            </div>
+          )}
+          {sub && <p className="text-xs text-slate-500 mt-0.5 break-words tabular-nums">{sub}</p>}
+          <p className="text-[11px] text-slate-400 mt-0.5 break-words">
+            {m.occurred_on}{m.note && (m.kind !== "adjust" || short) ? ` · ${m.note}` : ""}{by(m.created_by)}
+          </p>
+        </div>
+        <span className={`shrink-0 text-base font-bold tabular-nums ${delta > 0 ? "text-pale-green-foreground" : delta < 0 ? "text-pale-red-foreground" : "text-slate-400"}`}
+          title={t("stockEffect")}>
+          {delta > 0 ? "+" : delta < 0 ? "−" : "±"}{fmtPipas(Math.abs(delta))}
+        </span>
+        <button onClick={() => remove({ type: "line", m })} disabled={deletingId === m.id} aria-label={t("deleteRecord")}
+          className="shrink-0 p-2 -m-1 text-slate-400 hover:text-pale-red-foreground hover:bg-pale-red rounded-lg transition-colors">
+          {deletingId === m.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+        </button>
+      </li>
+    );
+  };
+
+  const fuelCard = (g: Group) => {
+    const isOpen = !!open[g.product];
+    const c = cat[g.product] ?? "all";
+    const rows = c === "all" ? g.items : g.items.filter(i => catOf(i) === c);
+    const limit = shown[g.product] ?? PAGE;
+    const priced = g.buys > 0 && g.spent > 0;
+    return (
+      <section key={g.product} className={`bg-white border rounded-xl overflow-hidden ${isOpen ? "border-blue-200 shadow-sm" : "border-slate-100"}`} data-testid={`pp-fuel-${g.product}`}>
+        <button type="button" onClick={() => setOpen(o => ({ ...o, [g.product]: !isOpen }))} aria-expanded={isOpen}
+          className="w-full text-left p-4 space-y-3 active:bg-slate-50" data-testid={`pp-fuel-btn-${g.product}`}>
+          <div className="flex items-center gap-2">
+            <i className={`w-2.5 h-2.5 rounded-full shrink-0 ${FUEL_DOT[g.product]}`} />
+            <span className="text-base font-bold text-slate-900">{pipaProduct(t, g.product)}</span>
+            <span className="text-xs text-slate-400">{t("nLines", { n: g.counts.all })}</span>
+            <ChevronDown className={`ml-auto w-5 h-5 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Stat label={t("inLbl")} pp={g.inPP} liters={g.inL} sign="+" />
+            <Stat label={t("outLbl")} pp={g.outPP} liters={g.outL} sign="−" />
+          </div>
+          {priced && (
+            <div className="border-t border-slate-100 pt-3">
+              <div className="flex items-end justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] text-slate-500">{t("spent")}</p>
+                  <p className="text-lg font-bold text-slate-900 tabular-nums leading-tight" data-testid="pp-fuel-spent">{fmtMMK(g.spent)}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[11px] text-slate-500">{t("avgCost")}</p>
+                  <p className="text-sm font-bold text-blue-700 tabular-nums">{perL(g.spent / g.buyL)}</p>
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                {t("nBuys", { n: g.buys })}{g.last ? ` · ${t("lastCost", { v: fmtMMK(g.last.perL), d: g.last.on })}` : ""}
+              </p>
+            </div>
+          )}
+        </button>
+
+        {isOpen && (
+          <div className="border-t border-slate-100">
+            <div className="flex gap-1.5 overflow-x-auto px-4 py-2 bg-slate-50" role="group">
+              {CATS.filter(k => k === "all" || g.counts[k] > 0).map(k => (
+                <button key={k} type="button" onClick={() => { setCat(s => ({ ...s, [g.product]: k })); setShown(s => ({ ...s, [g.product]: PAGE })); }}
+                  className={`shrink-0 text-xs font-semibold rounded-full px-3 py-1 border ${c === k ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200"}`}>
+                  {t(`c_${k}`)} <span className={c === k ? "text-slate-300" : "text-slate-400"}>{g.counts[k]}</span>
+                </button>
+              ))}
+            </div>
+            <ul className="divide-y divide-slate-100" data-testid={`pp-history-${g.product}`}>
+              {rows.slice(0, limit).map(item => (item.type === "shift" ? shiftRow(item, g.product) : lineRow(item.m)))}
+            </ul>
+            {rows.length > limit && (
+              <button type="button" onClick={() => setShown(s => ({ ...s, [g.product]: limit + PAGE * 2 }))}
+                className="w-full py-3 text-sm font-semibold text-pale-blue-foreground border-t border-slate-100 hover:bg-slate-50">
+                {t("showMore", { n: Math.min(PAGE * 2, rows.length - limit) })}
+              </button>
+            )}
+          </div>
+        )}
+      </section>
+    );
+  };
 
   return (
       <div className="space-y-4">
@@ -170,51 +402,25 @@ export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
         ) : history.length === 0 ? (
           <p className="bg-white border border-slate-100 rounded-xl p-6 text-center text-sm text-slate-500">{t("noMovements")}</p>
         ) : (
-          <ul className="bg-white border border-slate-100 rounded-xl divide-y divide-slate-100" data-testid="pp-history">
-            {history.map(item => {
-              if (item.type === "shift") {
-                const out = round3(item.lines.reduce((s, m) => s + Math.abs(stockDelta(m)), 0));
-                return (
-                  <li key={item.key} className="flex items-start gap-3 px-4 py-3" data-testid="pp-shift-row">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-900">{t("h_shift", { name: item.name })}</p>
-                      <p className="text-xs text-slate-600 break-words">
-                        {item.lines.map(m => `${pipaProduct(t, m.product as PipaProduct)} ${fmtPipas(m.pipas)} P-P (${fmtLiters(m.exact_liters ?? m.pipas * m.liters_per_pipa)})`).join(" · ")}
-                      </p>
-                      <p className="text-xs text-slate-400 mt-0.5">{item.on}{by(item.by)}</p>
-                    </div>
-                    <span className="shrink-0 text-sm font-bold tabular-nums text-pale-red-foreground" title={t("stockEffect")}>−{fmtPipas(out)}</span>
-                    <button onClick={() => remove(item)} disabled={deletingId === item.key || !item.shiftId} aria-label={t("undoShift")}
-                      className="shrink-0 p-2 -m-1 text-slate-400 hover:text-pale-red-foreground hover:bg-pale-red rounded-lg transition-colors">
-                      {deletingId === item.key ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />}
-                    </button>
-                  </li>
-                );
-              }
-              const m = item.m;
-              const d = describe(m, stationName[m.station_id ?? ""] ?? "—", t);
-              const delta = stockDelta(m);
-              return (
-                <li key={m.id} className="flex items-start gap-3 px-4 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-slate-900">{d.title}</p>
-                    {d.detail && <p className="text-xs text-slate-600 break-words">{d.detail}</p>}
-                    <p className="text-xs text-slate-400 mt-0.5 break-words">
-                      {m.occurred_on}{m.note && m.kind !== "adjust" ? ` · ${m.note}` : ""}{by(m.created_by)}
-                    </p>
-                  </div>
-                  <span className={`shrink-0 text-sm font-bold tabular-nums ${delta > 0 ? "text-pale-green-foreground" : delta < 0 ? "text-pale-red-foreground" : "text-slate-400"}`}
-                    title={t("stockEffect")}>
-                    {delta > 0 ? "+" : delta < 0 ? "−" : "±"}{fmtPipas(Math.abs(delta))}
-                  </span>
-                  <button onClick={() => remove(item)} disabled={deletingId === m.id} aria-label={t("deleteRecord")}
-                    className="shrink-0 p-2 -m-1 text-slate-400 hover:text-pale-red-foreground hover:bg-pale-red rounded-lg transition-colors">
-                    {deletingId === m.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="space-y-3" data-testid="pp-history">
+            <div className="rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 text-white p-4" data-testid="pp-history-total">
+              <p className="text-xs font-semibold text-blue-100">
+                {stationFilter ? t("totalAt", { station: stationName[stationFilter] ?? "—" }) : t("totalAll")}
+              </p>
+              {total.spent > 0 && (
+                <>
+                  <p className="text-2xl font-bold tabular-nums mt-1">{fmtMMK(total.spent)}</p>
+                  <p className="text-xs text-blue-100">{t("spent")} · {t("nBuys", { n: total.buys })}</p>
+                </>
+              )}
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm font-semibold tabular-nums">
+                <span>{t("inLbl")} <span className="text-emerald-200">{signed(total.inPP, "+")} P-P</span></span>
+                <span>{t("outLbl")} <span className={total.outPP > 0.0005 ? "text-red-200" : "text-blue-200"}>{signed(total.outPP, "−")} P-P</span></span>
+              </div>
+            </div>
+            <p className="text-xs text-slate-400 px-1">{t("tapFuel")}</p>
+            {groups.map(fuelCard)}
+          </div>
         )}
         <p className="text-[11px] text-slate-400">{t("cashNote")}</p>
       </div>
