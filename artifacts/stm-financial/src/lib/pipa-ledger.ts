@@ -16,7 +16,9 @@ export const PRODUCT_LABELS: Record<PipaProduct, string> = {
 
 export type MovementKind =
   | "buy" | "borrow" | "borrow_returned" | "borrow_paid"
-  | "lend" | "lend_returned" | "lend_paid" | "used" | "adjust";
+  | "lend" | "lend_returned" | "lend_paid" | "used" | "adjust"
+  | "sell"          // sold to another station (money counts as sales)
+  | "write_off";    // what was left when a pool was closed (made by the database only)
 
 export type PriceMode = "per_pipa" | "per_liter";
 
@@ -38,13 +40,15 @@ export const KIND_INFO: Record<MovementKind, KindInfo> = {
   lend:            { label: "Lend",                 verb: "Lent",                   stock: -1, weOwe: 0,  theyOwe: 1,  station: true,  price: false },
   lend_returned:   { label: "They returned",        verb: "Got back (lent)",        stock: 1,  weOwe: 0,  theyOwe: -1, station: true,  price: false },
   lend_paid:       { label: "They paid cash",       verb: "They paid cash instead of returning", stock: 0, weOwe: 0, theyOwe: -1, station: true, price: true },
-  used:            { label: "Sold / used",          verb: "Sold / used",            stock: -1, weOwe: 0,  theyOwe: 0,  station: false, price: false },
+  used:            { label: "Used (not sold)",      verb: "Used (not sold)",            stock: -1, weOwe: 0,  theyOwe: 0,  station: false, price: false },
   adjust:          { label: "Stock count",          verb: "Stock count correction", stock: 1,  weOwe: 0,  theyOwe: 0,  station: false, price: false },
+  sell:            { label: "Sell to a station",    verb: "Sold",                   stock: -1, weOwe: 0,  theyOwe: 0,  station: true,  price: true },
+  write_off:       { label: "Pool closed",          verb: "Written off",            stock: -1, weOwe: 0,  theyOwe: 0,  station: false, price: false },
 };
 
 /** The kinds offered in the "+ Movement" form, in display order. */
 export const FORM_KINDS: MovementKind[] = [
-  "buy", "borrow", "lend", "borrow_returned", "lend_returned", "borrow_paid", "lend_paid", "used",
+  "buy", "sell", "borrow", "lend", "borrow_returned", "lend_returned", "borrow_paid", "lend_paid", "used",
 ];
 
 export type PipaStation = { id: string; name: string; phone: string | null; note: string | null; created_at: string };
@@ -62,8 +66,19 @@ export type PipaMovement = {
   unit_price: number | null;
   total_amount: number | null;
   note: string | null;
-  po_id: string | null;
   shift_batch_id: string | null;
+  /** The shift a "sold" line came from (shift deductions only). */
+  shift_id?: string | null;
+  /** Official purchases typed in litres: the exact litres (pipas is rounded). */
+  exact_liters?: number | null;
+  source?: "shop" | "official" | null;
+  transport_fee?: number | null;   // MMK / litre
+  other_fee?: number | null;       // MMK / litre
+  created_by?: string | null;
+  /** "Pool closed" lines: why (shortage / spill / other). */
+  write_off_reason?: "shortage" | "spill" | "other" | null;
+  /** Big PO number (official purchases). */
+  po_number?: string | null;
 };
 
 /** PostgREST returns numeric columns as numbers or strings depending on size — normalise. */
@@ -75,6 +90,9 @@ export function normalizeMovement(row: Record<string, unknown>): PipaMovement {
     liters_per_pipa: Number(row.liters_per_pipa ?? DEFAULT_LITERS_PER_PIPA),
     unit_price: num(row.unit_price),
     total_amount: num(row.total_amount),
+    exact_liters: num(row.exact_liters),
+    transport_fee: num(row.transport_fee),
+    other_fee: num(row.other_fee),
   };
 }
 
@@ -88,13 +106,17 @@ export function stockDelta(m: Pick<PipaMovement, "kind" | "pipas">): number {
 
 export type ProductStock = { pipas: number; liters: number };
 
+/** Litres one movement moves (official purchases keep their exact litres). */
+export const movementLiters = (m: Pick<PipaMovement, "pipas" | "liters_per_pipa" | "exact_liters">) =>
+  m.exact_liters ?? Math.abs(m.pipas) * m.liters_per_pipa;
+
 /** Stock on hand per product: pipas, and litres using each movement's own pipa size. */
 export function stockByProduct(movements: PipaMovement[]): Record<PipaProduct, ProductStock> {
   const out = Object.fromEntries(PIPA_PRODUCTS.map(p => [p, { pipas: 0, liters: 0 }])) as Record<PipaProduct, ProductStock>;
   for (const m of movements) {
     const d = stockDelta(m);
     out[m.product].pipas += d;
-    out[m.product].liters += d * m.liters_per_pipa;
+    out[m.product].liters += Math.sign(d) * movementLiters(m);
   }
   for (const p of PIPA_PRODUCTS) {
     out[p].pipas = round3(out[p].pipas);

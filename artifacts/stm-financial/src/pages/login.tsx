@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useLocation, useSearch } from "wouter";
 import { nextFromSearch } from "@/lib/return-to";
-import type { Role } from "@/lib/supabase";
+import { homeFor } from "@/lib/supabase";
 import { Shield, Lock, AlertTriangle, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { makeT } from "@/lib/app-i18n";
 import DebtLangToggle from "@/components/debt-lang-toggle";
@@ -38,10 +38,6 @@ const useT = makeT({
   back: { en: "← Back to sign in", my: "← ဝင်ရန် ပြန်သွားရန်" },
   footer: { en: "Unauthorized access is strictly prohibited · STM Financial", my: "ခွင့်မပြုဘဲ ဝင်ရောက်ခြင်းကို တားမြစ်သည် · STM Financial" },
 });
-
-function destinationFor(role?: Role): string {
-  return role === "accountant" ? "/debt-tracker" : "/dashboard";
-}
 
 export default function Login() {
   const { signIn, signUp } = useAuth();
@@ -83,7 +79,7 @@ export default function Login() {
     }
 
     await new Promise(r => setTimeout(r, 800));
-    setLocation(next ?? destinationFor(role));
+    setLocation(next ?? homeFor(role));
     setLoading(false);
   }
 
@@ -120,7 +116,7 @@ export default function Login() {
     }
 
     await new Promise(r => setTimeout(r, 800));
-    setLocation(next ?? destinationFor(role));
+    setLocation(next ?? homeFor(role));
   }
 
   return (

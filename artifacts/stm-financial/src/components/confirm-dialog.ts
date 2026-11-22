@@ -30,8 +30,13 @@ const COLORS = {
   dark: { panel: "#161b22", text: "#f0f6fc", border: "#30363d", cancelBg: "#0d1117", cancelText: "#c9d1d9", primary: "#2563eb" },
 };
 
-function show(message: string, opts: DialogOptions, withCancel: boolean): Promise<boolean> {
-  if (typeof document === "undefined") return Promise.resolve(false);
+type Input = { placeholder?: string; label?: string; mustType?: string[] };
+
+// Typed confirmations: case, spaces and invisible characters don't matter.
+const norm = (s: string) => s.normalize("NFC").replace(/[\s​-‍﻿]/g, "").toUpperCase();
+
+function show(message: string, opts: DialogOptions, withCancel: boolean, input?: Input): Promise<{ ok: boolean; value: string }> {
+  if (typeof document === "undefined") return Promise.resolve({ ok: false, value: "" });
   const lang: Lang = opts.lang ?? (document.documentElement.lang === "my" ? "my" : "en");
   const L = LABELS[lang];
   const c = COLORS[opts.theme ?? "light"];
@@ -61,6 +66,33 @@ function show(message: string, opts: DialogOptions, withCancel: boolean): Promis
     box.setAttribute("aria-describedby", text.id);
     box.appendChild(text);
 
+    // A required note (e.g. why something is being deleted), or a word to type.
+    let field: HTMLTextAreaElement | HTMLInputElement | null = null;
+    if (input) {
+      if (input.mustType) {
+        const f = document.createElement("input");
+        f.type = "text";
+        f.autocomplete = "off";
+        f.autocapitalize = "characters";
+        f.spellcheck = false;
+        f.maxLength = 40;
+        field = f;
+      } else {
+        const f = document.createElement("textarea");
+        f.rows = 3;
+        f.maxLength = 500;
+        field = f;
+      }
+      field.placeholder = input.placeholder ?? "";
+      field.setAttribute("aria-label", input.label ?? input.placeholder ?? "");
+      field.dataset.testid = "app-dialog-input";
+      Object.assign(field.style, {
+        width: "100%", boxSizing: "border-box", margin: "-6px 0 16px", padding: "10px 12px", borderRadius: "12px",
+        border: `1px solid ${c.border}`, background: c.cancelBg, color: c.text, fontSize: "16px", fontFamily: "inherit", resize: "vertical",
+      });
+      box.appendChild(field);
+    }
+
     const row = document.createElement("div");
     Object.assign(row.style, { display: "flex", gap: "10px" });
     const button = (label: string, bg: string, fg: string, border: string) => {
@@ -74,11 +106,11 @@ function show(message: string, opts: DialogOptions, withCancel: boolean): Promis
       return b;
     };
 
-    const finish = (value: boolean) => {
+    const finish = (ok: boolean) => {
       document.removeEventListener("keydown", onKey, true);
       root.remove();
       before?.focus?.();
-      resolve(value);
+      resolve({ ok, value: field?.value.trim() ?? "" });
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") { e.preventDefault(); finish(false); }
@@ -93,6 +125,14 @@ function show(message: string, opts: DialogOptions, withCancel: boolean): Promis
     const okColor = opts.danger ? "#dc2626" : c.primary;
     const ok = button(opts.confirmLabel ?? (withCancel ? (opts.danger ? L.del : L.confirm) : L.ok), okColor, "#ffffff", okColor);
     ok.addEventListener("click", () => finish(true));
+    if (field) {
+      // Can't confirm with an empty note, or until the word is typed.
+      const words = input?.mustType?.map(norm);
+      const ready = () => (words ? words.includes(norm(field!.value)) : !!field!.value.trim());
+      const sync = () => { ok.disabled = !ready(); ok.style.opacity = ok.disabled ? "0.5" : "1"; };
+      field.addEventListener("input", sync);
+      sync();
+    }
     row.appendChild(ok);
     box.appendChild(row);
 
@@ -101,13 +141,24 @@ function show(message: string, opts: DialogOptions, withCancel: boolean): Promis
     document.addEventListener("keydown", onKey, true);
     root.appendChild(box);
     document.body.appendChild(root);
-    (cancel ?? ok).focus();   // a stray Enter never deletes
+    (field ?? cancel ?? ok).focus();   // a stray Enter never deletes
   });
 }
 
 /** Ask before doing something. Resolves true only when the user confirms. */
 export function confirmDialog(message: string, opts: DialogOptions = {}): Promise<boolean> {
-  return show(message, opts, true);
+  return show(message, opts, true).then(r => r.ok);
+}
+
+/** Ask for a reason before doing something. Resolves the reason, or null if cancelled. */
+export function reasonDialog(message: string, opts: DialogOptions & Input = {}): Promise<string | null> {
+  return show(message, opts, true, { placeholder: opts.placeholder, label: opts.label }).then(r => (r.ok && r.value ? r.value : null));
+}
+
+/** Ask the user to type a word (any of `words`) before something that can't be undone. */
+export function typeToConfirm(message: string, words: string[], opts: DialogOptions & { placeholder?: string } = {}): Promise<boolean> {
+  return show(message, { danger: true, ...opts }, true, { placeholder: opts.placeholder ?? words[0], label: words[0], mustType: words })
+    .then(r => r.ok && words.map(norm).includes(norm(r.value)));
 }
 
 /** Tell the user something (e.g. why a delete didn't happen). */

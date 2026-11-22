@@ -41,7 +41,8 @@ Deno.serve(async (req) => {
     if (error) {
       await reply("Something went wrong connecting your account. Please try again from STM Financial.");
     } else if (result === "linked_staff") {
-      await reply("✅ ချိတ်ဆက်ပြီးပါပြီ။ လစာ၊ ခွင့်၊ အရေးပေါ် အသိပေးချက်များ ဒီမှာ ရပါမည်။\n\nChat စာများအတွက်လည်း လိုချင်ရင် STM Daily တွင် ဖွင့်နိုင်ပါသည်။\nရပ်ရန် /stop ပို့ပါ။");
+      // Which notices staff get is set by the owner (STM Financial → Settings); STM Daily's Telegram card lists them.
+      await reply("✅ ချိတ်ဆက်ပြီးပါပြီ။ ပိုင်ရှင် ဖွင့်ထားသော အသိပေးချက်များ (လစာ၊ အရေးပေါ်၊ Chat စသည်) ဒီမှာ ရပါမည်။ ဘာတွေ ရမည်ကို STM Daily ရှိ Telegram ကတ်တွင် ကြည့်နိုင်ပါသည်။\nရပ်ရန် /stop ပို့ပါ။\n\nConnected. You'll get the notices the owner has switched on (salary, emergencies, chat…) — see the Telegram card in STM Daily. Send /stop to turn them off.");
     } else if (result === "linked") {
       await reply("✅ Connected. You'll get a message here for every shift submission, and 🚨 for red flags.\n\nSend /stop to turn alerts off.");
     } else if (result === "not_allowed") {

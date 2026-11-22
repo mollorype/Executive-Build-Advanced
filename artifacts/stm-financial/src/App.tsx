@@ -4,13 +4,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
-import type { Role } from "@/lib/supabase";
+import { homeFor, type Role } from "@/lib/supabase";
 import AppShell from "@/components/app-shell";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import Shifts from "@/pages/shifts";
 import ManageAccess from "@/pages/manage-access";
-import PORegistry from "@/pages/po-registry";
+import ProfitPage from "@/pages/profit";
+import PipaHistory from "@/pages/pipa-history";
 import PipaLedger from "@/pages/pipa-ledger";
 import DebtTracker from "@/pages/debt-tracker";
 import SalaryPage from "@/pages/salary";
@@ -18,11 +19,6 @@ import SettingsPage from "@/pages/settings";
 import ChatPage from "@/pages/chat";
 
 const queryClient = new QueryClient();
-
-/** Where a role lands when it hits a page it isn't allowed on, or logs in fresh. */
-function homeFor(role: Role): string {
-  return role === "accountant" ? "/debt-tracker" : "/dashboard";
-}
 
 function ProtectedRoute({ children, allow = ["ceo"] }: { children: React.ReactNode; allow?: Role[] }) {
   const { user, profile, loading } = useAuth();
@@ -108,14 +104,25 @@ function Router() {
         </ProtectedRoute>
       </Route>
 
-      <Route path="/po-registry">
+      <Route path="/profit">
         <ProtectedRoute>
-          <PORegistry />
+          <ProfitPage />
+        </ProtectedRoute>
+      </Route>
+
+      {/* The PO Registry was replaced by the Profit page. */}
+      <Route path="/po-registry">
+        <Redirect to="/profit" />
+      </Route>
+
+      <Route path="/pipa-ledger/history">
+        <ProtectedRoute allow={["ceo", "accountant", "manager"]}>
+          <PipaHistory />
         </ProtectedRoute>
       </Route>
 
       <Route path="/pipa-ledger">
-        <ProtectedRoute>
+        <ProtectedRoute allow={["ceo", "accountant", "manager"]}>
           <PipaLedger />
         </ProtectedRoute>
       </Route>
@@ -133,7 +140,7 @@ function Router() {
       </Route>
 
       <Route path="/settings">
-        <ProtectedRoute allow={["ceo", "accountant"]}>
+        <ProtectedRoute allow={["ceo", "accountant", "manager"]}>
           <SettingsPage />
         </ProtectedRoute>
       </Route>

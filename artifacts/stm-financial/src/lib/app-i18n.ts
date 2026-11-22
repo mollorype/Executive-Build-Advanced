@@ -41,5 +41,6 @@ export function tr<D extends Strings>(dict: D, lang: Lang, key: keyof D & string
 const ROLE: Record<Role, { en: string; my: string }> = {
   ceo: { en: "Owner", my: "ပိုင်ရှင်" },
   accountant: { en: "Accountant", my: "စာရင်းကိုင်" },
+  manager: { en: "Manager", my: "မန်နေဂျာ" },
 };
 export const roleLabel = (role: Role, lang: Lang) => ROLE[role][lang];

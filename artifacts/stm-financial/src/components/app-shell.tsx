@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase, type Role } from "@/lib/supabase";
 import { makeT, roleLabel, useLang } from "@/lib/app-i18n";
 import {
-  Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, PackageSearch, CreditCard, Receipt, Cylinder, KeyRound, MessageCircle, Wallet, Settings,
+  Shield, LayoutDashboard, Users, LogOut, Menu, X, ChevronRight, TrendingUp, History, CreditCard, Receipt, Cylinder, KeyRound, MessageCircle, Wallet, Settings,
 } from "lucide-react";
 
 type Props = { children: React.ReactNode };
@@ -14,8 +14,9 @@ type Props = { children: React.ReactNode };
 const useT = makeT({
   dashboard: { en: "Dashboard", my: "အကျဉ်းချုပ်" },
   shifts: { en: "Shifts", my: "ဆိုင်းစာရင်းများ" },
-  po: { en: "PO Registry", my: "PO စာရင်း" },
+  profit: { en: "Profit", my: "အမြတ်" },
   pp: { en: "P-P Ledger", my: "P-P စာရင်း" },
+  ppHistory: { en: "P-P History", my: "P-P မှတ်တမ်း" },
   debt: { en: "Debt Tracker", my: "အကြွေးစာရင်း" },
   salary: { en: "Salary", my: "လစာ" },
   chat: { en: "Team Chat", my: "အဖွဲ့ Chat" },
@@ -30,16 +31,18 @@ const useT = makeT({
   newChat: { en: "{n} new team chat messages", my: "Chat စာအသစ် {n} စောင်" },
 });
 
-const navItems: { path: string; label: "dashboard" | "shifts" | "po" | "pp" | "debt" | "salary" | "chat" | "access" | "settings"; icon: typeof LayoutDashboard; roles: Role[] }[] = [
+const navItems: { path: string; label: "dashboard" | "shifts" | "profit" | "pp" | "ppHistory" | "debt" | "salary" | "chat" | "access" | "settings"; icon: typeof LayoutDashboard; roles: Role[] }[] = [
   { path: "/dashboard", label: "dashboard", icon: LayoutDashboard, roles: ["ceo"] },
   { path: "/shifts", label: "shifts", icon: Receipt, roles: ["ceo"] },
-  { path: "/po-registry", label: "po", icon: PackageSearch, roles: ["ceo"] },
-  { path: "/pipa-ledger", label: "pp", icon: Cylinder, roles: ["ceo"] },
+  { path: "/pipa-ledger", label: "pp", icon: Cylinder, roles: ["ceo", "accountant", "manager"] },
+  // Owners have the history inside Profit.
+  { path: "/pipa-ledger/history", label: "ppHistory", icon: History, roles: ["accountant", "manager"] },
+  { path: "/profit", label: "profit", icon: TrendingUp, roles: ["ceo"] },
   { path: "/debt-tracker", label: "debt", icon: CreditCard, roles: ["ceo", "accountant"] },
   { path: "/salary", label: "salary", icon: Wallet, roles: ["ceo", "accountant"] },
   { path: "/chat", label: "chat", icon: MessageCircle, roles: ["ceo"] },
   { path: "/manage-access", label: "access", icon: Users, roles: ["ceo"] },
-  { path: "/settings", label: "settings", icon: Settings, roles: ["ceo", "accountant"] },
+  { path: "/settings", label: "settings", icon: Settings, roles: ["ceo", "accountant", "manager"] },
 ];
 
 export default function AppShell({ children }: Props) {

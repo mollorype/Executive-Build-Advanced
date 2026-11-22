@@ -216,8 +216,8 @@ export default function ShiftDetailPanel({ shift, onClose }: Props) {
         product: fuelProductLabel(item.product, t),
         unitCount: item.containers,
         unitNoun: t("containers"),
-        litersPerUnit: PIPA_LITERS_PER_CONTAINER,
-        totalLiters: item.containers * PIPA_LITERS_PER_CONTAINER,
+        litersPerUnit: item.liters_per_pipa || PIPA_LITERS_PER_CONTAINER,   // what the staff entered (215 by default)
+        totalLiters: item.containers * (item.liters_per_pipa || PIPA_LITERS_PER_CONTAINER),
         unitPrice: item.price,
         unitPriceNoun: "P-P",
         total: item.total,

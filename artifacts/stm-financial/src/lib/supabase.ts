@@ -15,7 +15,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const TABLES = {
   SHIFTS: "daily_sales_reports",
-  PO: "fuel_purchase_orders",
   PROFILES: "profiles",
 } as const;
 
@@ -87,33 +86,21 @@ export function mapRowToShift(row: Record<string, unknown>): Shift {
   };
 }
 
-export type Role = "ceo" | "accountant";
+export const ROLES = ["ceo", "accountant", "manager"] as const;
+export type Role = (typeof ROLES)[number];
 
 /** What each role is called on screen. The stored role names (and every check on them) stay the same. */
-export const ROLE_LABELS: Record<Role, string> = { ceo: "Owner", accountant: "Accountant" };
+export const ROLE_LABELS: Record<Role, string> = { ceo: "Owner", accountant: "Accountant", manager: "Manager" };
+
+/** Where a role lands when it logs in fresh, or hits a page it isn't allowed on. */
+export function homeFor(role?: Role | null): string {
+  return role === "accountant" ? "/debt-tracker" : role === "manager" ? "/pipa-ledger" : "/dashboard";
+}
 
 export type Profile = {
   id: string;
   username: string;
   role: Role;
-};
-
-export type FuelPurchaseOrder = {
-  id: string;
-  created_at: string;
-  name: string | null;
-  product_type: "92" | "95" | "PD" | "D" | "pipa";
-  status: "ACTIVE" | "QUEUED" | "DONE";
-  initial_volume: number;
-  remaining_volume: number;
-  calibration_factor: number;
-  wholesale_price: number | null;
-  transportation_fees: number | null;
-  confidential_fees: number | null;
-  retail_price_set: number | null;
-  is_verified: boolean;
-  shortage_liters: number | null;
-  total_volume_sold: number | null;
 };
 
 export async function updateShift(id: string, data: {
@@ -197,7 +184,7 @@ export type Shift = {
   pipa_amount: number | null;
   pipa_price: number | null;
   pipa_total: number | null;
-  pipa_items: { product: string; containers: number; price: number; total: number }[] | null;
+  pipa_items: { product: string; containers: number; liters_per_pipa?: number; price: number; total: number }[] | null;
   jelly_can_items: { product: string; pieces: number; liters_per_can: number; total_liters: number; price: number; total: number }[] | null;
   /** How STM Daily recorded the Pipa + Jelly Can total being paid (newer shifts only). */
   pipa_jelly_payment: PipaJellyPayment | null;
