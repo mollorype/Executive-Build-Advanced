@@ -30,7 +30,7 @@ const useT = makeT({
   profit: { en: "Profit", my: "အမြတ်" },
   sales: { en: "Sales", my: "ရောင်းရငွေ" },
   fuelCost: { en: "Fuel cost", my: "ဆီ ကုန်ကျ" },
-  losses: { en: "Shortages & closed pools", my: "လို / ပိတ်ပြီး pool ဆုံးရှုံး" },
+  losses: { en: "Shortages & force closed", my: "လို / အတင်းပိတ် ဆုံးရှုံး" },
   used: { en: "Used (not sold)", my: "သုံးစွဲ (မရောင်း)" },
   settle: { en: "Borrow settlements", my: "ချေးယူမှု ရှင်းခြင်း" },
   sold: { en: "Sold", my: "ရောင်း" },

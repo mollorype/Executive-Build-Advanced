@@ -9,7 +9,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { usePipaT, pipaProduct, type PipaT } from "@/lib/pipa-i18n";
 import { reasonDialog } from "@/components/confirm-dialog";
-import { PriceDialog, type PriceTarget } from "@/components/pipa/fuel-stock-sheet";
+import { PriceDialog, fmtDate, type PriceTarget } from "@/components/pipa/fuel-stock-sheet";
 import { AlertTriangle, ArrowLeft, ChevronDown, Loader2, Trash2, Undo2, X } from "lucide-react";
 
 /** A history row: one P-P line, or one shift's "sold" lines together. */
@@ -288,7 +288,7 @@ export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
                        : t("pricePP", { perPipa: fmtMMK(cost.perPipa), perLiter: fmtMMK(cost.price) }))
       : pb && m.kind !== "adjust" ? t("pricePP", { perPipa: fmtMMK(pb.perPipa), perLiter: fmtMMK(pb.perLiter) }) : "";
     const short = m.kind === "adjust" && m.pipas < 0;
-    // "Pool closed — spill · drum leaked": the badge already says why, keep just the note.
+    // "Pool closed — spill · drum leaked" (as the database writes it): the badge already says why, keep just the note.
     const note = m.kind === "write_off" ? (m.note ?? "").replace(/^Pool closed — \w+(?: · )?/, "") : m.note;
     return (
       <li key={m.id} className={`flex items-start gap-3 px-4 py-3 ${short ? "bg-red-50" : m.kind === "buy" ? "bg-emerald-50/40" : ""}`}
@@ -313,7 +313,7 @@ export function PipaHistoryList({ embedded = false }: { embedded?: boolean }) {
           {owner && needsPrice(m) && (
             <button type="button" onClick={() => setPricing({
                 movementId: m.id, kind: m.kind as PriceTarget["kind"], official: m.source === "official", product: m.product,
-                title: `${b.label} · ${m.occurred_on}`, liters: movementLiters(m), pipas: Math.abs(m.pipas), mode: m.price_mode,
+                title: `${m.kind === "buy" ? (m.source === "official" ? t("src_official") : station || t("src_shop")) : b.label} · ${fmtDate(m.occurred_on)}`, liters: movementLiters(m), pipas: Math.abs(m.pipas), mode: m.price_mode,
               })} data-testid="pp-row-enter-price"
               className="mt-1 text-xs font-bold text-white bg-red-600 rounded-lg px-2.5 py-1">{t("priceNeeded")} · {t("enterPrice")}</button>
           )}

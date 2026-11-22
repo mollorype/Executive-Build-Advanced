@@ -21,7 +21,7 @@ const KIND: Record<string, string> = {
   used: "သုံးစွဲ (မရောင်း) / Used (not sold)",
   adjust: "လက်ကျန် စစ် / Stock count",
   sell: "ဆိုင်သို့ ရောင်း / Sold to a station",
-  write_off: "Pool ပိတ် / Pool closed",
+  write_off: "အတင်းပိတ် / Force closed",
 };
 const ROLE: Record<string, string> = { ceo: "Owner", accountant: "Accountant", manager: "Manager" };
 
@@ -109,12 +109,24 @@ export type PoolRow = {
 };
 const WHY: Record<string, string> = { shortage: "ဆီလို / Shortage", spill: "ဖိတ်စင် / Spill", other: "အခြား / Other" };
 
-/** A manager closed a fuel pool: what was left is written off. */
-export function buildPoolMessage(p: PoolRow, liters: number, cost: number | null, ppLiters: number): string {
+/** Which purchase: "PO ကြီး / Big PO", or the station it was bought from. */
+export type PoolLot = { source: string; station: string | null };
+export function purchaseLabel(l: PoolLot | null): string {
+  if (!l) return "";
+  if (l.source === "official") return "PO ကြီး / Big PO";
+  if (l.source === "shop") return l.station ?? "ဆိုင်ဝယ် / Shop";
+  if (l.source === "borrow") return `ချေးယူ / Borrowed${l.station ? ` · ${l.station}` : ""}`;
+  if (l.source === "lend_return") return `ပြန်ရ / Returned${l.station ? ` · ${l.station}` : ""}`;
+  return "လက်ကျန် စစ် / Stock count";
+}
+
+/** A manager force closed one purchase: what was left in it is written off. */
+export function buildPoolMessage(p: PoolRow, liters: number, cost: number | null, ppLiters: number, lot: PoolLot | null = null): string {
+  const what = purchaseLabel(lot);
   const lines = [
-    "🔒 Pool ပိတ်သည် / Fuel pool closed",
+    "🔒 အတင်းပိတ်သည် / Purchase force closed",
     "",
-    `${FUEL[p.product] ?? p.product} · ${day(p.started_on)} pool`,
+    `${FUEL[p.product] ?? p.product} · ${what ? `${what} · ` : ""}${day(p.started_on)}`,
     `ဆုံးရှုံး / Written off: ${fmt(liters / (ppLiters || 215), 3)} P-P (${fmt(liters, 2)} L)${cost != null && cost > 0 ? ` · ${mmk(cost)}` : ""}`,
     `အကြောင်းရင်း / Why: ${WHY[p.close_reason ?? ""] ?? p.close_reason ?? "—"}${p.close_note ? ` — ${p.close_note}` : ""}`,
     `ပိတ်သူ / By: ${p.closed_by ?? "—"} (Manager)`,

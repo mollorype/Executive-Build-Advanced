@@ -25,7 +25,7 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
   canPrice?: boolean;
   onAddStation: () => void;
   onClose: () => void;
-  /** After saving: what was saved (a new Big PO may leave an older pool to close). */
+  /** After saving: what was saved. */
   onSaved: (saved: { kind: MovementKind; product: PipaProduct; official: boolean }) => void;
 }) {
   const t = usePipaT();

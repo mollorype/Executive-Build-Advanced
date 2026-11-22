@@ -18,7 +18,7 @@ export type MovementKind =
   | "buy" | "borrow" | "borrow_returned" | "borrow_paid"
   | "lend" | "lend_returned" | "lend_paid" | "used" | "adjust"
   | "sell"          // sold to another station (money counts as sales)
-  | "write_off";    // what was left when a pool was closed (made by the database only)
+  | "write_off";    // what was left when a purchase was force closed (made by the database only)
 
 export type PriceMode = "per_pipa" | "per_liter";
 
@@ -43,7 +43,7 @@ export const KIND_INFO: Record<MovementKind, KindInfo> = {
   used:            { label: "Used (not sold)",      verb: "Used (not sold)",            stock: -1, weOwe: 0,  theyOwe: 0,  station: false, price: false },
   adjust:          { label: "Stock count",          verb: "Stock count correction", stock: 1,  weOwe: 0,  theyOwe: 0,  station: false, price: false },
   sell:            { label: "Sell to a station",    verb: "Sold",                   stock: -1, weOwe: 0,  theyOwe: 0,  station: true,  price: true },
-  write_off:       { label: "Pool closed",          verb: "Written off",            stock: -1, weOwe: 0,  theyOwe: 0,  station: false, price: false },
+  write_off:       { label: "Force closed",         verb: "Written off",            stock: -1, weOwe: 0,  theyOwe: 0,  station: false, price: false },
 };
 
 /** The kinds offered in the "+ Movement" form, in display order. */
@@ -75,7 +75,7 @@ export type PipaMovement = {
   transport_fee?: number | null;   // MMK / litre
   other_fee?: number | null;       // MMK / litre
   created_by?: string | null;
-  /** "Pool closed" lines: why (shortage / spill / other). */
+  /** "Force closed" lines: why (shortage / spill / other). */
   write_off_reason?: "shortage" | "spill" | "other" | null;
   /** Big PO number (official purchases). */
   po_number?: string | null;

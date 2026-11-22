@@ -4,7 +4,7 @@
 //       Sent by the pp_archive_notify trigger when an accountant or manager
 //       deletes a P-P line or undoes a shift deduction (with their reason).
 //   { "event": "pool_closed", "id": <pp_pools id> }
-//       Sent by pp_close_pool when a manager closes a fuel pool (what was
+//       Sent by pp_close_pool when a manager force closes a purchase (what was
 //       left is written off as a loss).
 //   { "event": "profit_report" }
 //       Sent every morning by pg_cron. Sends last week's / last month's profit
@@ -19,7 +19,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { tg } from "../_shared/telegram.ts";
-import { buildArchiveMessage, buildPoolMessage, buildReportMessage, reportPeriod, type ArchiveRow, type PoolRow, type Profit } from "./message.ts";
+import { buildArchiveMessage, buildPoolMessage, buildReportMessage, reportPeriod, type ArchiveRow, type PoolLot, type PoolRow, type Profit } from "./message.ts";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const json = (body: unknown, status = 200) =>
@@ -86,8 +86,20 @@ Deno.serve(async (req) => {
       const { data: lines } = await db.from("pp_cost_lines").select("liters, cost").eq("movement_id", pool.close_movement_id);
       for (const l of lines ?? []) { liters += Number(l.liters) || 0; cost = (cost ?? 0) + (Number(l.cost) || 0); }
     }
+    // Which purchase it was (each purchase stands on its own).
+    let lot: PoolLot | null = null;
+    const { data: lots } = await db.from("pp_lots").select("source, station_id").eq("pool_id", id)
+      .order("occurred_on", { ascending: true }).order("created_at", { ascending: true }).limit(1);
+    if (lots?.length) {
+      let station: string | null = null;
+      if (lots[0].station_id) {
+        const { data: st } = await db.from("pipa_stations").select("name").eq("id", lots[0].station_id).maybeSingle();
+        station = (st?.name as string | undefined) ?? null;
+      }
+      lot = { source: String(lots[0].source), station };
+    }
     const { data: cfg } = await db.from("pp_settings").select("default_pp_liters").maybeSingle();
-    return send(buildPoolMessage(pool, liters, cost, Number(cfg?.default_pp_liters) || 215),
+    return send(buildPoolMessage(pool, liters, cost, Number(cfg?.default_pp_liters) || 215, lot),
       () => db.from("pp_pools").update({ notified_at: null }).eq("id", id));
   }
 

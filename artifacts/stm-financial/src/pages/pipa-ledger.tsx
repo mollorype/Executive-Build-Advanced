@@ -11,10 +11,7 @@ import StationDialog from "@/components/pipa/station-dialog";
 import CountDialog from "@/components/pipa/count-dialog";
 import DeductDialog from "@/components/pipa/deduct-dialog";
 import StockCards from "@/components/pipa/stock-cards";
-import FuelStockSheet, { ClosePoolDialog } from "@/components/pipa/fuel-stock-sheet";
-import { loadPools, type PoolSummary } from "@/lib/pools";
-import { confirmDialog } from "@/components/confirm-dialog";
-import { vol } from "@/lib/units";
+import FuelStockSheet from "@/components/pipa/fuel-stock-sheet";
 import { useAuth } from "@/lib/auth-context";
 import { usePPSettings } from "@/lib/pp-settings";
 import { usePipaT, pipaProduct } from "@/lib/pipa-i18n";
@@ -25,7 +22,6 @@ type Dialog =
   | { type: "station"; station: PipaStation | null; reopenMovement?: boolean; reopenOfficial?: boolean }
   | { type: "count" }
   | { type: "deduct" }
-  | { type: "closePool"; pool: PoolSummary }
   | { type: "fuel"; product: PipaProduct }
   | null;
 
@@ -87,20 +83,6 @@ export default function PipaLedger() {
     load();
   }
 
-  // A new Big PO: if an older pool of that fuel still shows fuel, offer to close it.
-  async function askOldPool(product: PipaProduct) {
-    if (!canClose) return;
-    const { data } = await loadPools();
-    const open = (data?.pools ?? []).filter(p => p.product === product && !p.closed_at);
-    const old = open.slice(1).reverse().find(p => p.left > 0.0005);   // oldest still holding fuel (not the new one)
-    if (!old) return;
-    const yes = await confirmDialog(
-      t("oldPoolAsk", { fuel: pipaProduct(t, product), d: old.started_on, v: vol(old.left, "pp") }),
-      { confirmLabel: t("oldPoolYes"), cancelLabel: t("oldPoolNo") },
-    );
-    if (yes) setDialog({ type: "closePool", pool: old });
-  }
-
   const actionBtn = "flex items-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl px-3 py-2 text-sm transition-colors";
 
   return (
@@ -138,7 +120,7 @@ export default function PipaLedger() {
         </div>
         {settings.auto_deduct && !loadError && <p className="text-[11px] text-slate-500 -mt-3" data-testid="pp-auto-note">{t("autoOn")}</p>}
 
-        {/* Stock on hand; tap a card for what it's made of (and to force close a pool) */}
+        {/* Stock on hand; tap a card for its purchases (and to force close one) */}
         <StockCards stock={stock} loading={loading} onOpen={loadError ? undefined : p => setDialog({ type: "fuel", product: p })} />
 
         {/* Stations */}
@@ -246,7 +228,7 @@ export default function PipaLedger() {
           canPrice={owner}
           onAddStation={() => setDialog({ type: "station", station: null, reopenMovement: true, reopenOfficial: !!dialog.official })}
           onClose={() => setDialog(null)}
-          onSaved={s => { done(t("saved")); if (s.official) askOldPool(s.product); }}
+          onSaved={() => done(t("saved"))}
         />
       )}
       {dialog?.type === "station" && (
@@ -261,9 +243,6 @@ export default function PipaLedger() {
       )}
       {dialog?.type === "count" && <CountDialog stock={stock} canPrice={owner} onClose={() => setDialog(null)} onSaved={() => done(t("countSaved"))} />}
       {dialog?.type === "deduct" && <DeductDialog owner={owner} autoOn={settings.auto_deduct} unit="pp" onClose={() => setDialog(null)} onSaved={done} />}
-      {dialog?.type === "closePool" && (
-        <ClosePoolDialog pool={dialog.pool} onClose={() => setDialog(null)} onDone={() => done(t("closeDone"))} />
-      )}
       {dialog?.type === "fuel" && (
         <FuelStockSheet product={dialog.product} stock={stock[dialog.product]} owner={owner} canClose={canClose}
           onClose={() => setDialog(null)} onChanged={done} />

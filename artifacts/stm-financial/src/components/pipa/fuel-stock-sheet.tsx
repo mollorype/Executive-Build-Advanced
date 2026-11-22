@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ChevronRight, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2, Pencil, Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { fmtMMK, fmtPipas, type PipaProduct, type PriceMode, type ProductStock } from "@/lib/pipa-ledger";
 import { loadPools, OPEN, type PoolLot, type PoolSummary, type PoolsData } from "@/lib/pools";
@@ -7,16 +7,17 @@ import { ppLiters, vol } from "@/lib/units";
 import { usePipaT, pipaProduct, type PipaT } from "@/lib/pipa-i18n";
 import PipaModal, { ErrorNote, fieldCls, labelCls } from "./modal";
 
-// Tap a stock card: one simple row per purchase still holding fuel (oldest
-// first — sold next), each with how full it still is. Only the owner can tap a
-// row, to add or change its price (that's what profit needs). Owners and
-// managers can force close a pool (shortage / spill / other).
+// Tap a stock card: one card per purchase — a Big PO or P-P bought from a
+// station, named with its date — never mixed with another. Oldest first: shift
+// sales come off the oldest ("Selling now") at its price. Owners see and add
+// prices; owners and managers can force close one purchase (shortage / spill).
 
 const DOT: Record<string, string> = {
   official: "bg-emerald-500", shop: "bg-yellow-400", borrow: "bg-orange-500",
   count_gain: "bg-green-300", opening: "bg-green-300", lend_return: "bg-sky-400",
 };
-const fmtDate = (s: string) => new Date(`${s.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-GB", { timeZone: "UTC", day: "numeric", month: "short" });
+/** "22 Nov" */
+export const fmtDate = (s: string) => new Date(`${s.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-GB", { timeZone: "UTC", day: "numeric", month: "short" });
 
 /** "Big PO", a station's name, or what kind of stock it is. */
 export function lotName(t: PipaT, l: Pick<PoolLot, "source" | "station">): string {
@@ -108,7 +109,7 @@ export function PriceDialog({ target, onClose, onDone }: { target: PriceTarget; 
   );
 }
 
-/** Force close one pool: what's left is written off (shortage / spill / other). */
+/** Force close one purchase: what's left in it is written off (shortage / spill / other). */
 export function ClosePoolDialog({ pool, onClose, onDone }: { pool: PoolSummary; onClose: () => void; onDone: () => void }) {
   const t = usePipaT();
   const [reason, setReason] = useState<"shortage" | "spill" | "other">("shortage");
@@ -126,7 +127,7 @@ export function ClosePoolDialog({ pool, onClose, onDone }: { pool: PoolSummary; 
   const chip = (on: boolean) => `px-3 py-2 rounded-xl text-sm font-semibold border ${on ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-700 border-slate-200"}`;
   const first = pool.lots[0];
   return (
-    <PipaModal title={t("closeTitle", { fuel: pipaProduct(t, pool.product), d: first ? `${lotName(t, first)} · ${fmtDate(first.on)}` : fmtDate(pool.started_on) })} onClose={onClose}>
+    <PipaModal title={t("closeTitle", { what: first ? `${lotName(t, first)} · ${fmtDate(first.on)}` : fmtDate(pool.started_on), fuel: pipaProduct(t, pool.product) })} onClose={onClose}>
       <p className="text-sm text-slate-700" data-testid="pp-close-left">
         {pool.left > OPEN ? t("closeLeft", { v: vol(pool.left, "pp") }) : t("closeEmpty")}
       </p>
@@ -168,7 +169,7 @@ function Level({ left, total }: { left: number; total: number }) {
 // Purchases an owner can price (borrowed / returned P-P are costed by the system).
 const PRICEABLE = new Set(["official", "shop", "count_gain", "opening"]);
 
-/** One fuel's stock: a simple row per purchase still holding fuel. */
+/** One fuel's stock: one card per purchase, oldest first. */
 export default function FuelStockSheet({ product, stock, owner, canClose, onClose, onChanged }: {
   product: PipaProduct;
   /** Stock on hand from the ledger — the same figures as the card. */
@@ -192,14 +193,15 @@ export default function FuelStockSheet({ product, stock, owner, canClose, onClos
   }, [t]);
   useEffect(() => { load(); }, [load]);
 
-  // Open pools, oldest first; in each, the purchases still holding fuel — and, for
-  // owners, any still waiting for a price (profit needs it).
-  const groups = useMemo(() => (data?.pools ?? [])
-    .filter(p => p.product === product && !p.closed_at)
-    .reverse()
-    .map(p => ({ pool: p, rows: p.lots.filter(l => l.remaining > OPEN || (owner && PRICEABLE.has(l.source) && !l.priced)) }))
-    .filter(g => g.rows.length > 0 || g.pool.short > OPEN), [data, product, owner]);
-  const short = groups.reduce((s, g) => s + g.pool.short, 0);
+  // Each purchase on its own, oldest first (the order sales take them). Shown while
+  // it still holds fuel — and, for owners, while it waits for its price.
+  const rows = useMemo(() => (data?.pools ?? [])
+    .filter(p => p.product === product)
+    .flatMap(p => p.lots.map(lot => ({ pool: p, lot })))
+    .filter(({ pool, lot }) => (!pool.closed_at && lot.remaining > OPEN) || (owner && PRICEABLE.has(lot.source) && !lot.priced))
+    .sort((a, b) => a.lot.on.localeCompare(b.lot.on) || a.lot.at.localeCompare(b.lot.at)), [data, product, owner]);
+  const selling = rows.find(r => !r.pool.closed_at && r.lot.remaining > OPEN);
+  const short = data?.short[product] ?? 0;
 
   const priceTarget = (l: PoolLot): PriceTarget | null => (owner && l.movement && PRICEABLE.has(l.source) ? {
     movementId: l.movement, kind: l.source === "official" || l.source === "shop" ? "buy" : "adjust",
@@ -232,49 +234,53 @@ export default function FuelStockSheet({ product, stock, owner, canClose, onClos
             <AlertTriangle className="w-4 h-4 shrink-0" /> {t("shortNote", { v: vol(short, "pp") })}
           </p>
         )}
-        {data && groups.length === 0 && short <= OPEN && <p className="text-sm text-slate-500">{t("noStock")}</p>}
+        {data && rows.length === 0 && short <= OPEN && <p className="text-sm text-slate-500">{t("noStock")}</p>}
 
-        {groups.map(({ pool, rows }) => (
-          <div key={pool.id} className="space-y-2" data-testid="pp-sheet-pool">
-            <ul className="space-y-2">
-              {rows.map((l, k) => {
-                const target = priceTarget(l);
-                const inner = (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <i className={`w-2.5 h-2.5 rounded-full shrink-0 ${DOT[l.source] ?? "bg-sky-400"}`} />
-                      <span className="min-w-0 flex-1 text-sm font-bold text-slate-900 truncate">{lotName(t, l)}</span>
-                      <span className="text-[11px] text-slate-500">{fmtDate(l.on)}</span>
-                      {target && <ChevronRight className="w-4 h-4 text-slate-300" />}
-                    </div>
-                    <p className="mt-1 text-base font-bold tabular-nums text-slate-900">
-                      {vol(l.remaining, "pp")} <span className="text-xs font-semibold text-slate-400">/ {vol(l.liters, "pp")}</span>
-                    </p>
-                    <Level left={l.remaining} total={l.liters} />
-                    {owner && PRICEABLE.has(l.source) && (l.priced && l.cost != null
-                      ? <p className="mt-1 text-[11px] text-blue-700 font-semibold tabular-nums" data-testid="pp-row-price">{fmtMMK(l.cost)}/L</p>
-                      : <p className="mt-1 text-[11px] font-bold text-pale-red-foreground" data-testid="pp-row-noprice">{t("priceNeeded")} · {t("tapToAdd")}</p>)}
-                  </>
-                );
-                return (
-                  <li key={k} data-testid="pp-sheet-lot">
+        <ul className="space-y-2">
+          {rows.map(({ pool, lot: l }) => {
+            const target = priceTarget(l);
+            const now = selling?.lot === l;
+            const closable = canClose && !pool.closed_at && l.remaining > OPEN;
+            return (
+              <li key={`${pool.id}-${l.at}`} data-testid="pp-sheet-lot"
+                className={`rounded-xl border bg-white px-3 py-2.5 ${now ? "border-blue-300 ring-1 ring-blue-100" : "border-slate-200"}`}>
+                <div className="flex items-center gap-2">
+                  <i className={`w-2.5 h-2.5 rounded-full shrink-0 ${DOT[l.source] ?? "bg-sky-400"}`} />
+                  <span className="min-w-0 flex-1 text-sm font-bold text-slate-900 truncate" data-testid="pp-lot-name">{lotName(t, l)} · {fmtDate(l.on)}</span>
+                  {now && <span className="shrink-0 text-[10px] font-bold rounded-full bg-blue-600 text-white px-2 py-0.5" data-testid="pp-selling">{t("sellingNow")}</span>}
+                  {pool.closed_at && <span className="shrink-0 text-[10px] font-bold rounded-full bg-slate-100 text-slate-500 px-2 py-0.5">{t("closedTag")}</span>}
+                </div>
+                <p className="mt-1 text-base font-bold tabular-nums text-slate-900">
+                  {vol(l.remaining, "pp")} <span className="text-xs font-semibold text-slate-400">/ {vol(l.liters, "pp")}</span>
+                </p>
+                <Level left={l.remaining} total={l.liters} />
+                {(target || closable) && (
+                  <div className="mt-2 flex items-center justify-between gap-2">
                     {target ? (
-                      <button type="button" onClick={() => setPricing(target)} className="w-full text-left rounded-xl border border-slate-200 bg-white px-3 py-2.5 active:bg-slate-50">{inner}</button>
-                    ) : (
-                      <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">{inner}</div>
+                      l.priced && l.cost != null ? (
+                        <button type="button" onClick={() => setPricing(target)} data-testid="pp-row-price" aria-label={t("changePrice")}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-50 rounded-lg px-2 py-1 tabular-nums">
+                          {fmtMMK(l.cost)}/L <Pencil className="w-3 h-3" />
+                        </button>
+                      ) : (
+                        <button type="button" onClick={() => setPricing(target)} data-testid="pp-row-noprice"
+                          className="inline-flex items-center gap-1 text-xs font-bold text-white bg-red-600 rounded-lg px-2.5 py-1">
+                          <Plus className="w-3 h-3" /> {t("addPrice")}
+                        </button>
+                      )
+                    ) : <span />}
+                    {closable && (
+                      <button type="button" onClick={() => setClosing(pool)} data-testid="pp-sheet-close"
+                        className="text-xs font-semibold text-pale-red-foreground rounded-lg px-2 py-1 hover:bg-pale-red">
+                        {t("forceClose")}
+                      </button>
                     )}
-                  </li>
-                );
-              })}
-            </ul>
-            {canClose && pool.left > OPEN && (
-              <button type="button" onClick={() => setClosing(pool)} data-testid="pp-sheet-close"
-                className="w-full text-xs font-semibold text-pale-red-foreground bg-pale-red border border-red-200 rounded-lg py-2">
-                {t("forceClose")}
-              </button>
-            )}
-          </div>
-        ))}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       </div>
     </PipaModal>
   );
