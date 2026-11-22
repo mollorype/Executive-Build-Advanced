@@ -259,7 +259,7 @@ export default function PipaLedger() {
           }}
         />
       )}
-      {dialog?.type === "count" && <CountDialog stock={stock} onClose={() => setDialog(null)} onSaved={() => done(t("countSaved"))} />}
+      {dialog?.type === "count" && <CountDialog stock={stock} canPrice={owner} onClose={() => setDialog(null)} onSaved={() => done(t("countSaved"))} />}
       {dialog?.type === "deduct" && <DeductDialog owner={owner} autoOn={settings.auto_deduct} unit="pp" onClose={() => setDialog(null)} onSaved={done} />}
       {dialog?.type === "closePool" && (
         <ClosePoolDialog pool={dialog.pool} onClose={() => setDialog(null)} onDone={() => done(t("closeDone"))} />

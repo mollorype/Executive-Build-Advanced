@@ -21,7 +21,7 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
   initialKind?: MovementKind;
   initialStationId?: string;
   official?: boolean;
-  /** Owners enter the Big PO price (it can also come later); others record date and quantity only. */
+  /** Owners may type a price (or add it later); everyone else records date and quantity only. */
   canPrice?: boolean;
   onAddStation: () => void;
   onClose: () => void;
@@ -54,9 +54,10 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
   const nQtyL = fromUnit(parseFloat(qty) || 0, unit);
   const nFees = (parseFloat(transport) || 0) + (parseFloat(otherFee) || 0);
   const cap = outstandingFor(balances, kind, info.station ? stationId || null : null, product);
+  const priced = canPrice && info.price && unitPrice.trim() !== "";   // a price is never required
   const price = useMemo(
-    () => (info.price && !official && !isNaN(nPrice) && nLiters > 0 ? priceBreakdown(priceMode, nPrice, nPipas, nLiters) : null),
-    [info.price, official, nPrice, nPipas, nLiters, priceMode],
+    () => (priced && !official && !isNaN(nPrice) && nLiters > 0 ? priceBreakdown(priceMode, nPrice, nPipas, nLiters) : null),
+    [priced, official, nPrice, nPipas, nLiters, priceMode],
   );
   const stationName = stations.find(s => s.id === stationId)?.name ?? "";
 
@@ -73,9 +74,7 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
         ? t("nothingOwed", { product: pipaProduct(t, product), station: stationName })
         : t("onlyOwed", { n: fmtPipas(cap), product: pipaProduct(t, product), station: stationName }));
     }
-    if (official) {
-      if (canPrice && unitPrice.trim() !== "" && (isNaN(nPrice) || nPrice < 0)) return setError(t("priceErr"));
-    } else if (info.price && (isNaN(nPrice) || nPrice < 0)) return setError(t("priceErr"));
+    if (priced && (isNaN(nPrice) || nPrice < 0)) return setError(t("priceErr"));
 
     setBusy(true);
     // The database records the line and what it does to stock and costs, together.
@@ -86,10 +85,10 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
         liters_per_pipa: nLiters,
         ...(official
           ? { source: "official", liters: Math.round(nQtyL * 1000) / 1000,
-              ...(canPrice && unitPrice.trim() !== "" ? { price_mode: "per_liter", unit_price: nPrice,
+              ...(priced ? { price_mode: "per_liter", unit_price: nPrice,
                   transport_fee: parseFloat(transport) || 0, other_fee: parseFloat(otherFee) || 0 } : {}) }
           : { source: kind === "buy" ? "shop" : null, pipas: nPipas,
-              ...(info.price ? { price_mode: priceMode, unit_price: nPrice } : {}) }),
+              ...(priced ? { price_mode: priceMode, unit_price: nPrice } : {}) }),
       },
     });
     setBusy(false);
@@ -186,7 +185,7 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
           </p>
         )}
 
-        {official && !canPrice && (
+        {info.price && !canPrice && (
           <p className="text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2" data-testid="mv-owner-prices">{t("ownerPrices")}</p>
         )}
         {official && !canPrice && (
@@ -230,15 +229,16 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
           </div>
         )}
 
-        {info.price && !official && (
+        {info.price && !official && canPrice && (
           <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-3">
+            <p className="text-[11px] text-slate-500">{t("priceLater")}</p>
             <div className="grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setPriceMode("per_liter")} className={chip(priceMode === "per_liter")} aria-pressed={priceMode === "per_liter"}>{t("pricePerL")}</button>
               <button type="button" onClick={() => setPriceMode("per_pipa")} className={chip(priceMode === "per_pipa")} aria-pressed={priceMode === "per_pipa"}>{t("pricePerPP")}</button>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor="mv-price" className={labelCls}>{priceMode === "per_pipa" ? t("mmkPerPP") : t("mmkPerL")} *</label>
+                <label htmlFor="mv-price" className={labelCls}>{priceMode === "per_pipa" ? t("mmkPerPP") : t("mmkPerL")}</label>
                 <input id="mv-price" type="number" inputMode="decimal" min="0" step="any" value={unitPrice}
                   onChange={e => setUnitPrice(e.target.value)} className={fieldCls} placeholder="0" />
               </div>
@@ -258,7 +258,7 @@ export default function MovementDialog({ stations, balances, initialKind = "buy"
           </div>
         )}
 
-        {!info.price && (
+        {(!info.price || (!canPrice && !official)) && (
           <div className="w-1/2 pr-1.5">
             <label htmlFor="mv-size2" className={labelCls}>{t("ppSize")}</label>
             <input id="mv-size2" type="number" inputMode="decimal" min="0" step="any" value={litersPerPipa}

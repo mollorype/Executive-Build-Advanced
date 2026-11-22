@@ -11,8 +11,10 @@ import { usePipaT, pipaProduct } from "@/lib/pipa-i18n";
  * A shortage is a loss at cost; extra P-P cost nothing — unless it's the
  * opening stock, which comes in at the price paid.
  */
-export default function CountDialog({ stock, onClose, onSaved }: {
+export default function CountDialog({ stock, canPrice = false, onClose, onSaved }: {
   stock: Record<PipaProduct, ProductStock>;
+  /** Owners can bring extra P-P in as opening stock with its price; for others it waits for the owner's price. */
+  canPrice?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -34,11 +36,12 @@ export default function CountDialog({ stock, onClose, onSaved }: {
 
   async function save() {
     if (diffs.length === 0) { onClose(); return; }
-    if (opening && diffs.some(d => d.diff > 0 && !(parseFloat(prices[d.product] ?? "") >= 0))) { setError(t("priceErr")); return; }
+    if (canPrice && opening && diffs.some(d => d.diff > 0 && (prices[d.product] ?? "").trim() !== "" && !(parseFloat(prices[d.product] ?? "") >= 0))) { setError(t("priceErr")); return; }
     setBusy(true); setError("");
     const today = yangonToday();
     for (const d of diffs) {
-      const price = opening && d.diff > 0 ? parseFloat(prices[d.product] ?? "") : null;
+      const typed = (prices[d.product] ?? "").trim();
+      const price = canPrice && opening && d.diff > 0 && typed !== "" ? parseFloat(typed) : null;   // never required
       const { error: err } = await supabase.rpc("record_pp_movement", {
         p: {
           kind: "adjust", product: d.product, pipas: d.diff, occurred_on: today, liters_per_pipa: ppLiters(),
@@ -98,13 +101,13 @@ export default function CountDialog({ stock, onClose, onSaved }: {
             </div>
           );
         })}
-        <label className="flex items-start gap-2.5 text-sm text-slate-700 pt-2 border-t border-slate-100">
+        {canPrice && <label className="flex items-start gap-2.5 text-sm text-slate-700 pt-2 border-t border-slate-100">
           <input type="checkbox" checked={opening} onChange={e => setOpening(e.target.checked)} className="mt-0.5 w-4 h-4 accent-blue-600" data-testid="count-opening" />
           <span>
             <span className="font-semibold">{t("opening")}</span>
             <span className="block text-xs text-slate-500 mt-0.5">{t("openingHelp")}</span>
           </span>
-        </label>
+        </label>}
       </div>
       {error && <ErrorNote>{error}</ErrorNote>}
     </PipaModal>

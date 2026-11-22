@@ -35,7 +35,8 @@ const useT = makeT({
   settle: { en: "Borrow settlements", my: "ချေးယူမှု ရှင်းခြင်း" },
   sold: { en: "Sold", my: "ရောင်း" },
   margin: { en: "{p}/L profit · sold at {s}/L · cost {c}/L", my: "လီတာ အမြတ် {p} · ရောင်း {s}/L · ကုန်ကျ {c}/L" },
-  unpriced: { en: "{v} were sold with no purchase price yet, so their cost isn't counted. Enter the Big PO price (P-P stock → tap the fuel), or record the missing purchase.", my: "{v} ကို ဝယ်ဈေး မရှိသေးဘဲ ရောင်းထားသဖြင့် ကုန်ကျ မပါပါ။ PO ကြီး ဈေးကို ထည့်ပါ (P-P လက်ကျန် → ဆီကို နှိပ်ပါ) သို့မဟုတ် မထည့်ရသေးသော အဝယ်ကို ထည့်ပါ။" },
+  unpriced: { en: "{v} sold ({m}) have no purchase price yet, so they're left out of this profit. Add the price: P-P stock → tap the fuel → tap the purchase.", my: "{v} ({m}) ကို ဝယ်ဈေး မရှိသေးသဖြင့် ဤအမြတ်တွင် မထည့်ရသေးပါ။ ဈေး ထည့်ရန်: P-P လက်ကျန် → ဆီကို နှိပ် → အဝယ်ကို နှိပ်ပါ။" },
+  noSalePrice: { en: "{v} sold to a station have no price yet — add it in P-P history.", my: "ဆိုင်သို့ ရောင်းသော {v} တွင် ဈေး မထည့်ရသေးပါ — P-P မှတ်တမ်းတွင် ထည့်ပါ။" },
   byFuel: { en: "By fuel", my: "ဆီအလိုက်" },
   byDay: { en: "By day", my: "နေ့အလိုက်" },
   ch_pump: { en: "Pumps", my: "ဆီပန့်" },
@@ -63,7 +64,7 @@ const useT = makeT({
 const TABS = ["profit", "stock", "history", "deleted"] as const;
 type Tab = (typeof TABS)[number];
 
-type Totals = { liters: number; revenue: number; cost: number; settle: number; loss: number; used: number; unpriced: number; profit: number };
+type Totals = { liters: number; revenue: number; cost: number; settle: number; loss: number; used: number; unpriced: number; unpriced_money: number; no_sale_price: number; profit: number };
 type ProductRow = { product: PipaProduct; liters: number; revenue: number; cost: number; profit: number; loss: number; unpriced: number };
 type DayRow = { day: string; liters: number; revenue: number; cost: number; profit: number };
 type ChannelRow = { product: PipaProduct; channel: "pump" | "pipa" | "jc" | "station" | "mixed"; liters: number; revenue: number; cost: number; profit: number };
@@ -249,7 +250,12 @@ export default function ProfitPage() {
             </div>
             {tot.unpriced > 0 && (
               <p className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2" data-testid="profit-unpriced">
-                <AlertTriangle className="w-4 h-4 shrink-0" /> {t("unpriced", { v: vol(tot.unpriced, unit) })}
+                <AlertTriangle className="w-4 h-4 shrink-0" /> {t("unpriced", { v: vol(tot.unpriced, unit), m: mmk(tot.unpriced_money ?? 0) })}
+              </p>
+            )}
+            {(tot.no_sale_price ?? 0) > 0 && (
+              <p className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2" data-testid="profit-nosaleprice">
+                <AlertTriangle className="w-4 h-4 shrink-0" /> {t("noSalePrice", { v: vol(tot.no_sale_price, unit) })}
               </p>
             )}
             {empty ? <p className={`${card} text-sm text-slate-500 text-center`}>{t("nothing")}</p> : (

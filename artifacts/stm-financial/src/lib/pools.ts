@@ -29,10 +29,6 @@ export type PoolSummary = Pool & { cap: number; left: number; written: number; o
 export type PoolsData = { ppLiters: number; pools: PoolSummary[] };
 
 export const OPEN = 0.0005;
-
-/** A Big PO is known by its date: "Nov 22". */
-export const poDate = (on: string) =>
-  new Date(`${on.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric" });
 const num = (v: unknown) => Number(v) || 0;
 
 /** Pools from the database, with their totals; a fuel's shortage is shown on its newest pool. */
